@@ -1,0 +1,13 @@
+project: <+ local.project +>
+
+template: <+ local.template +>
+
+citations:
+  <* for cit in local.citations *>
+  - <+ cit +>
+  <* endfor *>
+
+macros:
+  <* for pack in template.macros *>
+  - <+ pack +>
+  <* endfor *>

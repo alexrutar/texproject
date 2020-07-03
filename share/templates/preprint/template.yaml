@@ -1,0 +1,17 @@
+doctype: amsart
+class_options:
+    - 12pt
+
+formatting: preprint
+
+bibstyle: plain
+
+macros:
+    - general
+    - refs
+
+constants:
+    - shorttitlename
+    - titlename
+    - docclasses
+    - dockeywords

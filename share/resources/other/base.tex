@@ -1,0 +1,21 @@
+% Document created on <+ date +>
+
+\documentclass[<+ template.class_options|join(', ') +>]{<+ template.doctype +>}
+
+% formatting package
+\usepackage{<+ local.formatting_name +>}
+
+% macro packages
+\usepackage{<+ conventions.project_macro_file +>}
+<* for pack in local.macro_names *>
+\usepackage{<+ pack +>}
+<* endfor *>
+
+% constants
+<* for const in template.constants *>
+\newcommand{\<+ const +>}{REPLACE}
+<* endfor *>
+
+% main document
+<* block document *>
+<* endblock *>

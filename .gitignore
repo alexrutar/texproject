@@ -6,6 +6,10 @@
 !Makefile
 !.gitignore
 
+# Data files
+!share
+!config
+
 # Info
 !LICENSE
 !README.md
