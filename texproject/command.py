@@ -2,8 +2,11 @@ import click
 from pathlib import Path
 import zipfile
 
+from . import __version__, __repo__
 from .template import GenericTemplate, NewProjectTemplate
-from .filesystem import load_config_dict, load_proj_dict, TPR_INFO_FILENAME
+from .filesystem import (load_config_dict, load_proj_dict, TPR_INFO_FILENAME,
+        TEMPLATE_DIR, MACRO_DIR, CITATION_DIR,
+        list_macros, list_citations, list_templates)
 
 def check_valid_project(proj_path):
     if not (proj_path / TPR_INFO_FILENAME).exists():
@@ -14,6 +17,7 @@ def check_valid_project(proj_path):
         raise click.ClickException(message)
 
 @click.group()
+@click.version_option(prog_name="tpr (texproject)")
 def cli():
     pass
 
@@ -38,21 +42,21 @@ def new(template, output, citation):
 @cli.command()
 @click.option('--directory',
         type=click.Path(),
-        default='.')
+        default='')
         #  help="project directory (leave empty for current)")
 @click.option('--compression',
-        type=click.Choice(['ZIP','BZIP2','LZMA'],case_sensitive=False),
+        type=click.Choice(['zip','bzip2','lzma'],case_sensitive=False),
         show_default=True,
-        default='ZIP')
+        default='zip')
         #  help="specify compression algorithm")
 def export(directory, compression):
     """Create a compressed export of an existing project."""
     proj_path = Path(directory)
     check_valid_project(proj_path)
 
-    comp_dict = {'ZIP': zipfile.ZIP_DEFLATED,
-            'BZIP2':zipfile.ZIP_BZIP2,
-            'LZMA':zipfile.ZIP_LZMA}
+    comp_dict = {'zip': zipfile.ZIP_DEFLATED,
+            'bzip2':zipfile.ZIP_BZIP2,
+            'lzma':zipfile.ZIP_LZMA}
 
     conf_info = load_config_dict()
     proj_info = load_proj_dict(proj_path)
@@ -69,7 +73,7 @@ def export(directory, compression):
 @cli.command()
 @click.option('--directory',
         type=click.Path(),
-        default='.')
+        default='')
         #  help="project directory (leave empty for current)")
 def refresh(directory):
     """Regenerate project symbolic links."""
@@ -95,3 +99,31 @@ def refresh(directory):
     if proj_info['citations'] is not None:
         for cit in proj_info['citations']:
             tpl.link_citation(cit, proj_path)
+
+@cli.command()
+@click.option('--list','-l', 'listfiles',
+        type=click.Choice(['C','M','T']),
+        multiple=True,
+        default=[])
+@click.option('--show-all', is_flag=True)
+def info(listfiles,show_all):
+    """Retrieve information about texproject."""
+    if show_all or len(listfiles) == 0:
+        click.echo(f"""
+TPR - TexPRoject (version {__version__})
+Maintained by Alex Rutar ({click.style(__repo__,fg='bright_blue')}).
+MIT License.
+""")
+
+    if show_all:
+        listfiles = ['C','M','T']
+
+    lookup = {'C':(CITATION_DIR, "citation files", list_citations),
+            'M':(MACRO_DIR, "macro files", list_macros),
+            'T':(TEMPLATE_DIR, "templates", list_templates)}
+
+    for code in listfiles:
+        click.echo(f"Citation files stored in '{lookup[code][0]}'.")
+        click.echo(f"Available {lookup[code][1]}:")
+        click.secho("  "+"\t".join(lookup[code][2]()) + "\n")
+
