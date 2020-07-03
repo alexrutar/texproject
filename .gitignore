@@ -1,0 +1,19 @@
+# Ignore everything
+/*
+
+# Main files
+!/texproject/
+!Makefile
+!.gitignore
+
+# Info
+!LICENSE
+!README.md
+
+# setup
+!MANIFEST.in
+!setup.py
+
+# and ignore more things
+texproject/__pycache__
+.DS_Store
