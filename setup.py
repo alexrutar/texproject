@@ -17,12 +17,14 @@ setup(
         'Programming Language :: Python :: 3.8',
         'License :: OSI Approved :: MIT License'
         ],
-    keywords='LaTeX template',
+    keywords='LaTeX template project',
     license='MIT',
     python_requires='>=3.7',
     packages=find_packages(),
     install_requires=[
-        'pyyaml>=3.13'
+        'pyYAML>=3.13',
+        'Jinja2>=2.11.2',
+        'xdg>=4.0.1'
         ],
     include_package_data=True,
     entry_points={'console_scripts': ['tpr = texproject.__main__:main']},
