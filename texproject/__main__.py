@@ -1,5 +1,5 @@
-from .parse import main
+from .command import cli
 
 if __name__ == "__main__":
-    main()
+    cli()
 
