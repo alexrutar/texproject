@@ -34,7 +34,7 @@ def new(template, output, citation):
     output_path = Path(output)
     if output_path.exists():
         raise click.ClickException(
-            f"project directory '{path_obj}' already exists")
+            f"project directory '{output_path}' already exists")
     proj_gen = NewProjectTemplate(template, output_path.name, citation)
     proj_gen.create_output_folder(output_path)
 
@@ -123,7 +123,7 @@ MIT License.
             'T':(TEMPLATE_DIR, "templates", list_templates)}
 
     for code in listfiles:
-        click.echo(f"Citation files stored in '{lookup[code][0]}'.")
+        click.echo(f"{code}{lookup[code][1][1:]} stored in '{lookup[code][0]}'.")
         click.echo(f"Available {lookup[code][1]}:")
         click.secho("  "+"\t".join(lookup[code][2]()) + "\n")
 
