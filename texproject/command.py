@@ -59,13 +59,30 @@ def export(directory, compression):
 
     export_zip = zipfile.ZipFile(proj_info['project']+'.' + compression,'w')
 
+    custom_files = [
+            f"{proj_info['project']}.tex",
+            f"{CONVENTIONS['classinfo_file']}.tex",
+            f"{CONVENTIONS['bibinfo_file']}.tex"]
+
     for p in proj_path.iterdir():
-        if p.suffix in CONVENTIONS['export_suffixes']:
+        if (p.suffix in CONVENTIONS['export_suffixes'] and
+                p.name not in custom_files):
             export_zip.write(p,
                     compress_type=comp_dict[compression])
 
+    classinfo_text = (proj_path / f"{CONVENTIONS['classinfo_file']}.tex").read_text()
+    bibinfo_text = (proj_path / f"{CONVENTIONS['bibinfo_file']}.tex").read_text()
+    with open(proj_path / f"{proj_info['project']}.tex",'r') as project_tex_file:
+        proj_text = "".join(
+                classinfo_text if line.startswith(f"\\input{{{CONVENTIONS['classinfo_file']}}}")
+                else bibinfo_text if line.startswith(f"\\input{{{CONVENTIONS['bibinfo_file']}}}")
+                else line for line in project_tex_file.readlines())
+        export_zip.writestr(f"{proj_info['project']}.tex",proj_text)
     export_zip.close()
 
+# add --force-new option (feature switch)
+# add frozen switch to proj_info
+# warn user when removing non-symlinked files
 @cli.command()
 @click.option('--directory',
         type=click.Path(),

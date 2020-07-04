@@ -6,6 +6,7 @@ import yaml
 DATA_DIR = XDG_DATA_HOME / 'texproject'
 RESOURCES_DIR = DATA_DIR / 'resources'
 TPR_INFO_FILENAME = '.tpr_link_info'
+TEMPLATE_RESOURCE_DIR = Path('resources', 'other')
 
 _CONVENTIONS_DIR = DATA_DIR / 'config' / '.tpr_config.yaml'
 _USER_CONFIG_DIR = XDG_CONFIG_HOME / 'texproject' / 'tpr_config.yaml'

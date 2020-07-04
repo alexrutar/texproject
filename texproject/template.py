@@ -3,7 +3,7 @@ import datetime
 from pathlib import Path
 
 from .filesystem import (DATA_DIR, TPR_INFO_FILENAME, CONVENTIONS,
-        load_user_dict, 
+        TEMPLATE_RESOURCE_DIR, load_user_dict, 
         macro_loader, formatting_loader, citation_loader, template_loader)
 
 class GenericTemplate:
@@ -13,7 +13,6 @@ class GenericTemplate:
         self.user_dict = load_user_dict()
         self.local_dict = {}
         self.template_dict = {}
-        self.bibliography = ""
 
 
         self.env = Environment(
@@ -35,9 +34,14 @@ class GenericTemplate:
             local = self.local_dict, # local parameters
             template = self.template_dict, # template parameters
             conventions = CONVENTIONS, # general filename conventions
-            bibliography = self.bibliography,
+            bibliography = f"\\input{{{CONVENTIONS['bibinfo_file']}}}",
             date=datetime.date.today())
 
+
+    def write_template(self, template_path, target_path):
+        return target_path.write_text(
+                self.render_template(
+                    self.env.get_template(str(template_path))))
 
 class NewProjectTemplate(GenericTemplate):
     def __init__(self, template_name, project_name, citations):
@@ -62,14 +66,21 @@ class NewProjectTemplate(GenericTemplate):
         out_folder.mkdir()
 
         # write local files
-        (out_folder / f"{self.local_dict['project']}.tex").write_text(
-             self.render_template(self.env.get_template(
-                 str(Path('templates', self.local_dict['template'], 'document.tex')))))
-        (out_folder / TPR_INFO_FILENAME).write_text(
-             self.render_template(self.env.get_template(
-                 str(Path('resources', 'other', 'tpr_link_info.yaml')))))
-        (out_folder / f"{CONVENTIONS['project_macro_file']}.sty").write_text(
-             CONVENTIONS['project_macro_file_contents'])
+        self.write_template(
+                Path('templates', self.local_dict['template'], 'document.tex'),
+                out_folder / f"{self.local_dict['project']}.tex")
+        self.write_template(
+                TEMPLATE_RESOURCE_DIR / 'classinfo.tex',
+                out_folder / f"{CONVENTIONS['classinfo_file']}.tex")
+        self.write_template(
+                TEMPLATE_RESOURCE_DIR / 'bibinfo.tex',
+                out_folder / f"{CONVENTIONS['bibinfo_file']}.tex")
+        self.write_template(
+                TEMPLATE_RESOURCE_DIR / 'tpr_link_info.yaml',
+                out_folder / TPR_INFO_FILENAME)
+        self.write_template(
+                TEMPLATE_RESOURCE_DIR / 'project_macro_file.tex',
+                out_folder / f"{CONVENTIONS['project_macro_file']}.sty")
 
         # link macro, formatting, and citation files from resources
         for macro in self.template_dict['macros']:
