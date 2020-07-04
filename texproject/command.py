@@ -107,7 +107,7 @@ def refresh(directory):
         default=[])
 @click.option('--show-all', is_flag=True)
 def info(listfiles,show_all):
-    """Retrieve information about texproject."""
+    """Retrieve program and template information."""
     if show_all or len(listfiles) == 0:
         click.echo(f"""
 TPR - TexPRoject (version {__version__})
