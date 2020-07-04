@@ -22,21 +22,19 @@ def cli():
 
 @cli.command()
 @click.argument('template')
-        #  help='the name of the template to use')
 @click.argument('output', type=click.Path())
-        #  help='directory for new project')
 @click.option('--citation','-c',
         multiple=True)
-        #  help='specify a citation file')
 @click.option('--frozen/--no-frozen','-f',
         default=False)
 def new(template, output, citation, frozen):
     """Create a new project."""
     output_path = Path(output)
+
     if output_path.exists():
         raise click.ClickException(
             f"project directory '{output_path}' already exists")
-    proj_gen = NewProjectTemplate(template, output_path.name, citation)
+    proj_gen = NewProjectTemplate(template, output_path.name.lstrip('.'), citation)
     proj_gen.create_output_folder(output_path)
 
 
@@ -44,12 +42,10 @@ def new(template, output, citation, frozen):
 @click.option('--directory',
         type=click.Path(),
         default='')
-        #  help="project directory (leave empty for current)")
 @click.option('--compression',
         type=click.Choice(['zip','bzip2','lzma'],case_sensitive=False),
         show_default=True,
         default='zip')
-        #  help="specify compression algorithm")
 def export(directory, compression):
     """Create a compressed export of an existing project."""
     proj_path = Path(directory)
@@ -74,7 +70,6 @@ def export(directory, compression):
 @click.option('--directory',
         type=click.Path(),
         default='')
-        #  help="project directory (leave empty for current)")
 def refresh(directory):
     """Regenerate project symbolic links."""
     proj_path = Path(directory)
@@ -97,13 +92,18 @@ def refresh(directory):
         for cit in proj_info['citations']:
             citation_loader.link_name(cit, proj_path)
 
+# refactor this
+# have option positional argument for listing / descriptions?
+# write descriptions into packages, and write access methods
 @cli.command()
 @click.option('--list','-l', 'listfiles',
         type=click.Choice(['C','M','T']),
         multiple=True,
         default=[])
+@click.option('--description','-d',
+        type=click.Choice(['C','M','T']))
 @click.option('--show-all', is_flag=True)
-def info(listfiles,show_all):
+def info(listfiles,description,show_all):
     """Retrieve program and template information."""
     if show_all or len(listfiles) == 0:
         click.echo(f"""

@@ -7,15 +7,25 @@ DATA_DIR = XDG_DATA_HOME / 'texproject'
 RESOURCES_DIR = DATA_DIR / 'resources'
 TPR_INFO_FILENAME = '.tpr_link_info'
 
+_CONVENTIONS_DIR = DATA_DIR / 'config' / '.tpr_config.yaml'
+_USER_CONFIG_DIR = XDG_CONFIG_HOME / 'texproject' / 'tpr_config.yaml'
+
+_DEFAULT_TEMPLATE = DATA_DIR / 'config' / '.default_template.yaml'
+_TEMPLATE_YAML_NAME = 'template.yaml'
+_TEMPLATE_DOC_NAME = 'document.tex'
+
+_MACRO_DIR = RESOURCES_DIR / 'packages' / 'macros'
+_FORMATTING_DIR = RESOURCES_DIR / 'packages' / 'formatting'
+_CITATION_DIR = RESOURCES_DIR / 'citations'
+_TEMPLATE_DIR = DATA_DIR / 'templates'
 
 def yaml_load_from_path(path_obj):
     return yaml.safe_load(path_obj.read_text())
 
-CONVENTIONS = yaml_load_from_path(DATA_DIR / 'config' / '.tpr_config.yaml')
+CONVENTIONS = yaml_load_from_path(_CONVENTIONS_DIR)
 
 def load_user_dict():
-    return yaml_load_from_path(
-            XDG_CONFIG_HOME / 'texproject' / 'tpr_config.yaml')
+    return yaml_load_from_path(_USER_CONFIG_DIR)
 
 def load_proj_dict(proj_path):
     return yaml_load_from_path(proj_path / TPR_INFO_FILENAME)
@@ -44,7 +54,7 @@ class FileLoader(BaseLoader):
         self.name_convention = name_convention
 
     def safe_name(self, name):
-        return f"{self.name_convention}-{name}"
+        return f"{self.name_convention}{CONVENTIONS['prefix_separator']}{name}"
 
     def link_name(self, name, rel_path):
         target_path = rel_path / (self.safe_name(name) + self.suffix)
@@ -57,34 +67,35 @@ class FileLoader(BaseLoader):
 
 class TemplateLoader(BaseLoader):
     def load_template(self, name):
-        default_template = yaml_load_from_path(DATA_DIR / 'config' / '.default_template.yaml')
-        template = yaml_load_from_path(self.file_path(name) / 'template.yaml')
+        default_template = yaml_load_from_path(_DEFAULT_TEMPLATE)
+        template = yaml_load_from_path(
+                self.file_path(name) / _TEMPLATE_YAML_NAME)
         return {**default_template, **template}
 
     def valid_path(self, path):
         return (super().valid_path(path) and
-                (path / 'document.tex').exists() and
-                (path / 'template.yaml').exists())
+                (path / _TEMPLATE_DOC_NAME).exists() and
+                (path / _TEMPLATE_YAML_NAME).exists())
 
 macro_loader = FileLoader(
-        RESOURCES_DIR / 'packages' / 'macros',
+        _MACRO_DIR,
         '.sty',
         'macro file',
         CONVENTIONS['macro_prefix'])
 
 formatting_loader = FileLoader(
-        RESOURCES_DIR / 'packages' / 'formatting',
+        _FORMATTING_DIR,
         '.sty',
         'formatting file',
         CONVENTIONS['formatting_prefix'])
 
 citation_loader = FileLoader(
-        RESOURCES_DIR / 'citations',
+        _CITATION_DIR,
         '.bib',
         'citation file',
         CONVENTIONS['citation_prefix'])
 
 template_loader = TemplateLoader(
-        DATA_DIR / 'templates',
+        _TEMPLATE_DIR,
         '',
         'template')
