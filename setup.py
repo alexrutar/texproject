@@ -25,7 +25,7 @@ setup(
         'pyYAML>=3.13',
         'Jinja2>=2.11.2',
         'xdg>=4.0.1',
-        'click>=7.2'
+        'click>=7.1'
         ],
     include_package_data=True,
     entry_points={'console_scripts': ['tpr = texproject.command:cli']},
