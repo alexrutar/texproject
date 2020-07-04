@@ -3,10 +3,9 @@ from pathlib import Path
 import zipfile
 
 from . import __version__, __repo__
-from .template import GenericTemplate, NewProjectTemplate
-from .filesystem import (load_config_dict, load_proj_dict, TPR_INFO_FILENAME,
-        TEMPLATE_DIR, MACRO_DIR, CITATION_DIR,
-        list_macros, list_citations, list_templates)
+from .template import NewProjectTemplate
+from .filesystem import (load_proj_dict, TPR_INFO_FILENAME, CONVENTIONS,
+        macro_loader, citation_loader, template_loader)
 
 def check_valid_project(proj_path):
     if not (proj_path / TPR_INFO_FILENAME).exists():
@@ -29,7 +28,9 @@ def cli():
 @click.option('--citation','-c',
         multiple=True)
         #  help='specify a citation file')
-def new(template, output, citation):
+@click.option('--frozen/--no-frozen','-f',
+        default=False)
+def new(template, output, citation, frozen):
     """Create a new project."""
     output_path = Path(output)
     if output_path.exists():
@@ -58,13 +59,12 @@ def export(directory, compression):
             'bzip2':zipfile.ZIP_BZIP2,
             'lzma':zipfile.ZIP_LZMA}
 
-    conf_info = load_config_dict()
     proj_info = load_proj_dict(proj_path)
 
-    export_zip = zipfile.ZipFile(proj_info['project']+'.zip','w')
+    export_zip = zipfile.ZipFile(proj_info['project']+'.' + compression,'w')
 
     for p in proj_path.iterdir():
-        if p.suffix in conf_info['export_suffixes']:
+        if p.suffix in CONVENTIONS['export_suffixes']:
             export_zip.write(p,
                     compress_type=comp_dict[compression])
 
@@ -80,25 +80,22 @@ def refresh(directory):
     proj_path = Path(directory)
     check_valid_project(proj_path)
 
-    conf_info = load_config_dict()
     proj_info = load_proj_dict(proj_path)
-
-    tpl = GenericTemplate()
 
     # clear existing links
     for p in proj_path.iterdir():
-        if p.stem.startswith(conf_info['macro_prefix']) or p.stem.startswith(conf_info['citation_prefix']):
+        if p.stem.startswith(CONVENTIONS['macro_prefix']) or p.stem.startswith(CONVENTIONS['citation_prefix']):
             p.unlink()
 
     # add new macro links
     if proj_info['macros'] is not None:
         for pack in proj_info['macros']:
-            tpl.link_macro(pack, proj_path)
+            macro_loader.link_name(pack, proj_path)
 
     # add new citation links
     if proj_info['citations'] is not None:
         for cit in proj_info['citations']:
-            tpl.link_citation(cit, proj_path)
+            citation_loader.link_name(cit, proj_path)
 
 @cli.command()
 @click.option('--list','-l', 'listfiles',
@@ -118,12 +115,13 @@ MIT License.
     if show_all:
         listfiles = ['C','M','T']
 
-    lookup = {'C':(CITATION_DIR, "citation files", list_citations),
-            'M':(MACRO_DIR, "macro files", list_macros),
-            'T':(TEMPLATE_DIR, "templates", list_templates)}
+    loader = {'C': citation_loader,
+            'M': macro_loader,
+            'T': template_loader}
 
     for code in listfiles:
-        click.echo(f"{code}{lookup[code][1][1:]} stored in '{lookup[code][0]}'.")
-        click.echo(f"Available {lookup[code][1]}:")
-        click.secho("  "+"\t".join(lookup[code][2]()) + "\n")
+        ld = loader[code]
+        click.echo(f"Directory for {ld.user_str}s: '{ld.dir_path}'.")
+        click.echo(f"Available {ld.user_str}s:")
+        click.echo("\t"+"\t".join(ld.list_names()) + "\n")
 

@@ -2,15 +2,14 @@ from jinja2 import Environment, FileSystemLoader
 import datetime
 from pathlib import Path
 
-from .filesystem import (DATA_DIR, TPR_INFO_FILENAME,
-        load_config_dict, load_user_dict, load_template_dict, 
-        macro_path, citation_path, formatting_path)
+from .filesystem import (DATA_DIR, TPR_INFO_FILENAME, CONVENTIONS,
+        load_user_dict, 
+        macro_loader, formatting_loader, citation_loader, template_loader)
 
 class GenericTemplate:
     def __init__(self):
 
         # initialize some parameters
-        self.conventions = load_config_dict()
         self.user_dict = load_user_dict()
         self.local_dict = {}
         self.template_dict = {}
@@ -30,33 +29,12 @@ class GenericTemplate:
                 )
 
 
-    def pref_macro(self, macro):
-        return f"{self.conventions['macro_prefix']}-{macro}"
-
-    def pref_citation(self, cit):
-        return f"{self.conventions['citation_prefix']}-{cit}"
-
-    def pref_formatting(self, form):
-        return f"{self.conventions['formatting_prefix']}-{form}"
-
-    def link_macro(self, macro, rel_path):
-        (rel_path / (self.pref_macro(macro) + '.sty')).symlink_to(
-                macro_path(macro))
-
-    def link_citation(self, cit, rel_path):
-        (rel_path / (self.pref_citation(cit) + '.bib')).symlink_to(
-                citation_path(cit))
-
-    def link_formatting(self, form, rel_path):
-        (rel_path / (self.pref_formatting(form) + '.sty')).symlink_to(
-                formatting_path(form))
-
     def render_template(self, template):
         return template.render(
             user = self.user_dict, # user parameters
             local = self.local_dict, # local parameters
             template = self.template_dict, # template parameters
-            conventions = self.conventions, # general filename conventions
+            conventions = CONVENTIONS, # general filename conventions
             bibliography = self.bibliography,
             date=datetime.date.today())
 
@@ -64,17 +42,17 @@ class GenericTemplate:
 class NewProjectTemplate(GenericTemplate):
     def __init__(self, template_name, project_name, citations):
         super().__init__()
-        self.template_dict = load_template_dict(template_name)
+        self.template_dict = template_loader.load_template(template_name)
 
         self.local_dict = {
                 'project' : project_name,
                 'citations': citations,
                 'template': template_name,
-                'formatting_name': self.pref_formatting(
+                'formatting_name': formatting_loader.safe_name(
                     self.template_dict['formatting']),
-                'macro_names': [self.pref_macro(macro)
+                'macro_names': [macro_loader.safe_name(macro)
                     for macro in self.template_dict['macros']],
-                'citation_names': [self.pref_citation(cit)
+                'citation_names': [citation_loader.safe_name(cit)
                     for cit in citations]
                 }
 
@@ -90,12 +68,14 @@ class NewProjectTemplate(GenericTemplate):
         (out_folder / TPR_INFO_FILENAME).write_text(
              self.render_template(self.env.get_template(
                  str(Path('resources', 'other', 'tpr_link_info.yaml')))))
-        (out_folder / f"{self.conventions['project_macro_file']}.sty").write_text(
-             self.conventions['project_macro_file_contents'])
+        (out_folder / f"{CONVENTIONS['project_macro_file']}.sty").write_text(
+             CONVENTIONS['project_macro_file_contents'])
 
         # link macro, formatting, and citation files from resources
         for macro in self.template_dict['macros']:
-            self.link_macro(macro, out_folder)
+            macro_loader.link_name(macro, out_folder)
         for cit in self.local_dict['citations']:
-            self.link_citation(cit, out_folder)
-        self.link_formatting(self.template_dict['formatting'],out_folder)
+            citation_loader.link_name(cit, out_folder)
+        formatting_loader.link_name(
+                self.template_dict['formatting'],
+                out_folder)
