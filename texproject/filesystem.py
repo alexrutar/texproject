@@ -9,7 +9,7 @@ TPR_INFO_FILENAME = '.tpr_info'
 TEMPLATE_RESOURCE_DIR = Path('resources', 'other')
 
 _CONVENTIONS_DIR = DATA_DIR / 'config' / '.tpr_config.yaml'
-_USER_CONFIG_DIR = XDG_CONFIG_HOME / 'texproject' / 'tpr_config.yaml'
+_USER_CONFIG_DIR = XDG_CONFIG_HOME / 'texproject' / 'config.yaml'
 
 _DEFAULT_TEMPLATE = DATA_DIR / 'config' / '.default_template.yaml'
 _TEMPLATE_YAML_NAME = 'template.yaml'

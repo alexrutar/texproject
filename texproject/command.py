@@ -34,7 +34,10 @@ def new(template, output, citation, frozen):
     if output_path.exists():
         raise click.ClickException(
             f"project directory '{output_path}' already exists")
-    proj_gen = ProjectTemplate(template, output_path.name.lstrip('.'), citation)
+    proj_gen = ProjectTemplate.load_from_template(
+            template,
+            output_path.name.lstrip('.'),
+            citation)
     proj_gen.create_output_folder(output_path)
 
 

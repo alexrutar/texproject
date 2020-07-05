@@ -83,9 +83,6 @@ class ProjectTemplate(GenericTemplate):
         self.write_template(
                 TEMPLATE_RESOURCE_DIR / 'bibinfo.tex',
                 out_folder / f"{CONVENTIONS['bibinfo_file']}.tex")
-        self.write_template(
-                TEMPLATE_RESOURCE_DIR / 'project_macro_file.tex',
-                out_folder / f"{CONVENTIONS['project_macro_file']}.sty")
 
         # link macro, formatting, and citation files from resources
         for macro in self.template_dict['macros']:
@@ -103,6 +100,9 @@ class ProjectTemplate(GenericTemplate):
         self.write_template(
                 Path('templates', self.template_name, 'document.tex'),
                 out_folder / f"{self.template_dict['project']}.tex")
+        self.write_template(
+                TEMPLATE_RESOURCE_DIR / 'project_macro_file.tex',
+                out_folder / f"{CONVENTIONS['project_macro_file']}.sty")
 
         # write project information file
         yaml_dump_proj_info(out_folder, self.template_dict)

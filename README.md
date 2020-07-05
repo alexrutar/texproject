@@ -6,7 +6,7 @@ On UNIX-like systems, typically one can install the command-line tool with the f
 ```
 pip install texproject
 git clone https://github.com/alexrutar/texproject-templates ~/.local/share/texproject
-cp ~/.local/share/texproject/config/tpr_config.yaml ~/.config/texproject/tpr_config.yaml
+cp ~/.local/share/texproject/config/config.yaml ~/.config/texproject/config.yaml
 ```
 Texproject complies with the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html); replace `~/.local/share` or `~/.config` with your configured directories.
 Currently, there is no installation script or package manager support, but I hope to implement this eventually.
@@ -44,23 +44,18 @@ The file `example.tex` file is the main document file which you can edit to prod
 The `project-macros.sty` file is an empty package in which you can input custom project-dependent preamble.
 These packages are always loaded after any specified project files.
 
-The project also contains the specification file `.tpr_link_info`, which contains descriptions of the linked citation and macro files (as specified during project creation or in the template).
+The project also contains the specification file `.tpr_info`, which contains descriptions of the linked citation and macro files (as specified during project creation or in the template).
 Suppose we want to include the macro set `general` with our project.
 Add the line
 ```
     - general
 ```
-beneath the line starting with `macros:` in `.tpr_link_info`, and run
+beneath the line starting with `macros:` in `.tpr_info`, and run
 ```
 tpr refresh
 ```
-to regenerate the links.
-To include this package, simply add
-```
-\usepackage{macros-general}
-```
-to your preamble.
-(TODO: this will probably change to auto-generate this update).
+to regenerate the links and support files.
+The new macros are automatically added to your project file.
 If you want to share this project with someone else, simply run
 ```
 tpr export
