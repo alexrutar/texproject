@@ -25,7 +25,7 @@ def cli():
 @click.argument('output', type=click.Path())
 @click.option('--citation','-c',
         multiple=True)
-@click.option('--frozen/--no-frozen','-f',
+@click.option('--frozen/--no-frozen',
         default=False)
 def new(template, output, citation, frozen):
     """Create a new project."""
@@ -37,7 +37,8 @@ def new(template, output, citation, frozen):
     proj_gen = ProjectTemplate.load_from_template(
             template,
             output_path.name.lstrip('.'),
-            citation)
+            citation,
+            frozen=frozen)
     proj_gen.create_output_folder(output_path)
 
 
@@ -98,22 +99,6 @@ def refresh(directory):
     proj_info = ProjectTemplate.load_from_project(proj_path)
     proj_info.write_tpr_files(proj_path)
 
-    #  clear existing links
-    #  for p in proj_path.iterdir():
-        #  if p.stem.startswith(CONVENTIONS['macro_prefix']) or p.stem.startswith(CONVENTIONS['citation_prefix']):
-            #  p.unlink()
-
-    #  add new macro links
-    #  if proj_info['macros'] is not None:
-        #  for pack in proj_info['macros']:
-            #  macro_loader.link_name(pack, proj_path)
-
-    #  add new citation links
-    #  if proj_info['citations'] is not None:
-        #  for cit in proj_info['citations']:
-            #  citation_loader.link_name(cit, proj_path)
-
-    #  rebuild .classinfo and .bibinfo files
 
 # refactor this
 # have option positional argument for listing / descriptions?

@@ -48,7 +48,7 @@ The project also contains the specification file `.tpr_info`, which contains des
 Suppose we want to include the macro set `general` with our project.
 Add the line
 ```
-    - general
+- general
 ```
 beneath the line starting with `macros:` in `.tpr_info`, and run
 ```

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from .filesystem import (DATA_DIR, TPR_INFO_FILENAME, CONVENTIONS,
         TEMPLATE_RESOURCE_DIR, load_user_dict, yaml_dump_proj_info, load_proj_dict,
-        macro_loader, formatting_loader, citation_loader, template_loader)
+        macro_loader, format_loader, citation_loader, template_loader)
 
 # special renamed function for use in templates
 def safe_name(name, style):
@@ -12,17 +12,16 @@ def safe_name(name, style):
         return macro_loader.safe_name(name)
     elif style == 'citation':
         return citation_loader.safe_name(name)
-    elif style == 'formatting':
-        return formatting_loader.safe_name(name)
+    elif style == 'format':
+        return format_loader.safe_name(name)
     else:
         return name
 
 class GenericTemplate:
-    def __init__(self):
+    def __init__(self, template_dict):
 
         # initialize some parameters
         self.user_dict = load_user_dict()
-        self.template_dict = {}
 
 
         self.env = Environment(
@@ -50,21 +49,18 @@ class GenericTemplate:
 
 
     def write_template(self, template_path, target_path):
-        # overwrite existing files here?
+        # warn if file already exists??
         return target_path.write_text(
                 self.render_template(
                     self.env.get_template(str(template_path))))
 
 class ProjectTemplate(GenericTemplate):
-    def __init__(self, template_dict):
-        super().__init__()
-        self.template_dict = template_dict
-
     @classmethod
-    def load_from_template(cls, template_name, project_name, citations):
+    def load_from_template(cls, template_name, project_name, citations,frozen=False):
         template_dict = template_loader.load_template(template_name)
         template_dict['citations'].extend(citations)
         template_dict['project'] = project_name
+        template_dict['frozen'] = frozen
         self = cls(template_dict)
         self.template_name = template_name
         return self
@@ -84,14 +80,15 @@ class ProjectTemplate(GenericTemplate):
                 TEMPLATE_RESOURCE_DIR / 'bibinfo.tex',
                 out_folder / f"{CONVENTIONS['bibinfo_file']}.tex")
 
-        # link macro, formatting, and citation files from resources
+        # link macro, format, and citation files from resources
         for macro in self.template_dict['macros']:
-            macro_loader.link_name(macro, out_folder)
+            macro_loader.link_name(macro, out_folder,frozen=frozen)
         for cit in self.template_dict['citations']:
-            citation_loader.link_name(cit, out_folder)
-        formatting_loader.link_name(
-                self.template_dict['formatting'],
-                out_folder)
+            citation_loader.link_name(cit, out_folder,frozen=frozen)
+        format_loader.link_name(
+                self.template_dict['format'],
+                out_folder,
+                frozen=frozen)
 
     def create_output_folder(self, out_folder):
         out_folder.mkdir()

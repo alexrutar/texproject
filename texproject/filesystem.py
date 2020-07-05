@@ -8,15 +8,15 @@ RESOURCES_DIR = DATA_DIR / 'resources'
 TPR_INFO_FILENAME = '.tpr_info'
 TEMPLATE_RESOURCE_DIR = Path('resources', 'other')
 
-_CONVENTIONS_DIR = DATA_DIR / 'config' / '.tpr_config.yaml'
+_CONVENTIONS_DIR = DATA_DIR / 'config' / 'tpr_config.yaml'
 _USER_CONFIG_DIR = XDG_CONFIG_HOME / 'texproject' / 'config.yaml'
 
-_DEFAULT_TEMPLATE = DATA_DIR / 'config' / '.default_template.yaml'
+_DEFAULT_TEMPLATE = DATA_DIR / 'config' / 'default_template.yaml'
 _TEMPLATE_YAML_NAME = 'template.yaml'
 _TEMPLATE_DOC_NAME = 'document.tex'
 
 _MACRO_DIR = RESOURCES_DIR / 'packages' / 'macros'
-_FORMATTING_DIR = RESOURCES_DIR / 'packages' / 'formatting'
+_format_DIR = RESOURCES_DIR / 'packages' / 'format'
 _CITATION_DIR = RESOURCES_DIR / 'citations'
 _TEMPLATE_DIR = DATA_DIR / 'templates'
 
@@ -60,12 +60,16 @@ class FileLoader(BaseLoader):
     def safe_name(self, name):
         return f"{self.name_convention}{CONVENTIONS['prefix_separator']}{name}"
 
-    def link_name(self, name, rel_path,force=False):
+    def link_name(self, name, rel_path,frozen=False,force=False):
         target_path = rel_path / (self.safe_name(name) + self.suffix)
+
+        # overwrite symlinks, but nothing else
         if target_path.is_symlink():
             target_path.unlink()
+        elif target_path.exists() and not force:
+            return
 
-        if self.frozen:
+        if frozen:
             copy(
                     str(self.file_path(name).resolve(),
                         str(target_path.resolve())))
@@ -90,11 +94,11 @@ macro_loader = FileLoader(
         'macro file',
         CONVENTIONS['macro_prefix'])
 
-formatting_loader = FileLoader(
-        _FORMATTING_DIR,
+format_loader = FileLoader(
+        _format_DIR,
         '.sty',
-        'formatting file',
-        CONVENTIONS['formatting_prefix'])
+        'format file',
+        CONVENTIONS['format_prefix'])
 
 citation_loader = FileLoader(
         _CITATION_DIR,
