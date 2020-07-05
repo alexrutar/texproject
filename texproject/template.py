@@ -2,7 +2,9 @@ from jinja2 import Environment, FileSystemLoader
 import datetime
 from pathlib import Path
 
-from .filesystem import (DATA_DIR, TPR_INFO_FILENAME, CONVENTIONS,
+from .filesystem import (DATA_DIR, TPR_INFO_FILENAME, CONFIG,
+        _TEMPLATE_DOC_NAME, _PROJECT_MACRO_TEMPLATE,
+        _CLASSINFO_TEMPLATE,_BIBINFO_TEMPLATE,
         TEMPLATE_RESOURCE_DIR, load_user_dict, yaml_dump_proj_info, load_proj_dict,
         macro_loader, format_loader, citation_loader, template_loader)
 
@@ -22,6 +24,7 @@ class GenericTemplate:
 
         # initialize some parameters
         self.user_dict = load_user_dict()
+        self.template_dict = template_dict
 
 
         self.env = Environment(
@@ -43,8 +46,8 @@ class GenericTemplate:
         return template.render(
             user = self.user_dict, # user parameters
             template = self.template_dict, # template parameters
-            conventions = CONVENTIONS, # general filename conventions
-            bibliography = f"\\input{{{CONVENTIONS['bibinfo_file']}}}",
+            config = CONFIG, # general filename conventions
+            bibliography = f"\\input{{{CONFIG['bibinfo_file']}}}",
             date=datetime.date.today())
 
 
@@ -62,7 +65,7 @@ class ProjectTemplate(GenericTemplate):
         template_dict['project'] = project_name
         template_dict['frozen'] = frozen
         self = cls(template_dict)
-        self.template_name = template_name
+        self.template_path = Path('templates', template_name, _TEMPLATE_DOC_NAME)
         return self
 
     @classmethod
@@ -71,35 +74,37 @@ class ProjectTemplate(GenericTemplate):
         return cls(template_dict)
 
 
-    def write_tpr_files(self, out_folder):
+    def write_tpr_files(self, out_folder,force=False):
         # write templates
         self.write_template(
-                TEMPLATE_RESOURCE_DIR / 'classinfo.tex',
-                out_folder / f"{CONVENTIONS['classinfo_file']}.tex")
+                _CLASSINFO_TEMPLATE,
+                out_folder / f"{CONFIG['classinfo_file']}.tex")
         self.write_template(
-                TEMPLATE_RESOURCE_DIR / 'bibinfo.tex',
-                out_folder / f"{CONVENTIONS['bibinfo_file']}.tex")
+                _BIBINFO_TEMPLATE,
+                out_folder / f"{CONFIG['bibinfo_file']}.tex")
 
         # link macro, format, and citation files from resources
         for macro in self.template_dict['macros']:
-            macro_loader.link_name(macro, out_folder,frozen=frozen)
+            macro_loader.link_name(macro, out_folder,
+                    frozen=self.template_dict['frozen'],force=force)
         for cit in self.template_dict['citations']:
-            citation_loader.link_name(cit, out_folder,frozen=frozen)
+            citation_loader.link_name(cit, out_folder,
+                    frozen=self.template_dict['frozen'],force=force)
         format_loader.link_name(
                 self.template_dict['format'],
                 out_folder,
-                frozen=frozen)
+                frozen=self.template_dict['frozen'],force=force)
 
     def create_output_folder(self, out_folder):
-        out_folder.mkdir()
+        out_folder.mkdir(parents=True,exist_ok=True)
 
         # write local files from templates
         self.write_template(
-                Path('templates', self.template_name, 'document.tex'),
+                self.template_path,
                 out_folder / f"{self.template_dict['project']}.tex")
         self.write_template(
-                TEMPLATE_RESOURCE_DIR / 'project_macro_file.tex',
-                out_folder / f"{CONVENTIONS['project_macro_file']}.sty")
+                _PROJECT_MACRO_TEMPLATE,
+                out_folder / f"{CONFIG['project_macro_file']}.sty")
 
         # write project information file
         yaml_dump_proj_info(out_folder, self.template_dict)

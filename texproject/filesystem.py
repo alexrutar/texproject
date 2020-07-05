@@ -1,22 +1,27 @@
 from xdg import XDG_DATA_HOME, XDG_CONFIG_HOME
 from pathlib import Path
-from shutil import copy
+from shutil import copyfile
+from os import remove
 import yaml
 
 DATA_DIR = XDG_DATA_HOME / 'texproject'
 RESOURCES_DIR = DATA_DIR / 'resources'
 TPR_INFO_FILENAME = '.tpr_info'
-TEMPLATE_RESOURCE_DIR = Path('resources', 'other')
 
-_CONVENTIONS_DIR = DATA_DIR / 'config' / 'tpr_config.yaml'
+_CONFIG_DIR = DATA_DIR / 'config' / 'tpr_config.yaml'
 _USER_CONFIG_DIR = XDG_CONFIG_HOME / 'texproject' / 'config.yaml'
 
 _DEFAULT_TEMPLATE = DATA_DIR / 'config' / 'default_template.yaml'
 _TEMPLATE_YAML_NAME = 'template.yaml'
 _TEMPLATE_DOC_NAME = 'document.tex'
 
+TEMPLATE_RESOURCE_DIR = Path('resources', 'other')
+_PROJECT_MACRO_TEMPLATE = TEMPLATE_RESOURCE_DIR / 'project_macro_file.tex'
+_CLASSINFO_TEMPLATE = TEMPLATE_RESOURCE_DIR / 'classinfo.tex'
+_BIBINFO_TEMPLATE = TEMPLATE_RESOURCE_DIR / 'bibinfo.tex'
+
 _MACRO_DIR = RESOURCES_DIR / 'packages' / 'macros'
-_format_DIR = RESOURCES_DIR / 'packages' / 'format'
+_FORMAT_DIR = RESOURCES_DIR / 'packages' / 'format'
 _CITATION_DIR = RESOURCES_DIR / 'citations'
 _TEMPLATE_DIR = DATA_DIR / 'templates'
 
@@ -26,7 +31,7 @@ def yaml_load_from_path(path_obj):
 def yaml_dump_proj_info(proj_path, template_dict):
     (proj_path / TPR_INFO_FILENAME).write_text(yaml.dump(template_dict))
 
-CONVENTIONS = yaml_load_from_path(_CONVENTIONS_DIR)
+CONFIG = yaml_load_from_path(_CONFIG_DIR)
 
 def load_user_dict():
     return yaml_load_from_path(_USER_CONFIG_DIR)
@@ -58,21 +63,23 @@ class FileLoader(BaseLoader):
         self.name_convention = name_convention
 
     def safe_name(self, name):
-        return f"{self.name_convention}{CONVENTIONS['prefix_separator']}{name}"
+        return f"{self.name_convention}{CONFIG['prefix_separator']}{name}"
 
     def link_name(self, name, rel_path,frozen=False,force=False):
         target_path = rel_path / (self.safe_name(name) + self.suffix)
 
-        # overwrite symlinks, but nothing else
         if target_path.is_symlink():
             target_path.unlink()
-        elif target_path.exists() and not force:
-            return
+        elif target_path.exists():
+            if force:
+                remove(target_path)
+            else:
+                return
 
         if frozen:
-            copy(
-                    str(self.file_path(name).resolve(),
-                        str(target_path.resolve())))
+            copyfile(
+                    str(self.file_path(name).resolve()),
+                        str(target_path.resolve()))
         else:
             target_path.symlink_to(self.file_path(name))
 
@@ -92,19 +99,19 @@ macro_loader = FileLoader(
         _MACRO_DIR,
         '.sty',
         'macro file',
-        CONVENTIONS['macro_prefix'])
+        CONFIG['macro_prefix'])
 
 format_loader = FileLoader(
-        _format_DIR,
+        _FORMAT_DIR,
         '.sty',
         'format file',
-        CONVENTIONS['format_prefix'])
+        CONFIG['format_prefix'])
 
 citation_loader = FileLoader(
         _CITATION_DIR,
         '.bib',
         'citation file',
-        CONVENTIONS['citation_prefix'])
+        CONFIG['citation_prefix'])
 
 template_loader = TemplateLoader(
         _TEMPLATE_DIR,

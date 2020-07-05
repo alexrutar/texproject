@@ -4,7 +4,7 @@ import zipfile
 
 from . import __version__, __repo__
 from .template import ProjectTemplate
-from .filesystem import (load_proj_dict, TPR_INFO_FILENAME, CONVENTIONS,
+from .filesystem import (load_proj_dict, TPR_INFO_FILENAME, CONFIG,
         macro_loader, citation_loader, template_loader)
 
 def check_valid_project(proj_path):
@@ -28,12 +28,20 @@ def cli():
 @click.option('--frozen/--no-frozen',
         default=False)
 def new(template, output, citation, frozen):
-    """Create a new project."""
+    """Create a new project. The project is created using the template with
+    name TEMPLATE and placed in the output folder OUTPUT. Citation files can be
+    specified by the citation flag, with multiple invocations for multiple
+    files. The frozen flag copies the project macro files directly rather than
+    creating symlinks.
+
+    The path OUTPUT either must not exist or be an empty folder. Missing
+    intermediate directories are automtically constructed."""
     output_path = Path(output)
 
     if output_path.exists():
-        raise click.ClickException(
-            f"project directory '{output_path}' already exists")
+        if not (output_path.is_dir() and len(list(output_path.iterdir())) == 0):
+            raise click.ClickException(
+                f"project path '{output_path}' already exists and is not an empty diretory.")
     proj_gen = ProjectTemplate.load_from_template(
             template,
             output_path.name.lstrip('.'),
@@ -42,6 +50,7 @@ def new(template, output, citation, frozen):
     proj_gen.create_output_folder(output_path)
 
 
+# add copy .bbl option?
 @cli.command()
 @click.option('--directory',
         type=click.Path(),
@@ -51,7 +60,10 @@ def new(template, output, citation, frozen):
         show_default=True,
         default='zip')
 def export(directory, compression):
-    """Create a compressed export of an existing project."""
+    """Create a compressed export of an existing project. The compression
+    flag allows specification of the compression algorithm to be used.
+    The directory flag allows the program to specify the project directory,
+    and defaults to the current directory."""
     proj_path = Path(directory)
     check_valid_project(proj_path)
 
@@ -65,39 +77,38 @@ def export(directory, compression):
 
     custom_files = [
             f"{proj_info['project']}.tex",
-            f"{CONVENTIONS['classinfo_file']}.tex",
-            f"{CONVENTIONS['bibinfo_file']}.tex"]
+            f"{CONFIG['classinfo_file']}.tex",
+            f"{CONFIG['bibinfo_file']}.tex"]
 
     for p in proj_path.iterdir():
-        if (p.suffix in CONVENTIONS['export_suffixes'] and
+        if (p.suffix in CONFIG['export_suffixes'] and
                 p.name not in custom_files):
             export_zip.write(p,
                     compress_type=comp_dict[compression])
 
-    classinfo_text = (proj_path / f"{CONVENTIONS['classinfo_file']}.tex").read_text()
-    bibinfo_text = (proj_path / f"{CONVENTIONS['bibinfo_file']}.tex").read_text()
+    classinfo_text = (proj_path / f"{CONFIG['classinfo_file']}.tex").read_text()
+    bibinfo_text = (proj_path / f"{CONFIG['bibinfo_file']}.tex").read_text()
     with open(proj_path / f"{proj_info['project']}.tex",'r') as project_tex_file:
         proj_text = "".join(
-                classinfo_text if line.startswith(f"\\input{{{CONVENTIONS['classinfo_file']}}}")
-                else bibinfo_text if line.startswith(f"\\input{{{CONVENTIONS['bibinfo_file']}}}")
+                classinfo_text if line.startswith(f"\\input{{{CONFIG['classinfo_file']}}}")
+                else bibinfo_text if line.startswith(f"\\input{{{CONFIG['bibinfo_file']}}}")
                 else line for line in project_tex_file.readlines())
         export_zip.writestr(f"{proj_info['project']}.tex",proj_text)
     export_zip.close()
 
-# add --force-new option (feature switch)
-# add frozen switch to proj_info
-# warn user when removing non-symlinked files
 @cli.command()
 @click.option('--directory',
         type=click.Path(),
         default='')
-def refresh(directory):
+@click.option('--force/--no-force',
+        default=False)
+def refresh(directory,force):
     """Regenerate project symbolic links."""
     proj_path = Path(directory)
     check_valid_project(proj_path)
 
     proj_info = ProjectTemplate.load_from_project(proj_path)
-    proj_info.write_tpr_files(proj_path)
+    proj_info.write_tpr_files(proj_path,force=force)
 
 
 # refactor this
@@ -133,3 +144,4 @@ MIT License.
         click.echo(f"Available {ld.user_str}s:")
         click.echo("\t"+"\t".join(ld.list_names()) + "\n")
 
+# add tpr clean function (remove not-in-use files, aux files, etc?)
