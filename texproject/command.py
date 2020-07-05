@@ -3,7 +3,7 @@ from pathlib import Path
 import zipfile
 
 from . import __version__, __repo__
-from .template import NewProjectTemplate
+from .template import ProjectTemplate
 from .filesystem import (load_proj_dict, TPR_INFO_FILENAME, CONVENTIONS,
         macro_loader, citation_loader, template_loader)
 
@@ -34,7 +34,7 @@ def new(template, output, citation, frozen):
     if output_path.exists():
         raise click.ClickException(
             f"project directory '{output_path}' already exists")
-    proj_gen = NewProjectTemplate(template, output_path.name.lstrip('.'), citation)
+    proj_gen = ProjectTemplate(template, output_path.name.lstrip('.'), citation)
     proj_gen.create_output_folder(output_path)
 
 
@@ -92,22 +92,25 @@ def refresh(directory):
     proj_path = Path(directory)
     check_valid_project(proj_path)
 
-    proj_info = load_proj_dict(proj_path)
+    proj_info = ProjectTemplate.load_from_project(proj_path)
+    proj_info.write_tpr_files(proj_path)
 
-    # clear existing links
-    for p in proj_path.iterdir():
-        if p.stem.startswith(CONVENTIONS['macro_prefix']) or p.stem.startswith(CONVENTIONS['citation_prefix']):
-            p.unlink()
+    #  clear existing links
+    #  for p in proj_path.iterdir():
+        #  if p.stem.startswith(CONVENTIONS['macro_prefix']) or p.stem.startswith(CONVENTIONS['citation_prefix']):
+            #  p.unlink()
 
-    # add new macro links
-    if proj_info['macros'] is not None:
-        for pack in proj_info['macros']:
-            macro_loader.link_name(pack, proj_path)
+    #  add new macro links
+    #  if proj_info['macros'] is not None:
+        #  for pack in proj_info['macros']:
+            #  macro_loader.link_name(pack, proj_path)
 
-    # add new citation links
-    if proj_info['citations'] is not None:
-        for cit in proj_info['citations']:
-            citation_loader.link_name(cit, proj_path)
+    #  add new citation links
+    #  if proj_info['citations'] is not None:
+        #  for cit in proj_info['citations']:
+            #  citation_loader.link_name(cit, proj_path)
+
+    #  rebuild .classinfo and .bibinfo files
 
 # refactor this
 # have option positional argument for listing / descriptions?

@@ -5,7 +5,7 @@ import yaml
 
 DATA_DIR = XDG_DATA_HOME / 'texproject'
 RESOURCES_DIR = DATA_DIR / 'resources'
-TPR_INFO_FILENAME = '.tpr_link_info'
+TPR_INFO_FILENAME = '.tpr_info'
 TEMPLATE_RESOURCE_DIR = Path('resources', 'other')
 
 _CONVENTIONS_DIR = DATA_DIR / 'config' / '.tpr_config.yaml'
@@ -22,6 +22,9 @@ _TEMPLATE_DIR = DATA_DIR / 'templates'
 
 def yaml_load_from_path(path_obj):
     return yaml.safe_load(path_obj.read_text())
+
+def yaml_dump_proj_info(proj_path, template_dict):
+    (proj_path / TPR_INFO_FILENAME).write_text(yaml.dump(template_dict))
 
 CONVENTIONS = yaml_load_from_path(_CONVENTIONS_DIR)
 
@@ -57,8 +60,11 @@ class FileLoader(BaseLoader):
     def safe_name(self, name):
         return f"{self.name_convention}{CONVENTIONS['prefix_separator']}{name}"
 
-    def link_name(self, name, rel_path):
+    def link_name(self, name, rel_path,force=False):
         target_path = rel_path / (self.safe_name(name) + self.suffix)
+        if target_path.is_symlink():
+            target_path.unlink()
+
         if self.frozen:
             copy(
                     str(self.file_path(name).resolve(),
