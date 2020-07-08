@@ -5,7 +5,7 @@ import zipfile
 from . import __version__, __repo__
 from .template import ProjectTemplate
 from .filesystem import (load_proj_dict, TPR_INFO_FILENAME, CONFIG,
-        macro_loader, citation_loader, template_loader)
+        macro_linker, citation_linker, template_linker)
 
 def check_valid_project(proj_path):
     if not (proj_path / TPR_INFO_FILENAME).exists():
@@ -22,17 +22,20 @@ def cli():
 
 @cli.command()
 @click.argument('template')
-@click.argument('output', type=click.Path())
 @click.option('--citation','-c',
-        multiple=True)
+        multiple=True,
+        help="include citation file")
 @click.option('--frozen/--no-frozen',
-        default=False)
-def new(template, output, citation, frozen):
-    """Create a new project. The project is created using the template with
-    name TEMPLATE and placed in the output folder OUTPUT. Citation files can be
-    specified by the citation flag, with multiple invocations for multiple
-    files. The frozen flag copies the project macro files directly rather than
-    creating symlinks.
+        default=False,
+        help="create frozen project")
+@click.option('-w', 'output',
+        default='',
+        help='specify project directory')
+def init(template, citation, frozen, output):
+    """Initialize a new project in the current directory. The project is
+    created using the template with name TEMPLATE and placed in the output
+    folder OUTPUT. If the frozen flag is specified, support files are copied
+    rather than symlinked.
 
     The path OUTPUT either must not exist or be an empty folder. Missing
     intermediate directories are automtically constructed."""
@@ -42,36 +45,43 @@ def new(template, output, citation, frozen):
         if not (output_path.is_dir() and len(list(output_path.iterdir())) == 0):
             raise click.ClickException(
                 f"project path '{output_path}' already exists and is not an empty diretory.")
-    proj_gen = ProjectTemplate.load_from_template(
-            template,
-            output_path.name.lstrip('.'),
-            citation,
-            frozen=frozen)
+    try:
+        proj_gen = ProjectTemplate.load_from_template(
+                template,
+                citation,
+                frozen=frozen)
+    except FileExistsError as err:
+        raise click.ClickException(err.strerror)
     proj_gen.create_output_folder(output_path)
 
 
 # add copy .bbl option?
 @cli.command()
-@click.option('--directory',
+@click.option('-C', 'directory',
         type=click.Path(),
-        default='')
+        default='',
+        help="working directory")
 @click.option('--compression',
         type=click.Choice(['zip','bzip2','lzma'],case_sensitive=False),
         show_default=True,
-        default='zip')
+        default='zip',
+        help="compression mode")
 def export(directory, compression):
-    """Create a compressed export of an existing project. The compression
-    flag allows specification of the compression algorithm to be used.
-    The directory flag allows the program to specify the project directory,
-    and defaults to the current directory."""
+    """Create a compressed export of an existing project."""
     proj_path = Path(directory)
-    check_valid_project(proj_path)
 
     comp_dict = {'zip': zipfile.ZIP_DEFLATED,
             'bzip2':zipfile.ZIP_BZIP2,
             'lzma':zipfile.ZIP_LZMA}
 
-    proj_info = load_proj_dict(proj_path)
+    try:
+        proj_info = load_proj_dict(proj_path)
+    except FileNotFoundError:
+        if proj_path == Path('.'):
+            message = "Current directory is not a valid project folder."
+        else:
+            message = "Directory '{proj_path}' is not a valid project folder."
+        raise click.ClickException(message)
 
     export_zip = zipfile.ZipFile(proj_info['project']+'.' + compression,'w')
 
@@ -97,18 +107,40 @@ def export(directory, compression):
     export_zip.close()
 
 @cli.command()
-@click.option('--directory',
+@click.option('-C', 'directory',
         type=click.Path(),
-        default='')
+        default='',
+        help="working directory")
 @click.option('--force/--no-force',
-        default=False)
+        default=False,
+        help="overwrite project files")
 def refresh(directory,force):
-    """Regenerate project symbolic links."""
-    proj_path = Path(directory)
-    check_valid_project(proj_path)
+    """Regenerate project macro and support files.
+    Refresh reads information from the project information file .tpr_info and
+    uses it to rebuild auto-generated files.
 
-    proj_info = ProjectTemplate.load_from_project(proj_path)
-    proj_info.write_tpr_files(proj_path,force=force)
+    Symbolic links are always overwritten, but if the project is frozen,
+    existing files are unchanged. The force tag overwrites copied macro and
+    citation files.
+    """
+    proj_path = Path(directory)
+    try:
+        proj_info = ProjectTemplate.load_from_project(proj_path)
+    except FileNotFoundError:
+        if proj_path == Path('.'):
+            message = "Current directory is not a valid project folder."
+        else:
+            message = "Directory '{proj_path}' is not a valid project folder."
+        raise click.ClickException(message)
+
+    try:
+        proj_info.write_tpr_files(proj_path,force=force)
+    except FileNotFoundError as err:
+        raise click.ClickException(
+                err.strerror + ".")
+    except FileExistsError as err:
+        raise click.ClickException(
+                f"Could not overwrite existing file at '{err.filename}'. Run with `--force` to override.")
 
 
 # refactor this
@@ -134,12 +166,12 @@ MIT License.
     if show_all:
         listfiles = ['C','M','T']
 
-    loader = {'C': citation_loader,
-            'M': macro_loader,
-            'T': template_loader}
+    linker = {'C': citation_linker,
+            'M': macro_linker,
+            'T': template_linker}
 
     for code in listfiles:
-        ld = loader[code]
+        ld = linker[code]
         click.echo(f"Directory for {ld.user_str}s: '{ld.dir_path}'.")
         click.echo(f"Available {ld.user_str}s:")
         click.echo("\t"+"\t".join(ld.list_names()) + "\n")
