@@ -5,6 +5,9 @@ import os
 import errno
 import yaml
 
+#  FILE_LOCATION_DICT = {
+        #  'data_dir': XDG_DATA_HOME / 'texproject',
+        #  'system_config': XDG_DATA_HOME / 'texproject' / 'config' / 'tpr_config.yaml'
 DATA_DIR = XDG_DATA_HOME / 'texproject'
 RESOURCES_DIR = DATA_DIR / 'resources'
 

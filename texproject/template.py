@@ -85,6 +85,7 @@ class ProjectTemplate(GenericTemplate):
     def write_tpr_files(self, out_folder,force=False,write_template=False):
         project_folder = out_folder / CONFIG['project_folder']
         project_folder.mkdir(exist_ok=True)
+        (project_folder / 'tmp').mkdir(exist_ok=True)
         # write project information file
         if write_template:
             yaml_dump_proj_info(out_folder, self.template_dict)
@@ -113,8 +114,6 @@ class ProjectTemplate(GenericTemplate):
                 frozen=self.template_dict['frozen'],force=force)
 
     def create_output_folder(self, out_folder):
-        project_folder = out_folder / CONFIG['project_folder']
-
         # write local files from templates
         self.write_template(
                 self.template_path,

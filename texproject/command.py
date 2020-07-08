@@ -1,6 +1,7 @@
 import click
 from pathlib import Path
-import zipfile
+#  from shutil import make_archive, copytree, copyfile
+import shutil
 
 from . import __version__, __repo__
 from .template import ProjectTemplate
@@ -28,9 +29,9 @@ def cli():
 @click.option('--frozen/--no-frozen',
         default=False,
         help="create frozen project")
-@click.option('-w', 'output',
+@click.option('-C', 'output',
         default='',
-        help='specify project directory')
+        help='working directory')
 def init(template, citation, frozen, output):
     """Initialize a new project in the current directory. The project is
     created using the template with name TEMPLATE and placed in the output
@@ -38,7 +39,7 @@ def init(template, citation, frozen, output):
     rather than symlinked.
 
     The path OUTPUT either must not exist or be an empty folder. Missing
-    intermediate directories are automtically constructed."""
+    intermediate directories are automatically constructed."""
     output_path = Path(output)
 
     if output_path.exists():
@@ -62,49 +63,39 @@ def init(template, citation, frozen, output):
         default='',
         help="working directory")
 @click.option('--compression',
-        type=click.Choice(['zip','bzip2','lzma'],case_sensitive=False),
+        type=click.Choice([ar[0] for ar in shutil.get_archive_formats()],
+            case_sensitive=False),
         show_default=True,
-        default='zip',
+        default=CONFIG['default_compression'],
         help="compression mode")
 def export(directory, compression):
-    """Create a compressed export of an existing project."""
-    proj_path = Path(directory)
+    """Create a compressed export of an existing project.
 
-    comp_dict = {'zip': zipfile.ZIP_DEFLATED,
-            'bzip2':zipfile.ZIP_BZIP2,
-            'lzma':zipfile.ZIP_LZMA}
+    \b
+    Compression modes:
+     bztar: bzip2'ed tar-file
+     gztar: gzip'ed tar-file
+     tar: uncompressed tar-file
+     xztar: xz'ed tar-file
+     zip: ZIP file
 
-    try:
-        proj_info = load_proj_dict(proj_path)
-    except FileNotFoundError:
-        if proj_path == Path('.'):
-            message = "Current directory is not a valid project folder."
-        else:
-            message = "Directory '{proj_path}' is not a valid project folder."
-        raise click.ClickException(message)
+    Note that not all compression modes may be available on your system.
+    """
+    root_dir = Path(directory).resolve()
+    temp_dir = root_dir / Path('.texproject', 'tmp', 'output')
+    shutil.copytree(root_dir,
+            temp_dir,
+            copy_function=shutil.copyfile,
+            ignore=shutil.ignore_patterns(*CONFIG['export_ignore_patterns']))
 
-    export_zip = zipfile.ZipFile(proj_info['project']+'.' + compression,'w')
 
-    custom_files = [
-            f"{proj_info['project']}.tex",
-            f"{CONFIG['classinfo_file']}.tex",
-            f"{CONFIG['bibinfo_file']}.tex"]
+    shutil.make_archive(root_dir / root_dir.name,
+            compression,
+            temp_dir)
 
-    for p in proj_path.iterdir():
-        if (p.suffix in CONFIG['export_suffixes'] and
-                p.name not in custom_files):
-            export_zip.write(p,
-                    compress_type=comp_dict[compression])
+    shutil.rmtree(temp_dir)
 
-    classinfo_text = (proj_path / f"{CONFIG['classinfo_file']}.tex").read_text()
-    bibinfo_text = (proj_path / f"{CONFIG['bibinfo_file']}.tex").read_text()
-    with open(proj_path / f"{proj_info['project']}.tex",'r') as project_tex_file:
-        proj_text = "".join(
-                classinfo_text if line.startswith(f"\\input{{{CONFIG['classinfo_file']}}}")
-                else bibinfo_text if line.startswith(f"\\input{{{CONFIG['bibinfo_file']}}}")
-                else line for line in project_tex_file.readlines())
-        export_zip.writestr(f"{proj_info['project']}.tex",proj_text)
-    export_zip.close()
+
 
 @cli.command()
 @click.option('-C', 'directory',
@@ -176,4 +167,12 @@ MIT License.
         click.echo(f"Available {ld.user_str}s:")
         click.echo("\t"+"\t".join(ld.list_names()) + "\n")
 
-# add tpr clean function (remove not-in-use files, aux files, etc?)
+
+@cli.command()
+@click.option('--project', 'config_file', flag_value='project',
+        default=True)
+@click.option('--user', 'config_file', flag_value='user')
+@click.option('--system', 'config_file', flag_value='system')
+def config(config_file):
+    pass
+    #  click.edit
