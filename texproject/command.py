@@ -5,16 +5,8 @@ import shutil
 
 from . import __version__, __repo__
 from .template import ProjectTemplate
-from .filesystem import (load_proj_dict, TPR_INFO_FILENAME, CONFIG,
+from .filesystem import (CONFIG, PROJ_PATH, CONFIG_PATH,
         macro_linker, citation_linker, template_linker)
-
-def check_valid_project(proj_path):
-    if not (proj_path / TPR_INFO_FILENAME).exists():
-        if proj_path == Path('.'):
-            message = "Current directory is not a valid project folder."
-        else:
-            message = "Directory '{proj_path}' is not a valid project folder."
-        raise click.ClickException(message)
 
 @click.group()
 @click.version_option(prog_name="tpr (texproject)")
@@ -42,10 +34,11 @@ def init(template, citation, frozen, output):
     intermediate directories are automatically constructed."""
     output_path = Path(output)
 
-    if output_path.exists():
-        if not (output_path.is_dir() and len(list(output_path.iterdir())) == 0):
-            raise click.ClickException(
-                f"project path '{output_path}' already exists and is not an empty diretory.")
+    # TODO: just write in project files with no overwriting
+    #  if output_path.exists():
+        #  if not (output_path.is_dir() and len(list(output_path.iterdir())) == 0):
+            #  raise click.ClickException(
+                #  f"project path '{output_path}' already exists and is not an empty diretory.")
     try:
         proj_gen = ProjectTemplate.load_from_template(
                 template,
@@ -57,8 +50,9 @@ def init(template, citation, frozen, output):
 
 
 # add copy .bbl option?
+# option to specify out folder or output name?
 @cli.command()
-@click.option('-C', 'directory',
+@click.option('-C', 'output',
         type=click.Path(),
         default='',
         help="working directory")
@@ -68,7 +62,7 @@ def init(template, citation, frozen, output):
         show_default=True,
         default=CONFIG['default_compression'],
         help="compression mode")
-def export(directory, compression):
+def export(output, compression):
     """Create a compressed export of an existing project.
 
     \b
@@ -81,7 +75,7 @@ def export(directory, compression):
 
     Note that not all compression modes may be available on your system.
     """
-    root_dir = Path(directory).resolve()
+    root_dir = Path(output).resolve()
     temp_dir = root_dir / Path('.texproject', 'tmp', 'output')
     shutil.copytree(root_dir,
             temp_dir,
@@ -98,14 +92,14 @@ def export(directory, compression):
 
 
 @cli.command()
-@click.option('-C', 'directory',
+@click.option('-C', 'output',
         type=click.Path(),
         default='',
         help="working directory")
 @click.option('--force/--no-force',
         default=False,
         help="overwrite project files")
-def refresh(directory,force):
+def refresh(output,force):
     """Regenerate project macro and support files.
     Refresh reads information from the project information file .tpr_info and
     uses it to rebuild auto-generated files.
@@ -114,14 +108,14 @@ def refresh(directory,force):
     existing files are unchanged. The force tag overwrites copied macro and
     citation files.
     """
-    proj_path = Path(directory)
+    proj_path = Path(output)
     try:
         proj_info = ProjectTemplate.load_from_project(proj_path)
     except FileNotFoundError:
         if proj_path == Path('.'):
-            message = "Current directory is not a valid project folder."
+            message = "Current output is not a valid project folder."
         else:
-            message = "Directory '{proj_path}' is not a valid project folder."
+            message = "output '{proj_path}' is not a valid project folder."
         raise click.ClickException(message)
 
     try:
@@ -132,6 +126,30 @@ def refresh(directory,force):
     except FileExistsError as err:
         raise click.ClickException(
                 f"Could not overwrite existing file at '{err.filename}'. Run with `--force` to override.")
+
+
+@cli.command()
+@click.option('--project', 'config_file', flag_value='project',
+        default=True)
+@click.option('--user', 'config_file', flag_value='user')
+@click.option('--system', 'config_file', flag_value='system')
+@click.option('-C', 'output',
+        type=click.Path(),
+        default='',
+        help='working directory')
+def config(config_file, output):
+    """Edit texproject configuration files. This opens the corresponding file
+    in your $EDITOR. By default, edit the project configuration file; this
+    requires the current directory (or the directory specified by -C) to be
+    a texproject directory."""
+    out_path = Path(output)
+    dispatch = {
+            'project': PROJ_PATH.config(out_path),
+            'user': CONFIG_PATH.user,
+            'system': CONFIG_PATH.system
+            }
+    click.edit(filename=str(dispatch[config_file]))
+
 
 
 # refactor this
@@ -168,11 +186,3 @@ MIT License.
         click.echo("\t"+"\t".join(ld.list_names()) + "\n")
 
 
-@cli.command()
-@click.option('--project', 'config_file', flag_value='project',
-        default=True)
-@click.option('--user', 'config_file', flag_value='user')
-@click.option('--system', 'config_file', flag_value='system')
-def config(config_file):
-    pass
-    #  click.edit
