@@ -98,25 +98,24 @@ class _JinjaTemplatePath:
         return self._template_resource_dir / 'bibliography.tex'
 
 def relative(base):
-    if base == 'data':
-        def decorator(func):
-            def wrapper(self, rel_path):
-                return rel_path / CONFIG['project_data_folder'] / func(self)
-            return wrapper
-        return decorator
-    elif base == 'root':
-        def decorator(func):
-            def wrapper(self, rel_path):
-                return rel_path / func(self)
-            return wrapper
-        return decorator
+    def fset(self, value):
+        raise AttributeError("Cannot change constant values")
 
-def path_relative(func):
-    def wrapper(self, rel_path):
-        return rel_path / CONFIG['project_data_folder'] / func(self)
-    return wrapper
+    def decorator(func):
+        def fget(self):
+            if base == 'root':
+                return self.out_folder / func(self)
+            elif base == 'data':
+                return self.out_folder / CONFIG['project_data_folder'] / func(self)
+        return property(fget, fset)
 
-class _ProjectPath:
+    return decorator
+
+class ProjectPath:
+    def __init__(self, out_folder):
+        self.out_folder = Path(out_folder).resolve()
+        self.name = self.dir.name
+
     @relative('data')
     def config(self):
         return 'tpr_info.yaml'
@@ -130,6 +129,10 @@ class _ProjectPath:
         return f"{CONFIG['bibinfo_file']}.tex"
 
     @relative('data')
+    def data_dir(self):
+        return ''
+
+    @relative('root')
     def dir(self):
         return ''
 
@@ -147,8 +150,10 @@ class _ProjectPath:
 
 JINJA_PATH = _JinjaTemplatePath()
 DATA_PATH = _DataPath()
-PROJ_PATH = _ProjectPath()
 
+#  class ProjectPath:
+    #  def __init__(self, out_folder):
+        #  self.out_folder = out_folder
 
 class BaseLinker:
     def __init__(self, dir_path, suffix, user_str):
@@ -218,6 +223,7 @@ class TemplateLinker(BaseLinker):
                 (path / NAMES.template_doc).exists() and
                 (path / NAMES.template_yaml).exists())
 
+#  def linker_factory
 macro_linker = FileLinker(
         DATA_PATH.macro_dir,
         '.sty',

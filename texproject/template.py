@@ -4,9 +4,8 @@ from pathlib import Path
 import os
 import errno
 
-from .filesystem import (CONFIG,
-        CONFIG_PATH, DATA_PATH, PROJ_PATH, JINJA_PATH,
-        yaml_load, yaml_dump,
+from .filesystem import (CONFIG, CONFIG_PATH, DATA_PATH, JINJA_PATH,
+        ProjectPath, yaml_load, yaml_dump,
         macro_linker, format_linker, citation_linker, template_linker)
 
 # special renamed function for use in templates
@@ -77,54 +76,49 @@ class ProjectTemplate(GenericTemplate):
 
     @classmethod
     def load_from_project(cls, proj_path):
-        template_dict = yaml_load(PROJ_PATH.config(proj_path))
+        template_dict = yaml_load(proj_path.config)
         return cls(template_dict)
 
 
-    def write_tpr_files(self, out_folder,force=False,write_template=False):
-        PROJ_PATH.dir(out_folder).mkdir(exist_ok=True)
-        PROJ_PATH.temp_dir(out_folder).mkdir(exist_ok=True)
+    def write_tpr_files(self, proj_path,force=False,write_template=False):
+        proj_path.temp_dir.mkdir(exist_ok=True,parents=True)
 
         # write project information file
         if write_template:
             yaml_dump(
-                    PROJ_PATH.config(out_folder),
+                    proj_path.config,
                     self.template_dict)
 
         # write templates
         self.write_template(
                 JINJA_PATH.classinfo,
-                PROJ_PATH.classinfo(out_folder),
+                proj_path.classinfo,
                 force=True)
         self.write_template(
                 JINJA_PATH.bibinfo,
-                PROJ_PATH.bibinfo(out_folder),
+                proj_path.bibinfo,
                 force=True)
+
+        def make_link(linker, name):
+            linker.link_name(name,
+                    proj_path.data_dir,
+                    frozen=self.template_dict['frozen'],
+                    force=force)
 
         # link macro, format, and citation files from resources
         for macro in self.template_dict['macros']:
-            macro_linker.link_name(macro,
-                    PROJ_PATH.dir(out_folder),
-                    frozen=self.template_dict['frozen'],
-                    force=force)
+            make_link(macro_linker, macro)
         for cit in self.template_dict['citations']:
-            citation_linker.link_name(cit,
-                    PROJ_PATH.dir(out_folder),
-                    frozen=self.template_dict['frozen'],
-                    force=force)
-        format_linker.link_name(
-                self.template_dict['format'],
-                PROJ_PATH.dir(out_folder),
-                frozen=self.template_dict['frozen'],
-                force=force)
+            make_link(citation_linker, cit)
+        make_link(format_linker, self.template_dict['format'])
 
-    def create_output_folder(self, out_folder):
+    def create_output_folder(self, proj_path):
         self.write_template(
                 self.template_path,
-                PROJ_PATH.main(out_folder))
+                proj_path.main)
 
         self.write_template(
                 JINJA_PATH.project_macro,
-                PROJ_PATH.macro_proj(out_folder))
+                proj_path.macro_proj)
 
-        self.write_tpr_files(out_folder,write_template=True)
+        self.write_tpr_files(proj_path,write_template=True)

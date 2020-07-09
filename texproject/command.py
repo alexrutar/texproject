@@ -5,7 +5,7 @@ import shutil
 
 from . import __version__, __repo__
 from .template import ProjectTemplate
-from .filesystem import (CONFIG, PROJ_PATH, CONFIG_PATH,
+from .filesystem import (CONFIG, ProjectPath, CONFIG_PATH,
         macro_linker, citation_linker, template_linker)
 
 @click.group()
@@ -21,10 +21,10 @@ def cli():
 @click.option('--frozen/--no-frozen',
         default=False,
         help="create frozen project")
-@click.option('-C', 'output',
+@click.option('-C', 'proj_dir',
         default='',
         help='working directory')
-def init(template, citation, frozen, output):
+def init(template, citation, frozen, proj_dir):
     """Initialize a new project in the current directory. The project is
     created using the template with name TEMPLATE and placed in the output
     folder OUTPUT. If the frozen flag is specified, support files are copied
@@ -32,13 +32,14 @@ def init(template, citation, frozen, output):
 
     The path OUTPUT either must not exist or be an empty folder. Missing
     intermediate directories are automatically constructed."""
-    output_path = Path(output)
+    proj_path = ProjectPath(proj_dir)
 
     # TODO: just write in project files with no overwriting
-    #  if output_path.exists():
-        #  if not (output_path.is_dir() and len(list(output_path.iterdir())) == 0):
+    #  if proj_path.exists():
+        #  if not (proj_path.is_dir() and len(list(proj_path.iterdir())) == 0):
             #  raise click.ClickException(
-                #  f"project path '{output_path}' already exists and is not an empty diretory.")
+                #  f"project path '{proj_path}' already exists and is not an empty diretory.")
+
     try:
         proj_gen = ProjectTemplate.load_from_template(
                 template,
@@ -46,13 +47,13 @@ def init(template, citation, frozen, output):
                 frozen=frozen)
     except FileExistsError as err:
         raise click.ClickException(err.strerror)
-    proj_gen.create_output_folder(output_path)
+    proj_gen.create_output_folder(proj_path)
 
 
 # add copy .bbl option?
 # option to specify out folder or output name?
 @cli.command()
-@click.option('-C', 'output',
+@click.option('-C', 'proj_dir',
         type=click.Path(),
         default='',
         help="working directory")
@@ -62,7 +63,7 @@ def init(template, citation, frozen, output):
         show_default=True,
         default=CONFIG['default_compression'],
         help="compression mode")
-def export(output, compression):
+def export(proj_dir, compression):
     """Create a compressed export of an existing project.
 
     \b
@@ -75,15 +76,18 @@ def export(output, compression):
 
     Note that not all compression modes may be available on your system.
     """
-    root_dir = Path(output).resolve()
-    temp_dir = root_dir / Path('.texproject', 'tmp', 'output')
+    proj_path = ProjectPath(proj_dir)
+
+    root_dir = proj_path.dir
+    temp_dir = proj_path.temp_dir / 'output'
+    archive_file = root_dir / proj_path.name
+
     shutil.copytree(root_dir,
             temp_dir,
             copy_function=shutil.copyfile,
             ignore=shutil.ignore_patterns(*CONFIG['export_ignore_patterns']))
 
-
-    shutil.make_archive(root_dir / root_dir.name,
+    shutil.make_archive(archive_file,
             compression,
             temp_dir)
 
@@ -92,14 +96,14 @@ def export(output, compression):
 
 
 @cli.command()
-@click.option('-C', 'output',
+@click.option('-C', 'proj_dir',
         type=click.Path(),
         default='',
         help="working directory")
 @click.option('--force/--no-force',
         default=False,
         help="overwrite project files")
-def refresh(output,force):
+def refresh(proj_dir,force):
     """Regenerate project macro and support files.
     Refresh reads information from the project information file .tpr_info and
     uses it to rebuild auto-generated files.
@@ -108,7 +112,7 @@ def refresh(output,force):
     existing files are unchanged. The force tag overwrites copied macro and
     citation files.
     """
-    proj_path = Path(output)
+    proj_path = ProjectPath(proj_dir)
     try:
         proj_info = ProjectTemplate.load_from_project(proj_path)
     except FileNotFoundError:
@@ -133,18 +137,18 @@ def refresh(output,force):
         default=True)
 @click.option('--user', 'config_file', flag_value='user')
 @click.option('--system', 'config_file', flag_value='system')
-@click.option('-C', 'output',
+@click.option('-C', 'proj_dir',
         type=click.Path(),
         default='',
         help='working directory')
-def config(config_file, output):
+def config(config_file, proj_dir):
     """Edit texproject configuration files. This opens the corresponding file
     in your $EDITOR. By default, edit the project configuration file; this
     requires the current directory (or the directory specified by -C) to be
     a texproject directory."""
-    out_path = Path(output)
+    proj_path = ProjectPath(proj_dir)
     dispatch = {
-            'project': PROJ_PATH.config(out_path),
+            'project': proj_path.config,
             'user': CONFIG_PATH.user,
             'system': CONFIG_PATH.system
             }
