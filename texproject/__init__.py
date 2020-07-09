@@ -7,5 +7,5 @@ Automatic LaTeX project management.
 :license: MIT, see LICENSE for more details.
 """
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 __repo__ = "https://github.com/alexrutar/texproject"
