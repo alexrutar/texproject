@@ -151,10 +151,6 @@ class ProjectPath:
 JINJA_PATH = _JinjaTemplatePath()
 DATA_PATH = _DataPath()
 
-#  class ProjectPath:
-    #  def __init__(self, out_folder):
-        #  self.out_folder = out_folder
-
 class BaseLinker:
     def __init__(self, dir_path, suffix, user_str):
         self.user_str = user_str

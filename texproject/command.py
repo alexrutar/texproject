@@ -8,6 +8,12 @@ from .template import ProjectTemplate
 from .filesystem import (CONFIG, ProjectPath, CONFIG_PATH,
         macro_linker, citation_linker, template_linker)
 
+click_proj_dir = click.option(
+    '-C', 'proj_dir',
+    default='',
+    show_default=True,
+    help='working directory')
+
 @click.group()
 @click.version_option(prog_name="tpr (texproject)")
 def cli():
@@ -21,9 +27,7 @@ def cli():
 @click.option('--frozen/--no-frozen',
         default=False,
         help="create frozen project")
-@click.option('-C', 'proj_dir',
-        default='',
-        help='working directory')
+@click_proj_dir
 def init(template, citation, frozen, proj_dir):
     """Initialize a new project in the current directory. The project is
     created using the template with name TEMPLATE and placed in the output
@@ -52,11 +56,9 @@ def init(template, citation, frozen, proj_dir):
 
 # add copy .bbl option?
 # option to specify out folder or output name?
+# TODO: see https://click.palletsprojects.com/en/7.x/commands/#overriding-defaults
 @cli.command()
-@click.option('-C', 'proj_dir',
-        type=click.Path(),
-        default='',
-        help="working directory")
+@click_proj_dir
 @click.option('--compression',
         type=click.Choice([ar[0] for ar in shutil.get_archive_formats()],
             case_sensitive=False),
@@ -96,10 +98,7 @@ def export(proj_dir, compression):
 
 
 @cli.command()
-@click.option('-C', 'proj_dir',
-        type=click.Path(),
-        default='',
-        help="working directory")
+@click_proj_dir
 @click.option('--force/--no-force',
         default=False,
         help="overwrite project files")
@@ -137,10 +136,7 @@ def refresh(proj_dir,force):
         default=True)
 @click.option('--user', 'config_file', flag_value='user')
 @click.option('--system', 'config_file', flag_value='system')
-@click.option('-C', 'proj_dir',
-        type=click.Path(),
-        default='',
-        help='working directory')
+@click_proj_dir
 def config(config_file, proj_dir):
     """Edit texproject configuration files. This opens the corresponding file
     in your $EDITOR. By default, edit the project configuration file; this
@@ -156,28 +152,29 @@ def config(config_file, proj_dir):
 
 
 
-# refactor this
+# TODO: refactor this
 # have option positional argument for listing / descriptions?
 # write descriptions into packages, and write access methods
 @cli.command()
 @click.option('--list','-l', 'listfiles',
-        type=click.Choice(['C','M','T']),
-        multiple=True,
-        default=[])
+        type=click.Choice(['C','M','T']))
 @click.option('--description','-d',
         type=click.Choice(['C','M','T']))
 @click.option('--show-all', is_flag=True)
 def info(listfiles,description,show_all):
     """Retrieve program and template information."""
-    if show_all or len(listfiles) == 0:
+    if show_all or listfiles is None:
         click.echo(f"""
 TPR - TexPRoject (version {__version__})
 Maintained by Alex Rutar ({click.style(__repo__,fg='bright_blue')}).
-MIT License.
-""")
+MIT License.""")
 
     if show_all:
         listfiles = ['C','M','T']
+    elif listfiles is None:
+        listfiles = []
+    else:
+        listfiles = [listfiles]
 
     linker = {'C': citation_linker,
             'M': macro_linker,
@@ -185,8 +182,9 @@ MIT License.
 
     for code in listfiles:
         ld = linker[code]
-        click.echo(f"Directory for {ld.user_str}s: '{ld.dir_path}'.")
-        click.echo(f"Available {ld.user_str}s:")
-        click.echo("\t"+"\t".join(ld.list_names()) + "\n")
+        if show_all:
+            click.echo(f"\nDirectory for {ld.user_str}s: '{ld.dir_path}'.")
+            click.echo(f"Available {ld.user_str}s:")
+        click.echo(" " + "\t".join(ld.list_names()))
 
 
