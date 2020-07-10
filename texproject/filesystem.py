@@ -6,7 +6,7 @@ import errno
 import yaml
 
 
-def constant(f):
+def _constant(f):
     def fset(self, value):
         raise AttributeError("Cannot change constant values")
     def fget(self):
@@ -20,11 +20,11 @@ def yaml_dump(path_obj, dct):
     path_obj.write_text(yaml.dump(dct))
 
 class _ConfigPath:
-    @constant
+    @_constant
     def system(self):
         return XDG_DATA_HOME / 'texproject' / 'config' / 'tpr_config.yaml'
 
-    @constant
+    @_constant
     def user(self):
         return XDG_CONFIG_HOME / 'texproject' / 'config.yaml'
 
@@ -32,11 +32,11 @@ CONFIG_PATH = _ConfigPath()
 CONFIG = yaml_load(CONFIG_PATH.system)
 
 class _Naming:
-    @constant
+    @_constant
     def template_yaml(self):
         return 'template.yaml'
 
-    @constant
+    @_constant
     def template_doc(self):
         return 'document.tex'
 
@@ -44,31 +44,31 @@ NAMES = _Naming()
 
 class _DataPath:
     # data location constants
-    @constant
+    @_constant
     def data_dir(self):
         return XDG_DATA_HOME / 'texproject'
 
-    @constant
+    @_constant
     def default_template(self):
         return self.data_dir / 'config' / 'default_template.yaml'
 
-    @constant
+    @_constant
     def _resource_absolute(self):
         return XDG_DATA_HOME / 'texproject' / 'resources'
 
-    @constant
+    @_constant
     def macro_dir(self):
         return self._resource_absolute / 'packages' / 'macros'
 
-    @constant
+    @_constant
     def format_dir(self):
         return self._resource_absolute / 'packages' / 'format'
 
-    @constant
+    @_constant
     def citation_dir(self):
         return self._resource_absolute / 'citations'
 
-    @constant
+    @_constant
     def template_dir(self):
         return self.data_dir / 'templates'
 
@@ -77,23 +77,23 @@ class _JinjaTemplatePath:
     def template_doc(self, name):
         return Path('templates', name, NAMES.template_doc)
 
-    @constant
+    @_constant
     def _template_resource_dir(self):
         return  Path('resources', 'other')
 
-    @constant
+    @_constant
     def project_macro(self):
         return self._template_resource_dir / 'project_macro_file.tex'
 
-    @constant
+    @_constant
     def classinfo(self):
         return self._template_resource_dir / 'classinfo.tex'
 
-    @constant
+    @_constant
     def bibinfo(self):
         return self._template_resource_dir / 'bibinfo.tex'
 
-    @constant
+    @_constant
     def bibliography(self):
         return self._template_resource_dir / 'bibliography.tex'
 
@@ -222,7 +222,6 @@ class _TemplateLinker(_BaseLinker):
                 (path / NAMES.template_doc).exists() and
                 (path / NAMES.template_yaml).exists())
 
-#  def linker_factory
 macro_linker = _FileLinker(
         DATA_PATH.macro_dir,
         '.sty',
