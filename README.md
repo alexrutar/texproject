@@ -19,6 +19,8 @@ To create a new project, create an empty directory, change into it, and run
 tpr init <template>
 ```
 This command will create a new project using the template with name `<template>` in the current directory.
+To specify a different directory, use the `-C <path>` flag.
+This creates the files `main.tex` (for primary document contents) and `project-macros.sty` (for project-specific macros).
 To get a list of available templates, run
 ```
 tpr info --list T
