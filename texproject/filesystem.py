@@ -13,11 +13,14 @@ def _constant(f):
         return f(self)
     return property(fget, fset)
 
+
 def yaml_load(path_obj):
     return yaml.safe_load(path_obj.read_text())
 
+
 def yaml_dump(path_obj, dct):
     path_obj.write_text(yaml.dump(dct))
+
 
 class _ConfigPath:
     @_constant
@@ -28,8 +31,10 @@ class _ConfigPath:
     def user(self):
         return XDG_CONFIG_HOME / 'texproject' / 'config.yaml'
 
+
 CONFIG_PATH = _ConfigPath()
 CONFIG = yaml_load(CONFIG_PATH.system)
+
 
 class _Naming:
     @_constant
@@ -40,7 +45,9 @@ class _Naming:
     def template_doc(self):
         return 'document.tex'
 
+
 NAMES = _Naming()
+
 
 class _DataPath:
     # data location constants
@@ -97,6 +104,7 @@ class _JinjaTemplatePath:
     def bibliography(self):
         return self._template_resource_dir / 'bibliography.tex'
 
+
 def relative(base):
     def fset(self, value):
         raise AttributeError("Cannot change constant values")
@@ -110,6 +118,7 @@ def relative(base):
         return property(fget, fset)
 
     return decorator
+
 
 class ProjectPath:
     def __init__(self, out_folder):
@@ -152,8 +161,10 @@ class ProjectPath:
     def rootfiles(self):
         return (self.main, self.macro_proj, self.data_dir)
 
+
 JINJA_PATH = _JinjaTemplatePath()
 DATA_PATH = _DataPath()
+
 
 class _BaseLinker:
     def __init__(self, dir_path, suffix, user_str):
@@ -171,6 +182,7 @@ class _BaseLinker:
 
     def file_path(self, name):
         return self.dir_path / f'{name}{self.suffix}'
+
 
 class _FileLinker(_BaseLinker):
     def __init__(self, dir_path, suffix, user_str, name_convention):
@@ -213,10 +225,12 @@ class _FileLinker(_BaseLinker):
         else:
             target_path.symlink_to(source_path)
 
+
 def yaml_load_with_default_template(path):
         default_template = yaml_load(DATA_PATH.default_template)
         template = yaml_load(path)
         return {**default_template, **template}
+
 
 class _TemplateLinker(_BaseLinker):
     def load_template(self, name):
@@ -228,11 +242,13 @@ class _TemplateLinker(_BaseLinker):
                 (path / NAMES.template_doc).exists() and
                 (path / NAMES.template_yaml).exists())
 
+
 macro_linker = _FileLinker(
         DATA_PATH.macro_dir,
         '.sty',
         'macro file',
         CONFIG['macro_prefix'])
+
 
 format_linker = _FileLinker(
         DATA_PATH.format_dir,
@@ -240,11 +256,13 @@ format_linker = _FileLinker(
         'format file',
         CONFIG['format_prefix'])
 
+
 citation_linker = _FileLinker(
         DATA_PATH.citation_dir,
         '.bib',
         'citation file',
         CONFIG['citation_prefix'])
+
 
 template_linker = _TemplateLinker(
         DATA_PATH.template_dir,

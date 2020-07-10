@@ -8,6 +8,7 @@ from .template import ProjectTemplate
 from .filesystem import (CONFIG, ProjectPath, CONFIG_PATH,
         macro_linker, citation_linker, template_linker)
 
+
 click_proj_dir_option = click.option(
     '-C', 'proj_dir',
     default='',
@@ -18,6 +19,7 @@ click_proj_dir_option = click.option(
 @click.version_option(prog_name="tpr (texproject)")
 def cli():
     pass
+
 
 @cli.command()
 @click.argument('template')
@@ -95,7 +97,6 @@ def export(proj_dir, compression):
             temp_dir)
 
     shutil.rmtree(temp_dir)
-
 
 
 @cli.command()
