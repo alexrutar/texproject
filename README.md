@@ -19,8 +19,6 @@ To create a new project, create an empty directory, change into it, and run
 tpr init <template>
 ```
 This command will create a new project using the template with name `<template>` in the current directory.
-To specify a different directory, use the `-C <path>` flag.
-This creates the files `main.tex` (for primary document contents) and `project-macros.sty` (for project-specific macros).
 To get a list of available templates, run
 ```
 tpr info --list T
@@ -29,7 +27,7 @@ If you are currently in a project file, run
 ```
 tpr export
 ```
-to create an exported version of your project, with frozen (unlinked) packages.
+to create an exported version of your project in the same directory, with frozen (unlinked) packages.
 
 If you want to edit parameters of your document (such as citation files, additional macro sets, or other features), run
 ```
@@ -40,7 +38,8 @@ Once you are finished, run `tpr refresh` to reflect the changes in the support f
 
 Read about more features by running
 ```
-tpr info --help
+tpr --help
+tpr <subcommand> --help
 ```
 
 ### Usage Example
@@ -73,3 +72,18 @@ tpr export
 ```
 which will generate the file `example.zip` within the project directory.
 This zipfile contains all the important project files, as well as frozen versions of the dynamic macro files.
+
+## Terminology
+### Frozen Project
+In a frozen project, all macro files are copied rather than symlinked.
+By default, frozen macro files are never overwritten, even when converting a project to an un-frozen state.
+This can be useful to prevent breaking of macro files for old projects or when updating macro files.
+
+To overwrite frozen macro files, run `tpr refresh --force`.
+
+
+## Configuration Files
+### Project Configuration
+### User Configuration
+### System Configuration
+
