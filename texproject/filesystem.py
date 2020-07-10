@@ -151,7 +151,7 @@ class ProjectPath:
 JINJA_PATH = _JinjaTemplatePath()
 DATA_PATH = _DataPath()
 
-class BaseLinker:
+class _BaseLinker:
     def __init__(self, dir_path, suffix, user_str):
         self.user_str = user_str
         self.dir_path = dir_path
@@ -168,7 +168,7 @@ class BaseLinker:
     def file_path(self, name):
         return self.dir_path / f'{name}{self.suffix}'
 
-class FileLinker(BaseLinker):
+class _FileLinker(_BaseLinker):
     def __init__(self, dir_path, suffix, user_str, name_convention):
         super().__init__(dir_path, suffix, user_str)
         self.name_convention = name_convention
@@ -212,7 +212,7 @@ def yaml_load_with_default_template(path):
         template = yaml_load(path)
         return {**default_template, **template}
 
-class TemplateLinker(BaseLinker):
+class _TemplateLinker(_BaseLinker):
     def load_template(self, name):
         return yaml_load_with_default_template(
                 self.file_path(name) / NAMES.template_yaml)
@@ -223,25 +223,25 @@ class TemplateLinker(BaseLinker):
                 (path / NAMES.template_yaml).exists())
 
 #  def linker_factory
-macro_linker = FileLinker(
+macro_linker = _FileLinker(
         DATA_PATH.macro_dir,
         '.sty',
         'macro file',
         CONFIG['macro_prefix'])
 
-format_linker = FileLinker(
+format_linker = _FileLinker(
         DATA_PATH.format_dir,
         '.sty',
         'format file',
         CONFIG['format_prefix'])
 
-citation_linker = FileLinker(
+citation_linker = _FileLinker(
         DATA_PATH.citation_dir,
         '.bib',
         'citation file',
         CONFIG['citation_prefix'])
 
-template_linker = TemplateLinker(
+template_linker = _TemplateLinker(
         DATA_PATH.template_dir,
         '',
         'template')
