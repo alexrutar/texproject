@@ -27,7 +27,6 @@ class GenericTemplate:
         self.template_dict = template_dict
 
         self.env = Environment(
-                # jinja2 does not support PathLib objects
                 loader=FileSystemLoader(searchpath=DATA_PATH.data_dir),
                 block_start_string="<*",
                 block_end_string="*>",
@@ -35,8 +34,7 @@ class GenericTemplate:
                 variable_end_string="+>",
                 comment_start_string="<#",
                 comment_end_string="#>",
-                trim_blocks=True
-                )
+                trim_blocks=True)
 
         self.env.filters['safe_name'] = safe_name
 
@@ -47,9 +45,9 @@ class GenericTemplate:
 
     def render_template(self, template):
         return template.render(
-            user = self.user_dict, # user parameters
-            template = self.template_dict, # template parameters
-            config = CONFIG, # general filename conventions
+            user = self.user_dict,
+            template = self.template_dict,
+            config = CONFIG,
             bibliography = self.bibtext,
             date=datetime.date.today())
 
@@ -80,7 +78,7 @@ class ProjectTemplate(GenericTemplate):
         return cls(template_dict)
 
 
-    def write_tpr_files(self, proj_path,force=False,write_template=False):
+    def write_tpr_files(self, proj_path, force=False, write_template=False):
         proj_path.temp_dir.mkdir(exist_ok=True,parents=True)
 
         # write project information file

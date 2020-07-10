@@ -8,7 +8,7 @@ from .template import ProjectTemplate
 from .filesystem import (CONFIG, ProjectPath, CONFIG_PATH,
         macro_linker, citation_linker, template_linker)
 
-click_proj_dir = click.option(
+click_proj_dir_option = click.option(
     '-C', 'proj_dir',
     default='',
     show_default=True,
@@ -27,7 +27,7 @@ def cli():
 @click.option('--frozen/--no-frozen',
         default=False,
         help="create frozen project")
-@click_proj_dir
+@click_proj_dir_option
 def init(template, citation, frozen, proj_dir):
     """Initialize a new project in the current directory. The project is
     created using the template with name TEMPLATE and placed in the output
@@ -38,19 +38,19 @@ def init(template, citation, frozen, proj_dir):
     intermediate directories are automatically constructed."""
     proj_path = ProjectPath(proj_dir)
 
-    # TODO: just write in project files with no overwriting
-    #  if proj_path.exists():
-        #  if not (proj_path.is_dir() and len(list(proj_path.iterdir())) == 0):
-            #  raise click.ClickException(
-                #  f"project path '{proj_path}' already exists and is not an empty diretory.")
+    for path in proj_path.rootfiles:
+        if path.exists():
+            raise click.ClickException(
+                    (f"texproject file '{path.name}' already exists in the"
+                        " working directory."))
 
-    try:
-        proj_gen = ProjectTemplate.load_from_template(
-                template,
-                citation,
-                frozen=frozen)
-    except FileExistsError as err:
-        raise click.ClickException(err.strerror)
+    # TODO: catch missing template
+    proj_gen = ProjectTemplate.load_from_template(
+            template,
+            citation,
+            frozen=frozen)
+
+    # TODO: catch missing macro / citation files
     proj_gen.create_output_folder(proj_path)
 
 
@@ -58,7 +58,7 @@ def init(template, citation, frozen, proj_dir):
 # option to specify out folder or output name?
 # TODO: see https://click.palletsprojects.com/en/7.x/commands/#overriding-defaults
 @cli.command()
-@click_proj_dir
+@click_proj_dir_option
 @click.option('--compression',
         type=click.Choice([ar[0] for ar in shutil.get_archive_formats()],
             case_sensitive=False),
@@ -84,6 +84,7 @@ def export(proj_dir, compression):
     temp_dir = proj_path.temp_dir / 'output'
     archive_file = root_dir / proj_path.name
 
+    # TODO: catch errors if folder is not a valid project
     shutil.copytree(root_dir,
             temp_dir,
             copy_function=shutil.copyfile,
@@ -98,7 +99,7 @@ def export(proj_dir, compression):
 
 
 @cli.command()
-@click_proj_dir
+@click_proj_dir_option
 @click.option('--force/--no-force',
         default=False,
         help="overwrite project files")
@@ -128,7 +129,8 @@ def refresh(proj_dir,force):
                 err.strerror + ".")
     except FileExistsError as err:
         raise click.ClickException(
-                f"Could not overwrite existing file at '{err.filename}'. Run with `--force` to override.")
+                (f"Could not overwrite existing file at '{err.filename}'. "
+                    f"Run with `--force` to override."))
 
 
 @cli.command()
@@ -136,12 +138,13 @@ def refresh(proj_dir,force):
         default=True)
 @click.option('--user', 'config_file', flag_value='user')
 @click.option('--system', 'config_file', flag_value='system')
-@click_proj_dir
+@click_proj_dir_option
 def config(config_file, proj_dir):
     """Edit texproject configuration files. This opens the corresponding file
     in your $EDITOR. By default, edit the project configuration file; this
     requires the current directory (or the directory specified by -C) to be
     a texproject directory."""
+    # TODO: catch errors for valid project(perhaps cannot open project file?)
     proj_path = ProjectPath(proj_dir)
     dispatch = {
             'project': proj_path.config,
@@ -153,8 +156,8 @@ def config(config_file, proj_dir):
 
 
 # TODO: refactor this
-# have option positional argument for listing / descriptions?
-# write descriptions into packages, and write access methods
+# - have option positional argument for listing / descriptions?
+# - write descriptions into packages, and write access methods
 @cli.command()
 @click.option('--list','-l', 'listfiles',
         type=click.Choice(['C','M','T']))

@@ -148,6 +148,10 @@ class ProjectPath:
     def macro_proj(self):
         return f"{CONFIG['project_macro_file']}.sty"
 
+    @_constant
+    def rootfiles(self):
+        return (self.main, self.macro_proj, self.data_dir)
+
 JINJA_PATH = _JinjaTemplatePath()
 DATA_PATH = _DataPath()
 
@@ -176,7 +180,9 @@ class _FileLinker(_BaseLinker):
     def safe_name(self, name):
         return f"{self.name_convention}{CONFIG['prefix_separator']}{name}"
 
-    def link_name(self, name, rel_path, frozen=False,force=False,silent_fail=True):
+    def link_name(
+            self, name, rel_path,
+            frozen=False, force=False, silent_fail=True):
         source_path = self.file_path(name).resolve()
         target_path = rel_path / (self.safe_name(name) + self.suffix)
         if not source_path.exists():
