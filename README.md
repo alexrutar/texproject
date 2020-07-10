@@ -6,7 +6,8 @@ On UNIX-like systems, typically one can install the command-line tool with the f
 ```
 pip install texproject
 git clone https://github.com/alexrutar/texproject-templates ~/.local/share/texproject
-cp ~/.local/share/texproject/config/config.yaml ~/.config/texproject/config.yaml
+mkdir -p ~/.config/texproject
+cp ~/.local/share/texproject/config/user_config_example.yaml ~/.config/texproject/config.yaml
 ```
 Texproject complies with the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html); replace `~/.local/share` or `~/.config` with your configured directories.
 Currently, there is no installation script or package manager support, but I hope to implement this eventually.
