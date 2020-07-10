@@ -54,6 +54,7 @@ def init(template, citation, frozen, proj_dir):
 
     # TODO: catch missing macro / citation files
     proj_gen.create_output_folder(proj_path)
+    proj_gen.write_tpr_files(proj_path, write_template=True)
 
 
 # add copy .bbl option?

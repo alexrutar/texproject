@@ -23,8 +23,6 @@ def safe_name(name, style):
 
 class GenericTemplate:
     def __init__(self, template_dict):
-
-        # initialize some parameters
         self.user_dict = yaml_load(CONFIG_PATH.user)
         self.template_dict = template_dict
 
@@ -45,6 +43,7 @@ class GenericTemplate:
                 str(JINJA_PATH.bibliography)).render(config = CONFIG)
 
     def render_template(self, template):
+        """Render template and return template text."""
         return template.render(
             user = self.user_dict,
             template = self.template_dict,
@@ -53,6 +52,8 @@ class GenericTemplate:
             date=datetime.date.today())
 
     def write_template(self, template_path, target_path, force=False):
+        """Write template at location template_path to file at location
+        target_path. Overwrite target_path when force=True."""
         if target_path.exists() and not force:
             raise FileExistsError(
                     errno.EEXIST,
@@ -66,6 +67,7 @@ class GenericTemplate:
 class ProjectTemplate(GenericTemplate):
     @classmethod
     def load_from_template(cls, template_name, citations, frozen=False):
+        """Load the tempalte generator from a template name."""
         template_dict = template_linker.load_template(template_name)
         template_dict['citations'].extend(citations)
         template_dict['frozen'] = frozen
@@ -75,16 +77,13 @@ class ProjectTemplate(GenericTemplate):
 
     @classmethod
     def load_from_project(cls, proj_path):
+        """Load the template generator from an existing project."""
         template_dict = yaml_load_with_default_template(proj_path.config)
         return cls(template_dict)
 
-    def make_link(self, linker, name):
-        linker.link_name(name,
-                proj_path.data_dir,
-                frozen=self.template_dict['frozen'],
-                force=force)
 
     def write_tpr_files(self, proj_path, force=False, write_template=False):
+        """Create texproject project data directory and write files."""
         proj_path.temp_dir.mkdir(exist_ok=True,parents=True)
 
         if write_template:
@@ -101,15 +100,23 @@ class ProjectTemplate(GenericTemplate):
                 proj_path.bibinfo,
                 force=True)
 
+        def make_link(linker, name):
+            """Helper function for linking."""
+            linker.link_name(name,
+                    proj_path.data_dir,
+                    frozen=self.template_dict['frozen'],
+                    force=force)
+
         for macro in self.template_dict['macros']:
-            self.make_link(macro_linker, macro)
+            make_link(macro_linker, macro)
 
         for cit in self.template_dict['citations']:
-            self.make_link(citation_linker, cit)
+            make_link(citation_linker, cit)
 
-        self.make_link(format_linker, self.template_dict['format'])
+        make_link(format_linker, self.template_dict['format'])
 
     def create_output_folder(self, proj_path):
+        """Write user-visible output folder files into the project path."""
         self.write_template(
                 self.template_path,
                 proj_path.main)
@@ -117,5 +124,3 @@ class ProjectTemplate(GenericTemplate):
         self.write_template(
                 JINJA_PATH.project_macro,
                 proj_path.macro_proj)
-
-        self.write_tpr_files(proj_path,write_template=True)
