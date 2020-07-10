@@ -207,12 +207,15 @@ class FileLinker(BaseLinker):
         else:
             target_path.symlink_to(source_path)
 
+def yaml_load_with_default_template(path):
+        default_template = yaml_load(DATA_PATH.default_template)
+        template = yaml_load(path)
+        return {**default_template, **template}
+
 class TemplateLinker(BaseLinker):
     def load_template(self, name):
-        default_template = yaml_load(DATA_PATH.default_template)
-        template = yaml_load(
+        return yaml_load_with_default_template(
                 self.file_path(name) / NAMES.template_yaml)
-        return {**default_template, **template}
 
     def valid_path(self, path):
         return (super().valid_path(path) and

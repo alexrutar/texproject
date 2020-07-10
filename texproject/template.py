@@ -5,7 +5,7 @@ import os
 import errno
 
 from .filesystem import (CONFIG, CONFIG_PATH, DATA_PATH, JINJA_PATH,
-        ProjectPath, yaml_load, yaml_dump,
+        ProjectPath, yaml_load, yaml_dump, yaml_load_with_default_template,
         macro_linker, format_linker, citation_linker, template_linker)
 
 # special renamed function for use in templates
@@ -76,7 +76,7 @@ class ProjectTemplate(GenericTemplate):
 
     @classmethod
     def load_from_project(cls, proj_path):
-        template_dict = yaml_load(proj_path.config)
+        template_dict = yaml_load_with_default_template(proj_path.config)
         return cls(template_dict)
 
 
