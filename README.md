@@ -1,5 +1,5 @@
 # TexProject: An automatic LaTeX project manager.
-TexProject is a LaTeX template and project manager written in Python.
+TexPRoject is a command-line LaTeX template and project manager written in Python.
 
 ## Installation
 On UNIX-like systems, typically one can install the command-line tool with the following commands:
