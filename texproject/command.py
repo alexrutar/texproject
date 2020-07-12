@@ -1,7 +1,8 @@
 import click
 from pathlib import Path
-#  from shutil import make_archive, copytree, copyfile
+import subprocess
 import shutil
+import shlex
 
 from . import __version__, __repo__
 from .template import ProjectTemplate
@@ -56,6 +57,10 @@ def init(template, citation, frozen, proj_dir):
     proj_gen.create_output_folder(proj_path)
     proj_gen.write_tpr_files(proj_path, write_template=True)
 
+    # initialize git
+    subprocess.run(['git', 'init'],cwd=proj_path.dir)
+    print(shlex.split(CONFIG['latex_compile_command']))
+
 
 # add copy .bbl option?
 # option to specify out folder or output name?
@@ -91,7 +96,7 @@ def export(proj_dir, compression):
     shutil.copytree(root_dir,
             temp_dir,
             copy_function=shutil.copyfile,
-            ignore=shutil.ignore_patterns(*CONFIG['export_ignore_patterns']))
+            ignore=shutil.ignore_patterns(*CONFIG['ignore_patterns']))
 
     shutil.make_archive(archive_file,
             compression,
@@ -192,4 +197,14 @@ MIT License.""")
             click.echo(f"Available {ld.user_str}s:")
         click.echo(" " + "\t".join(ld.list_names()))
 
+# TODO: support multi-file tex commands
+# .gitignore should include past .sty version?
+# what happens if you call refresh? past versions might be broken
+@cli.command()
+@click.argument('revision')
+@click_proj_dir_option
+def diff(proj_dir):
+    """Generate file diff.pdf which compares your current project with your
+    revision version."""
+    pass
 

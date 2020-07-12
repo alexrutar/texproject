@@ -93,6 +93,10 @@ class _JinjaTemplatePath:
         return self._template_resource_dir / 'project_macro_file.tex'
 
     @_constant
+    def gitignore(self):
+        return self._template_resource_dir / 'gitignore'
+
+    @_constant
     def classinfo(self):
         return self._template_resource_dir / 'classinfo.tex'
 
@@ -154,12 +158,16 @@ class ProjectPath:
         return f"{CONFIG['default_tex_name']}.tex"
 
     @relative('root')
-    def macro_proj(self):
+    def project_macro(self):
         return f"{CONFIG['project_macro_file']}.sty"
+
+    @relative('root')
+    def gitignore(self):
+        return f".gitignore"
 
     @_constant
     def rootfiles(self):
-        return (self.main, self.macro_proj, self.data_dir)
+        return (self.main, self.project_macro, self.data_dir, self.gitignore)
 
 
 JINJA_PATH = _JinjaTemplatePath()
