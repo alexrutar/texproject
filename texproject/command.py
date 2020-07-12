@@ -30,8 +30,11 @@ def cli():
 @click.option('--frozen/--no-frozen',
         default=False,
         help="create frozen project")
+@click.option('--git/--no-git',
+        default=True,
+        help="initialize with git repo")
 @click_proj_dir_option
-def init(template, citation, frozen, proj_dir):
+def init(template, citation, frozen, proj_dir, git):
     """Initialize a new project in the current directory. The project is
     created using the template with name TEMPLATE and placed in the output
     folder OUTPUT. If the frozen flag is specified, support files are copied
@@ -54,11 +57,12 @@ def init(template, citation, frozen, proj_dir):
             frozen=frozen)
 
     # TODO: catch missing macro / citation files
-    proj_gen.create_output_folder(proj_path)
+    proj_gen.create_output_folder(proj_path,git=git)
     proj_gen.write_tpr_files(proj_path, write_template=True)
 
     # initialize git
-    subprocess.run(['git', 'init'],cwd=proj_path.dir)
+    if git:
+        subprocess.run(['git', 'init'],cwd=proj_path.dir)
     print(shlex.split(CONFIG['latex_compile_command']))
 
 

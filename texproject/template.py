@@ -115,7 +115,7 @@ class ProjectTemplate(GenericTemplate):
 
         make_link(format_linker, self.template_dict['format'])
 
-    def create_output_folder(self, proj_path):
+    def create_output_folder(self, proj_path, git=False):
         """Write user-visible output folder files into the project path."""
         self.write_template(
                 JINJA_PATH.template_doc(self.template_name),
@@ -125,6 +125,7 @@ class ProjectTemplate(GenericTemplate):
                 JINJA_PATH.project_macro,
                 proj_path.project_macro)
 
-        self.write_template(
-                JINJA_PATH.gitignore,
-                proj_path.gitignore)
+        if git:
+            self.write_template(
+                    JINJA_PATH.gitignore,
+                    proj_path.gitignore)
