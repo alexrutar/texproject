@@ -7,7 +7,7 @@ upload:
 test:
 	-trash test
 	mkdir test
-	tpr init preprint -C test
+	tpr init preprint -C test --no-git
 	echo "- tikz" >> test/.texproject/tpr_info.yaml
 	tpr refresh -C test
 	tpr export -C test --compression xztar

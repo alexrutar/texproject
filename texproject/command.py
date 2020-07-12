@@ -12,7 +12,7 @@ from .filesystem import (CONFIG, ProjectPath, CONFIG_PATH,
 
 click_proj_dir_option = click.option(
     '-C', 'proj_dir',
-    default='',
+    default='.',
     show_default=True,
     help='working directory')
 
@@ -29,9 +29,11 @@ def cli():
         help="include citation file")
 @click.option('--frozen/--no-frozen',
         default=False,
+        show_default=True,
         help="create frozen project")
 @click.option('--git/--no-git',
         default=True,
+        show_default=True,
         help="initialize with git repo")
 @click_proj_dir_option
 def init(template, citation, frozen, proj_dir, git):
@@ -62,8 +64,10 @@ def init(template, citation, frozen, proj_dir, git):
 
     # initialize git
     if git:
-        subprocess.run(['git', 'init'],cwd=proj_path.dir)
-    print(shlex.split(CONFIG['latex_compile_command']))
+        subprocess.run(
+                ['git', 'init'],
+                cwd=proj_path.dir,
+                capture_output=True) # ? keep or no? depends on verbosity...
 
 
 # add copy .bbl option?
@@ -207,8 +211,30 @@ MIT License.""")
 @cli.command()
 @click.argument('revision')
 @click_proj_dir_option
-def diff(proj_dir):
+def diff(revision, proj_dir):
     """Generate file diff.pdf which compares your current project with your
     revision version."""
-    pass
+    proj_path = ProjectPath(proj_dir)
+    proc = subprocess.run(
+            ['git', 'show', f"{revision}:{CONFIG['default_tex_name']}.tex"],
+            capture_output=True)
+    (proj_path.temp_dir / 'diff_rev.tex').write_text(str(proc.stdout, 'utf-8'))
+    (proj_path.temp_dir / 'diff_cur.tex').write_text(
+            proj_path.main.read_text())
+    proc = subprocess.run(
+            ['latexdiff', 'diff_rev.tex', 'diff_cur.tex'],
+            capture_output=True,
+            cwd = proj_path.temp_dir)
+
+    (proj_path.temp_dir / 'diff_out.tex').write_text(
+            str(proc.stdout, 'utf-8'))
+    proc = subprocess.run(shlex.split(CONFIG['latex_compile_command']) + \
+            [str(proj_path.temp_dir / 'diff_out.tex'), '-outdir=.texproject/tmp'],
+            cwd=proj_path.dir,
+            capture_output=True)
+    (proj_path.log_dir / 'temp.log').write_text(str(proc.stdout,'utf-8'))
+    shutil.copyfile(
+            proj_path.temp_dir / 'diff_out.pdf',
+            proj_path.dir / 'diff.pdf')
+
 

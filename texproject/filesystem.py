@@ -153,6 +153,10 @@ class ProjectPath:
     def temp_dir(self):
         return 'tmp'
 
+    @relative('data')
+    def log_dir(self):
+        return 'log'
+
     @relative('root')
     def main(self):
         return f"{CONFIG['default_tex_name']}.tex"
