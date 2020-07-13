@@ -49,6 +49,7 @@ class GenericTemplate:
             template = self.template_dict,
             config = CONFIG,
             bibliography = self.bibtext,
+            replace = CONFIG['replace_text']
             date=datetime.date.today())
 
     def write_template(self, template_path, target_path, force=False):
