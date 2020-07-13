@@ -1,7 +1,8 @@
 import click
 from pathlib import Path
-#  from shutil import make_archive, copytree, copyfile
+import subprocess
 import shutil
+import shlex
 
 from . import __version__, __repo__
 from .template import ProjectTemplate
@@ -11,7 +12,7 @@ from .filesystem import (CONFIG, ProjectPath, CONFIG_PATH,
 
 click_proj_dir_option = click.option(
     '-C', 'proj_dir',
-    default='',
+    default='.',
     show_default=True,
     help='working directory')
 
@@ -28,9 +29,14 @@ def cli():
         help="include citation file")
 @click.option('--frozen/--no-frozen',
         default=False,
+        show_default=True,
         help="create frozen project")
+@click.option('--git/--no-git',
+        default=True,
+        show_default=True,
+        help="initialize with git repo")
 @click_proj_dir_option
-def init(template, citation, frozen, proj_dir):
+def init(template, citation, frozen, proj_dir, git):
     """Initialize a new project in the current directory. The project is
     created using the template with name TEMPLATE and placed in the output
     folder OUTPUT. If the frozen flag is specified, support files are copied
@@ -53,8 +59,15 @@ def init(template, citation, frozen, proj_dir):
             frozen=frozen)
 
     # TODO: catch missing macro / citation files
-    proj_gen.create_output_folder(proj_path)
+    proj_gen.create_output_folder(proj_path,git=git)
     proj_gen.write_tpr_files(proj_path, write_template=True)
+
+    # initialize git
+    if git:
+        subprocess.run(
+                ['git', 'init'],
+                cwd=proj_path.dir,
+                capture_output=True) # ? keep or no? depends on verbosity...
 
 
 # add copy .bbl option?
@@ -91,7 +104,7 @@ def export(proj_dir, compression):
     shutil.copytree(root_dir,
             temp_dir,
             copy_function=shutil.copyfile,
-            ignore=shutil.ignore_patterns(*CONFIG['export_ignore_patterns']))
+            ignore=shutil.ignore_patterns(*CONFIG['ignore_patterns']))
 
     shutil.make_archive(archive_file,
             compression,
@@ -133,6 +146,7 @@ def refresh(proj_dir,force):
         raise click.ClickException(
                 (f"Could not overwrite existing file at '{err.filename}'. "
                     f"Run with `--force` to override."))
+    proj_path.clear_temp()
 
 
 @cli.command()
@@ -191,5 +205,50 @@ MIT License.""")
             click.echo(f"\nDirectory for {ld.user_str}s: '{ld.dir_path}'.")
             click.echo(f"Available {ld.user_str}s:")
         click.echo(" " + "\t".join(ld.list_names()))
+
+# TODO: support multi-file tex commands
+# .gitignore should include past .sty version?
+# what happens if you call refresh? past versions might be broken
+@cli.command()
+@click.argument('revision')
+@click_proj_dir_option
+def diff(revision, proj_dir):
+    """Generate file diff.pdf which compares your current project with your
+    revision version."""
+    proj_path = ProjectPath(proj_dir)
+
+    # find the corresponding main.tex
+    git_show = subprocess.run(
+            ['git', 'show', f"{revision}:{CONFIG['default_tex_name']}.tex"],
+            capture_output=True)
+    temp_subdir = proj_path.get_temp_subdir()
+
+    revision_file = temp_subdir / 'diff_rev.tex'
+    revision_file.write_text(str(git_show.stdout, 'utf-8'))
+
+    current_file = temp_subdir / 'diff_cur.tex'
+    current_file.write_text(proj_path.main.read_text())
+
+    output_tex = temp_subdir / 'diff_out.tex'
+    output_pdf = temp_subdir / 'diff_out.pdf'
+
+    latexdiff = subprocess.run(
+            ['latexdiff', revision_file.name, current_file.name],
+            capture_output=True,
+            cwd = temp_subdir)
+
+    (temp_subdir / 'diff_out.tex').write_text(
+            str(latexdiff.stdout, 'utf-8'))
+
+    proc = subprocess.run(shlex.split(CONFIG['latex_compile_command']) + \
+            [str(output_tex)],
+            cwd=proj_path.dir,
+            capture_output=True)
+    (proj_path.log_dir / 'temp.log').write_text(str(proc.stdout,'utf-8'))
+
+    click.echo(f"Diff file written to '.texproject/aux/diff_out.pdf'")
+    #  shutil.copyfile(
+            #  output_pdf,
+            #  proj_path.dir / 'diff.pdf')
 
 

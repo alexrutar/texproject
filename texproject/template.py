@@ -73,7 +73,7 @@ class ProjectTemplate(GenericTemplate):
         template_dict['citations'].extend(citations)
         template_dict['frozen'] = frozen
         self = cls(template_dict)
-        self.template_path = JINJA_PATH.template_doc(template_name)
+        self.template_name = template_name
         return self
 
     @classmethod
@@ -85,7 +85,10 @@ class ProjectTemplate(GenericTemplate):
 
     def write_tpr_files(self, proj_path, force=False, write_template=False):
         """Create texproject project data directory and write files."""
-        proj_path.temp_dir.mkdir(exist_ok=True,parents=True)
+
+        # initialize resource directories
+        for dir in proj_path.data_subdirs:
+            dir.mkdir(exist_ok=True,parents=True)
 
         if write_template:
             yaml_dump(
@@ -116,12 +119,17 @@ class ProjectTemplate(GenericTemplate):
 
         make_link(format_linker, self.template_dict['format'])
 
-    def create_output_folder(self, proj_path):
+    def create_output_folder(self, proj_path, git=False):
         """Write user-visible output folder files into the project path."""
         self.write_template(
-                self.template_path,
+                JINJA_PATH.template_doc(self.template_name),
                 proj_path.main)
 
         self.write_template(
                 JINJA_PATH.project_macro,
-                proj_path.macro_proj)
+                proj_path.project_macro)
+
+        if git:
+            self.write_template(
+                    JINJA_PATH.gitignore,
+                    proj_path.gitignore)

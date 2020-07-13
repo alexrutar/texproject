@@ -1,9 +1,10 @@
 from xdg import XDG_DATA_HOME, XDG_CONFIG_HOME
 from pathlib import Path
-from shutil import copyfile
+import shutil
 import os
 import errno
 import yaml
+import uuid
 
 
 def _constant(f):
@@ -93,6 +94,10 @@ class _JinjaTemplatePath:
         return self._template_resource_dir / 'project_macro_file.tex'
 
     @_constant
+    def gitignore(self):
+        return self._template_resource_dir / 'gitignore'
+
+    @_constant
     def classinfo(self):
         return self._template_resource_dir / 'classinfo.tex'
 
@@ -137,29 +142,60 @@ class ProjectPath:
     def bibinfo(self):
         return f"{CONFIG['bibinfo_file']}.tex"
 
-    @relative('data')
-    def data_dir(self):
-        return ''
-
     @relative('root')
     def dir(self):
+        return ''
+
+    @relative('data')
+    def data_dir(self):
         return ''
 
     @relative('data')
     def temp_dir(self):
         return 'tmp'
 
+    @relative('data')
+    def log_dir(self):
+        return 'log'
+
+    @relative('data')
+    def aux_dir(self):
+        return 'aux'
+
     @relative('root')
     def main(self):
         return f"{CONFIG['default_tex_name']}.tex"
 
     @relative('root')
-    def macro_proj(self):
+    def project_macro(self):
         return f"{CONFIG['project_macro_file']}.sty"
 
+    @relative('root')
+    def gitignore(self):
+        return f".gitignore"
+
+    @_constant
+    def data_subdirs(self):
+        return (self.data_dir, self.temp_dir, self.aux_dir)
     @_constant
     def rootfiles(self):
-        return (self.main, self.macro_proj, self.data_dir)
+        return (self.main, self.project_macro, self.data_dir, self.gitignore)
+
+    def get_temp_subdir(self):
+        path = self.temp_dir / uuid.uuid1().hex
+        path.mkdir()
+        return path
+
+    def clear_temp(self):
+        #  folder = '/path/to/folder'
+        for file_path in self.temp_dir.iterdir():
+            try:
+                if file_path.is_file() or file_path.is_symlink():
+                    file_path.unlink()
+                elif file_path.is_dir():
+                    shutil.rmtree(file_path)
+            except Exception as e:
+                print(f"Failed to delete '{file_path}'. Reason: {e}")
 
 
 JINJA_PATH = _JinjaTemplatePath()
@@ -219,7 +255,7 @@ class _FileLinker(_BaseLinker):
                             str(target_path.resolve()))
 
         if frozen:
-            copyfile(
+            shutil.copyfile(
                     str(source_path),
                     str(target_path.resolve()))
         else:
