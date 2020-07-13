@@ -146,6 +146,7 @@ def refresh(proj_dir,force):
         raise click.ClickException(
                 (f"Could not overwrite existing file at '{err.filename}'. "
                     f"Run with `--force` to override."))
+    proj_path.clear_temp()
 
 
 @cli.command()
@@ -215,26 +216,39 @@ def diff(revision, proj_dir):
     """Generate file diff.pdf which compares your current project with your
     revision version."""
     proj_path = ProjectPath(proj_dir)
-    proc = subprocess.run(
+
+    # find the corresponding main.tex
+    git_show = subprocess.run(
             ['git', 'show', f"{revision}:{CONFIG['default_tex_name']}.tex"],
             capture_output=True)
-    (proj_path.temp_dir / 'diff_rev.tex').write_text(str(proc.stdout, 'utf-8'))
-    (proj_path.temp_dir / 'diff_cur.tex').write_text(
-            proj_path.main.read_text())
-    proc = subprocess.run(
-            ['latexdiff', 'diff_rev.tex', 'diff_cur.tex'],
-            capture_output=True,
-            cwd = proj_path.temp_dir)
+    temp_subdir = proj_path.get_temp_subdir()
 
-    (proj_path.temp_dir / 'diff_out.tex').write_text(
-            str(proc.stdout, 'utf-8'))
+    revision_file = temp_subdir / 'diff_rev.tex'
+    revision_file.write_text(str(git_show.stdout, 'utf-8'))
+
+    current_file = temp_subdir / 'diff_cur.tex'
+    current_file.write_text(proj_path.main.read_text())
+
+    output_tex = temp_subdir / 'diff_out.tex'
+    output_pdf = temp_subdir / 'diff_out.pdf'
+
+    latexdiff = subprocess.run(
+            ['latexdiff', revision_file.name, current_file.name],
+            capture_output=True,
+            cwd = temp_subdir)
+
+    (temp_subdir / 'diff_out.tex').write_text(
+            str(latexdiff.stdout, 'utf-8'))
+
     proc = subprocess.run(shlex.split(CONFIG['latex_compile_command']) + \
-            [str(proj_path.temp_dir / 'diff_out.tex'), '-outdir=.texproject/tmp'],
+            [str(output_tex)],
             cwd=proj_path.dir,
-            capture_output=True)
-    (proj_path.log_dir / 'temp.log').write_text(str(proc.stdout,'utf-8'))
-    shutil.copyfile(
-            proj_path.temp_dir / 'diff_out.pdf',
-            proj_path.dir / 'diff.pdf')
+            capture_output=False)
+    #  (proj_path.log_dir / 'temp.log').write_text(str(proc.stdout,'utf-8'))
+
+    click.echo(f"Diff file written to '.texproject/aux/diff_out.pdf'")
+    #  shutil.copyfile(
+            #  output_pdf,
+            #  proj_path.dir / 'diff.pdf')
 
 

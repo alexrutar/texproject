@@ -86,8 +86,8 @@ class ProjectTemplate(GenericTemplate):
         """Create texproject project data directory and write files."""
 
         # initialize resource directories
-        proj_path.temp_dir.mkdir(exist_ok=True,parents=True)
-        proj_path.log_dir.mkdir(exist_ok=True,parents=True)
+        for dir in proj_path.data_subdirs:
+            dir.mkdir(exist_ok=True,parents=True)
 
         if write_template:
             yaml_dump(
