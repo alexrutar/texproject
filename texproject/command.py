@@ -243,8 +243,8 @@ def diff(revision, proj_dir):
     proc = subprocess.run(shlex.split(CONFIG['latex_compile_command']) + \
             [str(output_tex)],
             cwd=proj_path.dir,
-            capture_output=False)
-    #  (proj_path.log_dir / 'temp.log').write_text(str(proc.stdout,'utf-8'))
+            capture_output=True)
+    (proj_path.log_dir / 'temp.log').write_text(str(proc.stdout,'utf-8'))
 
     click.echo(f"Diff file written to '.texproject/aux/diff_out.pdf'")
     #  shutil.copyfile(
