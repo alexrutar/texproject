@@ -176,7 +176,8 @@ class ProjectPath:
 
     @_constant
     def data_subdirs(self):
-        return (self.data_dir, self.temp_dir, self.aux_dir)
+        return (self.data_dir, self.log_dir, self.temp_dir, self.aux_dir)
+
     @_constant
     def rootfiles(self):
         return (self.main, self.project_macro, self.data_dir, self.gitignore)

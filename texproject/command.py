@@ -237,7 +237,7 @@ def diff(revision, proj_dir):
             capture_output=True,
             cwd = temp_subdir)
 
-    (temp_subdir / 'diff_out.tex').write_text(
+    output_tex.write_text(
             str(latexdiff.stdout, 'utf-8'))
 
     proc = subprocess.run(shlex.split(CONFIG['latex_compile_command']) + \
