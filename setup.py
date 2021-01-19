@@ -31,4 +31,3 @@ setup(
     entry_points={'console_scripts': ['tpr = texproject.command:cli']},
     zip_safe=False
     )
-
