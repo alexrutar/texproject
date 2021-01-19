@@ -8,6 +8,7 @@ from . import __version__, __repo__
 from .template import ProjectTemplate
 from .filesystem import (CONFIG, ProjectPath, CONFIG_PATH,
         macro_linker, citation_linker, template_linker)
+from .export import create_export
 
 
 click_proj_dir_option = click.option(
@@ -81,7 +82,11 @@ def init(template, citation, frozen, proj_dir, git):
         show_default=True,
         default=CONFIG['default_compression'],
         help="compression mode")
-def export(proj_dir, compression):
+@click.option('--arxiv/--no-arxiv',
+        default=False,
+        show_default=True,
+        help="format for arXiv")
+def export(proj_dir, compression, arxiv):
     """Create a compressed export of an existing project.
 
     \b
@@ -93,24 +98,12 @@ def export(proj_dir, compression):
      zip: ZIP file
 
     Note that not all compression modes may be available on your system.
+arxiv: arXiv-compatible
+
     """
-    proj_path = ProjectPath(proj_dir)
-
-    root_dir = proj_path.dir
-    temp_dir = proj_path.temp_dir / 'output'
-    archive_file = root_dir / proj_path.name
-
     # TODO: catch errors if folder is not a valid project
-    shutil.copytree(root_dir,
-            temp_dir,
-            copy_function=shutil.copyfile,
-            ignore=shutil.ignore_patterns(*CONFIG['ignore_patterns']))
-
-    shutil.make_archive(archive_file,
-            compression,
-            temp_dir)
-
-    shutil.rmtree(temp_dir)
+    proj_path = ProjectPath(proj_dir)
+    create_export(proj_path, compression, arxiv)
 
 
 @cli.command()
@@ -118,7 +111,7 @@ def export(proj_dir, compression):
 @click.option('--force/--no-force',
         default=False,
         help="overwrite project files")
-def refresh(proj_dir,force):
+def refresh(proj_dir, force):
     """Regenerate project macro and support files.
     Refresh reads information from the project information file .tpr_info and
     uses it to rebuild auto-generated files.
@@ -247,8 +240,4 @@ def diff(revision, proj_dir):
     (proj_path.log_dir / 'temp.log').write_text(str(proc.stdout,'utf-8'))
 
     click.echo(f"Diff file written to '.texproject/aux/diff_out.pdf'")
-    #  shutil.copyfile(
-            #  output_pdf,
-            #  proj_path.dir / 'diff.pdf')
-
 

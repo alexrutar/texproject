@@ -109,6 +109,10 @@ class _JinjaTemplatePath:
     def bibliography(self):
         return self._template_resource_dir / 'bibliography.tex'
 
+    @_constant
+    def arxiv_autotex(self):
+        return self._template_resource_dir / 'arxiv_autotex.txt'
+
 
 def relative(base):
     def fset(self, value):
@@ -167,12 +171,17 @@ class ProjectPath:
         return f"{CONFIG['default_tex_name']}.tex"
 
     @relative('root')
+    def arxiv_autotex(self):
+        return "000README.XXX"
+
+    @relative('root')
     def project_macro(self):
         return f"{CONFIG['project_macro_file']}.sty"
 
     @relative('root')
     def gitignore(self):
         return f".gitignore"
+
 
     @_constant
     def data_subdirs(self):

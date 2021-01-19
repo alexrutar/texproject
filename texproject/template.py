@@ -68,7 +68,7 @@ class GenericTemplate:
 class ProjectTemplate(GenericTemplate):
     @classmethod
     def load_from_template(cls, template_name, citations, frozen=False):
-        """Load the tempalte generator from a template name."""
+        """Load the template generator from a template name."""
         template_dict = template_linker.load_template(template_name)
         template_dict['citations'].extend(citations)
         template_dict['frozen'] = frozen
@@ -133,3 +133,8 @@ class ProjectTemplate(GenericTemplate):
             self.write_template(
                     JINJA_PATH.gitignore,
                     proj_path.gitignore)
+
+    def write_arxiv_autotex(self, proj_path):
+        self.write_template(
+                JINJA_PATH.arxiv_autotex,
+                proj_path.arxiv_autotex)
