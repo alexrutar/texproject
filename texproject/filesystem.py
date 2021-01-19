@@ -6,6 +6,9 @@ import errno
 import yaml
 import uuid
 
+from .error import (ProjectExistsError, ProjectDataMissingError,
+        ProjectMissingError, TemplateDataMissingError, SystemDataMissingError)
+
 
 def _constant(f):
     def fset(self, value):
@@ -130,9 +133,21 @@ def relative(base):
 
 
 class ProjectPath:
-    def __init__(self, out_folder):
+    def __init__(self, out_folder, exists=True):
+        """If exists is False, check that there are no conflicts"""
         self.out_folder = Path(out_folder).resolve()
         self.name = self.dir.name
+        if not exists and self.project_exists():
+            raise ProjectExistsError(self.out_folder, message=f"Conflicting project files at '{self.out_folder}'.")
+        elif exists and not self.is_minimal_project():
+            raise ProjectMissingError(self.out_folder)
+
+    def project_exists(self):
+        """Check if there is an existing project at the path"""
+        return any(path.exists() for path in self.rootfiles)
+
+    def is_minimal_project(self):
+        return all(path.exists() for path in self.minimal_files)
 
     @relative('data')
     def config(self):
@@ -191,6 +206,10 @@ class ProjectPath:
     def rootfiles(self):
         return (self.main, self.project_macro, self.data_dir, self.gitignore)
 
+    @_constant
+    def minimal_files(self):
+        return (self.main, self.data_dir)
+
     def get_temp_subdir(self):
         path = self.temp_dir / uuid.uuid1().hex
         path.mkdir()
@@ -244,10 +263,10 @@ class _FileLinker(_BaseLinker):
         source_path = self.file_path(name).resolve()
         target_path = rel_path / (self.safe_name(name) + self.suffix)
         if not source_path.exists():
-            raise FileNotFoundError(
-                    errno.ENOENT,
-                    f"The {self.user_str} '{name}' does not exist at source",
-                    str(source_path.resolve()))
+            raise TemplateDataMissingError(
+                    source_path,
+                    user_str=self.user_str,
+                    name=name)
 
         if target_path.is_symlink():
             target_path.unlink()
@@ -272,16 +291,36 @@ class _FileLinker(_BaseLinker):
             target_path.symlink_to(source_path)
 
 
-def yaml_load_with_default_template(path):
+def _load_default_template():
+    try:
         default_template = yaml_load(DATA_PATH.default_template)
+    except FileNotFoundError:
+        raise SystemDataMissingError(path)
+    return default_template
+
+def yaml_load_local_template(path):
+    default_template = _load_default_template()
+    try:
         template = yaml_load(path)
-        return {**default_template, **template}
+    except FileNotFoundError:
+        raise ProjectDataMissingError(path, message="The local template file is missing.")
+    return {**default_template, **template}
+
+def yaml_load_system_template(path, user_str, name=None):
+    default_template = _load_default_template()
+    try:
+        template = yaml_load(path)
+    except FileNotFoundError:
+        raise TemplateDataMissingError(path, user_str=user_str, name=name)
+    return {**default_template, **template}
 
 
 class _TemplateLinker(_BaseLinker):
     def load_template(self, name):
-        return yaml_load_with_default_template(
-                self.file_path(name) / NAMES.template_yaml)
+        return yaml_load_system_template(
+                self.file_path(name) / NAMES.template_yaml,
+                self.user_str,
+                name=name)
 
     def valid_path(self, path):
         return (super().valid_path(path) and

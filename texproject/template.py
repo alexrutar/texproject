@@ -1,13 +1,14 @@
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 import datetime
 from pathlib import Path
 import os
 import errno
 
 from .filesystem import (CONFIG, CONFIG_PATH, DATA_PATH, JINJA_PATH,
-        ProjectPath, yaml_load, yaml_dump, yaml_load_with_default_template,
+        ProjectPath, yaml_load, yaml_dump, yaml_load_local_template,
         macro_linker, format_linker, citation_linker, template_linker)
 
+from .error import SystemDataMissingError
 
 def safe_name(name, style):
     """Safe namer for use in templates."""
@@ -60,9 +61,12 @@ class GenericTemplate:
                     errno.EEXIST,
                     f"Template write location aready exists",
                     str(target_path.resolve()))
-        target_path.write_text(
-            self.render_template(
-                self.env.get_template(str(template_path))))
+        try:
+            target_path.write_text(
+                self.render_template(
+                    self.env.get_template(str(template_path))))
+        except TemplateNotFound:
+            raise SystemDataMissingError(template_path)
 
 
 class ProjectTemplate(GenericTemplate):
@@ -79,7 +83,7 @@ class ProjectTemplate(GenericTemplate):
     @classmethod
     def load_from_project(cls, proj_path):
         """Load the template generator from an existing project."""
-        template_dict = yaml_load_with_default_template(proj_path.config)
+        template_dict = yaml_load_local_template(proj_path.config)
         return cls(template_dict)
 
 
@@ -88,7 +92,7 @@ class ProjectTemplate(GenericTemplate):
 
         # initialize resource directories
         for dir in proj_path.data_subdirs:
-            dir.mkdir(exist_ok=True,parents=True)
+            dir.mkdir(exist_ok=True, parents=True)
 
         if write_template:
             yaml_dump(

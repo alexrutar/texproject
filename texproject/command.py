@@ -10,6 +10,9 @@ from .filesystem import (CONFIG, ProjectPath, CONFIG_PATH,
         macro_linker, citation_linker, template_linker)
 from .export import create_export
 
+from .error import BasePathError
+from .term import REPO_FORMATTED, err_echo
+
 
 click_proj_dir_option = click.option(
     '-C', 'proj_dir',
@@ -17,11 +20,17 @@ click_proj_dir_option = click.option(
     show_default=True,
     help='working directory')
 
-@click.group()
+class CatchPathExceptions(click.Group):
+    def __call__(self, *args, **kwargs):
+        try:
+            return self.main(*args, **kwargs)
+        except BasePathError as err:
+            err_echo(err.message)
+
+@click.group(cls=CatchPathExceptions)
 @click.version_option(prog_name="tpr (texproject)")
 def cli():
     pass
-
 
 @cli.command()
 @click.argument('template')
@@ -45,21 +54,13 @@ def init(template, citation, frozen, proj_dir, git):
 
     The path OUTPUT either must not exist or be an empty folder. Missing
     intermediate directories are automatically constructed."""
-    proj_path = ProjectPath(proj_dir)
+    proj_path = ProjectPath(proj_dir, exists=False)
 
-    for path in proj_path.rootfiles:
-        if path.exists():
-            raise click.ClickException(
-                    (f"texproject file '{path.name}' already exists in the"
-                        " working directory."))
-
-    # TODO: catch missing template
     proj_gen = ProjectTemplate.load_from_template(
             template,
             citation,
             frozen=frozen)
 
-    # TODO: catch missing macro / citation files
     proj_gen.create_output_folder(proj_path,git=git)
     proj_gen.write_tpr_files(proj_path, write_template=True)
 
@@ -101,7 +102,6 @@ def export(proj_dir, compression, arxiv):
 arxiv: arXiv-compatible
 
     """
-    # TODO: catch errors if folder is not a valid project
     proj_path = ProjectPath(proj_dir)
     create_export(proj_path, compression, arxiv)
 
@@ -121,25 +121,17 @@ def refresh(proj_dir, force):
     citation files.
     """
     proj_path = ProjectPath(proj_dir)
-    try:
-        proj_info = ProjectTemplate.load_from_project(proj_path)
-    except FileNotFoundError:
-        if proj_path == Path('.'):
-            message = "Current output is not a valid project folder."
-        else:
-            message = "output '{proj_path}' is not a valid project folder."
-        raise click.ClickException(message)
+    proj_info = ProjectTemplate.load_from_project(proj_path)
 
     try:
         proj_info.write_tpr_files(proj_path,force=force)
-    except FileNotFoundError as err:
-        raise click.ClickException(
-                err.strerror + ".")
     except FileExistsError as err:
         raise click.ClickException(
                 (f"Could not overwrite existing file at '{err.filename}'. "
                     f"Run with `--force` to override."))
+
     proj_path.clear_temp()
+
 
 
 @cli.command()
@@ -153,7 +145,6 @@ def config(config_file, proj_dir):
     in your $EDITOR. By default, edit the project configuration file; this
     requires the current directory (or the directory specified by -C) to be
     a texproject directory."""
-    # TODO: catch errors for valid project(perhaps cannot open project file?)
     proj_path = ProjectPath(proj_dir)
     dispatch = {
             'project': proj_path.config,
@@ -178,7 +169,7 @@ def info(listfiles,description,show_all):
     if show_all or listfiles is None:
         click.echo(f"""
 TPR - TexPRoject (version {__version__})
-Maintained by Alex Rutar ({click.style(__repo__,fg='bright_blue')}).
+Maintained by Alex Rutar ({REPO_FORMATTED}).
 MIT License.""")
 
     if show_all:
@@ -202,6 +193,7 @@ MIT License.""")
 # TODO: support multi-file tex commands
 # .gitignore should include past .sty version?
 # what happens if you call refresh? past versions might be broken
+# need to build a complete copy of the directory at the given revision
 @cli.command()
 @click.argument('revision')
 @click_proj_dir_option
