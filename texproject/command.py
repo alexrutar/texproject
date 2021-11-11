@@ -99,38 +99,9 @@ def export(proj_dir, compression, arxiv):
      zip: ZIP file
 
     Note that not all compression modes may be available on your system.
-arxiv: arXiv-compatible
-
     """
     proj_path = ProjectPath(proj_dir)
     create_export(proj_path, compression, arxiv)
-
-
-@cli.command()
-@click_proj_dir_option
-@click.option('--force/--no-force',
-        default=False,
-        help="overwrite project files")
-def refresh(proj_dir, force):
-    """Regenerate project macro and support files.
-    Refresh reads information from the project information file .tpr_info and
-    uses it to rebuild auto-generated files.
-
-    Symbolic links are always overwritten, but if the project is frozen,
-    existing files are unchanged. The force tag overwrites copied macro and
-    citation files.
-    """
-    proj_path = ProjectPath(proj_dir)
-    proj_info = ProjectTemplate.load_from_project(proj_path)
-
-    try:
-        proj_info.write_tpr_files(proj_path,force=force)
-    except FileExistsError as err:
-        raise click.ClickException(
-                (f"Could not overwrite existing file at '{err.filename}'. "
-                    f"Run with `--force` to override."))
-
-    proj_path.clear_temp()
 
 
 
@@ -139,19 +110,41 @@ def refresh(proj_dir, force):
         default=True)
 @click.option('--user', 'config_file', flag_value='user')
 @click.option('--system', 'config_file', flag_value='system')
+@click.option('--force/--no-force',
+        default=False,
+        help="overwrite project files")
+@click.option('--edit/--no-edit',
+        default=True,
+        help="edit the file")
 @click_proj_dir_option
 def config(config_file, proj_dir):
     """Edit texproject configuration files. This opens the corresponding file
     in your $EDITOR. By default, edit the project configuration file; this
     requires the current directory (or the directory specified by -C) to be
-    a texproject directory."""
+    a texproject directory.
+    """
     proj_path = ProjectPath(proj_dir)
-    dispatch = {
-            'project': proj_path.config,
-            'user': CONFIG_PATH.user,
-            'system': CONFIG_PATH.system
-            }
-    click.edit(filename=str(dispatch[config_file]))
+
+    if edit:
+        dispatch = {
+                'project': proj_path.config,
+                'user': CONFIG_PATH.user,
+                'system': CONFIG_PATH.system
+                }
+        click.edit(filename=str(dispatch[config_file]))
+
+    # force refresh if the project file is edited
+    if config_file == 'project':
+        proj_info = ProjectTemplate.load_from_project(proj_path)
+
+        try:
+            proj_info.write_tpr_files(proj_path,force=force)
+        except FileExistsError as err:
+            raise click.ClickException(
+                    (f"Could not overwrite existing file at '{err.filename}'. "
+                        f"Run with `--force` to override."))
+
+        proj_path.clear_temp()
 
 
 

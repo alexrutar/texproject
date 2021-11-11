@@ -138,7 +138,7 @@ class ProjectPath:
         self.out_folder = Path(out_folder).resolve()
         self.name = self.dir.name
         if not exists and self.project_exists():
-            raise ProjectExistsError(self.out_folder, message=f"Conflicting project files at '{self.out_folder}'.")
+            raise ProjectExistsError(self.out_folder)
         elif exists and not self.is_minimal_project():
             raise ProjectMissingError(self.out_folder)
 
