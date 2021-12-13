@@ -107,8 +107,6 @@ def config(config_file, proj_dir):
 
             proj_info.write_tpr_files(proj_path)
 
-            proj_path.clear_temp()
-
         case 'user':
             click.edit(filename=str(CONFIG_PATH.user))
 

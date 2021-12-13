@@ -232,15 +232,15 @@ class ProjectPath:
                 print(f"Failed to delete '{path}'. Reason: {e}")
 
     def clear_temp(self):
-        #  folder = '/path/to/folder'
-        for file_path in self.temp_dir.iterdir():
-            try:
-                if file_path.is_file() or file_path.is_symlink():
-                    file_path.unlink()
-                elif file_path.is_dir():
-                    shutil.rmtree(file_path)
-            except Exception as e:
-                print(f"Failed to delete '{file_path}'. Reason: {e}")
+        if self.temp_dir.exists():
+            for file_path in self.temp_dir.iterdir():
+                try:
+                    if file_path.is_file() or file_path.is_symlink():
+                        file_path.unlink()
+                    elif file_path.is_dir():
+                        shutil.rmtree(file_path)
+                except Exception as e:
+                    print(f"Failed to delete '{file_path}'. Reason: {e}")
 
 
 JINJA_PATH = _JinjaTemplatePath()
