@@ -264,7 +264,7 @@ class _FileLinker(_BaseLinker):
             if source_path.suffix != self.suffix:
                 raise BasePathError(
                         source_path,
-                        message=f"Filetype {source_path.suffix} is invalid!")
+                        message=f"Filetype '{source_path.suffix}' is invalid!")
             target_path = rel_path / (self.safe_name(source_path.name))
         else:
             source_path = self.file_path(name).resolve()
