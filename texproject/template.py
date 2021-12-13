@@ -7,7 +7,6 @@ from .filesystem import (CONFIG, CONFIG_PATH, DATA_PATH, JINJA_PATH,
         macro_linker, format_linker, citation_linker, template_linker)
 
 from .error import SystemDataMissingError
-
 def safe_name(name, style):
     """Safe namer for use in templates."""
     if style == 'macro':
@@ -111,6 +110,7 @@ class ProjectTemplate(GenericTemplate):
         linker = PackageLinker(proj_path, force=False, silent_fail=True)
         linker.link_macros(self.template_dict['macros'])
         linker.link_citations(self.template_dict['citations'])
+        linker.link_format(self.template_dict['format'])
 
     def create_output_folder(self, proj_path):
         """Write user-visible output folder files into the project path."""
@@ -153,3 +153,7 @@ class PackageLinker:
     def link_citations(self, citation_list):
         for cit in citation_list:
             self.make_link(citation_linker, cit)
+
+    def link_format(self, format):
+        if format is not None:
+            self.make_link(format_linker, format)

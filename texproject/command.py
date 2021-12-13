@@ -2,6 +2,7 @@ import click
 import subprocess
 import shutil
 import shlex
+import sys
 
 from . import __version__, __repo__
 from .template import ProjectTemplate, PackageLinker
@@ -9,8 +10,10 @@ from .filesystem import (CONFIG, ProjectPath, CONFIG_PATH,
         macro_linker, citation_linker, template_linker)
 from .export import create_export
 
-from .error import BasePathError
+from .error import BasePathError, BuildError
 from .term import REPO_FORMATTED, err_echo
+
+from .latex import compile_tex
 
 
 click_proj_dir_option = click.option(
@@ -19,15 +22,19 @@ click_proj_dir_option = click.option(
     show_default=True,
     help='working directory')
 
-class CatchPathExceptions(click.Group):
+class CatchInternalExceptions(click.Group):
     def __call__(self, *args, **kwargs):
         try:
             return self.main(*args, **kwargs)
         except BasePathError as err:
             err_echo(err.message)
+        except BuildError as err:
+            err_echo(err.message + " Here is the build error output:\n")
+            click.echo(err.stderr, err=True)
+        sys.exit(1)
 
 
-@click.group(cls=CatchPathExceptions)
+@click.group(cls=CatchInternalExceptions)
 @click.version_option(prog_name="tpr (texproject)")
 def cli():
     pass
@@ -89,10 +96,11 @@ def config(config_file, proj_dir):
 
 
 @cli.command('import')
-@click.option('-m', '--macro', multiple=True)
-@click.option('-c', '--citation', multiple=True)
+@click.option('--macro', multiple=True)
+@click.option('--citation', multiple=True)
+@click.option('--format', default=None)
 @click_proj_dir_option
-def import_(macro, citation, proj_dir):
+def import_(macro, citation, format, proj_dir):
     """Import macro and citation files without using them in the main document.
     Warning: this command replaces existing files.
     """
@@ -101,7 +109,16 @@ def import_(macro, citation, proj_dir):
     linker = PackageLinker(proj_path, force=True)
     linker.link_macros(macro)
     linker.link_citations(citation)
+    linker.link_format(format)
 
+
+@cli.command()
+@click_proj_dir_option
+def build(proj_dir):
+    """Compile the current file, using 'latex_compile_command'.
+    """
+    proj_path = ProjectPath(proj_dir, exists=True)
+    compile_tex(proj_path.dir)
 
 @cli.command()
 @click.option('--gh/--no-gh',
@@ -153,9 +170,6 @@ def export(proj_dir, compression, arxiv):
     """
     proj_path = ProjectPath(proj_dir)
     create_export(proj_path, compression, arxiv)
-
-
-
 
 
 # TODO: refactor this

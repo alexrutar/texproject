@@ -1,5 +1,11 @@
 from .term import REPO_FORMATTED
 
+class BuildError(Exception):
+    def __init__(self, stderr, message="LaTeX build error."):
+        self.stderr = stderr
+        self.message = message
+        super().__init__(self.message)
+
 class BasePathError(Exception):
     def __init__(self, path, message="Error involving path."):
         self.path = path
