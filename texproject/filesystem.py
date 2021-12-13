@@ -135,7 +135,7 @@ def relative(base):
 class ProjectPath:
     def __init__(self, out_folder, exists=True):
         """If exists is False, check that there are no conflicts"""
-        self.out_folder = Path(out_folder).resolve()
+        self.out_folder = out_folder.resolve()
         self.name = self.dir.name
         if not exists and self.project_exists():
             raise ProjectExistsError(self.out_folder)

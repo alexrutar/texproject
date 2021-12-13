@@ -3,6 +3,7 @@ import subprocess
 import shutil
 import shlex
 import sys
+from pathlib import Path
 
 from . import __version__, __repo__
 from .template import ProjectTemplate, PackageLinker
@@ -20,7 +21,8 @@ click_proj_dir_option = click.option(
     '-C', 'proj_dir',
     default='.',
     show_default=True,
-    help='working directory')
+    help='working directory',
+    type=click.Path(exists=True, file_okay=False, dir_okay=True, writable=True, path_type=Path))
 
 class CatchInternalExceptions(click.Group):
     def __call__(self, *args, **kwargs):
@@ -67,10 +69,12 @@ def init(template, citation, proj_dir):
 
 
 @cli.command()
-@click.option('--local', 'config_file', flag_value='local',
-        default=True)
-@click.option('--user', 'config_file', flag_value='user')
-@click.option('--system', 'config_file', flag_value='system')
+@click.option('--local', 'config_file', flag_value='local', default=True,
+        help="Edit local project configuration.")
+@click.option('--user', 'config_file', flag_value='user',
+        help="Edit user information.")
+@click.option('--system', 'config_file', flag_value='system',
+        help="Edit global system configuration.")
 @click_proj_dir_option
 def config(config_file, proj_dir):
     """Edit texproject configuration files. This opens the corresponding file
@@ -109,7 +113,7 @@ def config(config_file, proj_dir):
         help="files given as absolute paths")
 @click_proj_dir_option
 def import_(macro, citation, format, path, proj_dir):
-    """Import macro and citation files without using them in the main document.
+    """Import macro, citation, and format files.
     Warning: this command replaces existing files.
     """
     proj_path = ProjectPath(proj_dir, exists=True)
