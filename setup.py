@@ -11,15 +11,15 @@ setup(
     long_description=readme(),
     url=__repo__,
     author='Alex Rutar',
-    author_email='public@rutar.org',
+    author_email='a@rutar.org',
     classifiers=[
         'Development Status :: 4 - Beta',
-        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.10',
         'License :: OSI Approved :: MIT License'
         ],
     keywords='LaTeX template project',
     license='MIT',
-    python_requires='>=3.7',
+    python_requires='>=3.10',
     packages=find_packages(),
     install_requires=[
         'pyYAML>=3.13',

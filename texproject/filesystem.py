@@ -236,7 +236,6 @@ class _BaseLinker:
         self.user_str = user_str
         self.dir_path = dir_path
         self.suffix = suffix
-        self.frozen = False
 
     def valid_path(self, path):
         return path.suffix == self.suffix
@@ -259,7 +258,7 @@ class _FileLinker(_BaseLinker):
 
     def link_name(
             self, name, rel_path,
-            frozen=False, force=False, silent_fail=True):
+            force=False, silent_fail=True):
         source_path = self.file_path(name).resolve()
         target_path = rel_path / (self.safe_name(name) + self.suffix)
         if not source_path.exists():
@@ -268,10 +267,7 @@ class _FileLinker(_BaseLinker):
                     user_str=self.user_str,
                     name=name)
 
-        if target_path.is_symlink():
-            target_path.unlink()
-
-        elif target_path.exists():
+        if target_path.exists():
             if force:
                 os.remove(target_path)
             else:
@@ -283,19 +279,16 @@ class _FileLinker(_BaseLinker):
                             f"Link target already exists",
                             str(target_path.resolve()))
 
-        if frozen:
-            shutil.copyfile(
-                    str(source_path),
-                    str(target_path.resolve()))
-        else:
-            target_path.symlink_to(source_path)
+        shutil.copyfile(
+                str(source_path),
+                str(target_path.resolve()))
 
 
 def _load_default_template():
     try:
         default_template = yaml_load(DATA_PATH.default_template)
     except FileNotFoundError:
-        raise SystemDataMissingError(path)
+        raise SystemDataMissingError(DATA_PATH.default_template)
     return default_template
 
 def yaml_load_local_template(path):

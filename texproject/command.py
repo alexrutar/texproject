@@ -5,7 +5,7 @@ import shutil
 import shlex
 
 from . import __version__, __repo__
-from .template import ProjectTemplate
+from .template import ProjectTemplate, PackageLinker
 from .filesystem import (CONFIG, ProjectPath, CONFIG_PATH,
         macro_linker, citation_linker, template_linker)
 from .export import create_export
@@ -27,30 +27,23 @@ class CatchPathExceptions(click.Group):
         except BasePathError as err:
             err_echo(err.message)
 
+
 @click.group(cls=CatchPathExceptions)
 @click.version_option(prog_name="tpr (texproject)")
 def cli():
     pass
+
 
 @cli.command()
 @click.argument('template')
 @click.option('--citation','-c',
         multiple=True,
         help="include citation file")
-@click.option('--frozen/--no-frozen',
-        default=False,
-        show_default=True,
-        help="create frozen project")
-@click.option('--git/--no-git',
-        default=True,
-        show_default=True,
-        help="initialize with git repo")
 @click_proj_dir_option
-def init(template, citation, frozen, proj_dir, git):
+def init(template, citation, proj_dir):
     """Initialize a new project in the current directory. The project is
     created using the template with name TEMPLATE and placed in the output
-    folder OUTPUT. If the frozen flag is specified, support files are copied
-    rather than symlinked.
+    folder OUTPUT.
 
     The path OUTPUT either must not exist or be an empty folder. Missing
     intermediate directories are automatically constructed."""
@@ -58,19 +51,78 @@ def init(template, citation, frozen, proj_dir, git):
 
     proj_gen = ProjectTemplate.load_from_template(
             template,
-            citation,
-            frozen=frozen)
+            citation)
 
-    proj_gen.create_output_folder(proj_path,git=git)
+    proj_gen.create_output_folder(proj_path)
     proj_gen.write_tpr_files(proj_path, write_template=True)
 
-    # initialize git
-    if git:
-        subprocess.run(
-                ['git', 'init'],
-                cwd=proj_path.dir,
-                capture_output=True) # ? keep or no? depends on verbosity...
 
+@cli.command()
+@click.option('--local', 'config_file', flag_value='local',
+        default=True)
+@click.option('--user', 'config_file', flag_value='user')
+@click.option('--system', 'config_file', flag_value='system')
+@click_proj_dir_option
+def config(config_file, proj_dir):
+    """Edit texproject configuration files. This opens the corresponding file
+    in your $EDITOR. By default, edit the project configuration file; this
+    requires the current directory (or the directory specified by -C) to be
+    a texproject directory.
+
+    Note that this command does not replace existing macro files. See the
+    `tpr import` command for this functionality.
+    """
+    match config_file:
+        case 'local':
+            proj_path = ProjectPath(proj_dir, exists=True)
+            click.edit(filename=str(proj_path.config))
+            proj_info = ProjectTemplate.load_from_project(proj_path)
+
+            proj_info.write_tpr_files(proj_path)
+
+            proj_path.clear_temp()
+
+        case 'user':
+            click.edit(filename=str(CONFIG_PATH.user))
+
+        case 'system':
+            click.edit(filename=str(CONFIG_PATH.system))
+
+
+@cli.command('import')
+@click.option('-m', '--macro', multiple=True)
+@click.option('-c', '--citation', multiple=True)
+@click_proj_dir_option
+def import_(macro, citation, proj_dir):
+    """Import macro and citation files without using them in the main document.
+    Warning: this command replaces existing files.
+    """
+    proj_path = ProjectPath(proj_dir, exists=True)
+
+    linker = PackageLinker(proj_path, force=True)
+    linker.link_macros(macro)
+    linker.link_citations(citation)
+
+
+@cli.command()
+@click.option('--gh/--no-gh',
+        default=True,
+        show_default=True,
+        help="automatically sync with github")
+@click_proj_dir_option
+def git_init(gh, proj_dir):
+    """Initialize the git repository."""
+    proj_path = ProjectPath(proj_dir, exists=True)
+
+    proj_gen = ProjectTemplate.load_from_project(proj_path)
+
+    proj_gen.write_git_files(proj_path)
+    subprocess.run(
+            ['git', 'init'],
+            cwd=proj_path.dir,
+            capture_output=True) # ? keep or no? depends on verbosity...
+    if gh:
+        pass
 
 # add copy .bbl option?
 # option to specify out folder or output name?
@@ -104,47 +156,6 @@ def export(proj_dir, compression, arxiv):
     create_export(proj_path, compression, arxiv)
 
 
-
-@cli.command()
-@click.option('--project', 'config_file', flag_value='project',
-        default=True)
-@click.option('--user', 'config_file', flag_value='user')
-@click.option('--system', 'config_file', flag_value='system')
-@click.option('--force/--no-force',
-        default=False,
-        help="overwrite project files")
-@click.option('--edit/--no-edit',
-        default=True,
-        help="edit the file")
-@click_proj_dir_option
-def config(config_file, proj_dir):
-    """Edit texproject configuration files. This opens the corresponding file
-    in your $EDITOR. By default, edit the project configuration file; this
-    requires the current directory (or the directory specified by -C) to be
-    a texproject directory.
-    """
-    proj_path = ProjectPath(proj_dir)
-
-    if edit:
-        dispatch = {
-                'project': proj_path.config,
-                'user': CONFIG_PATH.user,
-                'system': CONFIG_PATH.system
-                }
-        click.edit(filename=str(dispatch[config_file]))
-
-    # force refresh if the project file is edited
-    if config_file == 'project':
-        proj_info = ProjectTemplate.load_from_project(proj_path)
-
-        try:
-            proj_info.write_tpr_files(proj_path,force=force)
-        except FileExistsError as err:
-            raise click.ClickException(
-                    (f"Could not overwrite existing file at '{err.filename}'. "
-                        f"Run with `--force` to override."))
-
-        proj_path.clear_temp()
 
 
 

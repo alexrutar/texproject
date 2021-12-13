@@ -23,9 +23,10 @@ def safe_name(name, style):
 
 
 class GenericTemplate:
-    def __init__(self, template_dict):
+    def __init__(self, template_dict, template_name=None):
         self.user_dict = yaml_load(CONFIG_PATH.user)
         self.template_dict = template_dict
+        self.template_name = template_name
 
         self.env = Environment(
                 loader=FileSystemLoader(searchpath=DATA_PATH.data_dir),
@@ -71,13 +72,11 @@ class GenericTemplate:
 
 class ProjectTemplate(GenericTemplate):
     @classmethod
-    def load_from_template(cls, template_name, citations, frozen=False):
+    def load_from_template(cls, template_name, citations):
         """Load the template generator from a template name."""
         template_dict = template_linker.load_template(template_name)
         template_dict['citations'].extend(citations)
-        template_dict['frozen'] = frozen
-        self = cls(template_dict)
-        self.template_name = template_name
+        self = cls(template_dict, template_name)
         return self
 
     @classmethod
@@ -86,8 +85,11 @@ class ProjectTemplate(GenericTemplate):
         template_dict = yaml_load_local_template(proj_path.config)
         return cls(template_dict)
 
+    @classmethod
+    def from_dict(cls, template_dict):
+        return cls(template_dict)
 
-    def write_tpr_files(self, proj_path, force=False, write_template=False):
+    def write_tpr_files(self, proj_path, write_template=False):
         """Create texproject project data directory and write files."""
 
         # initialize resource directories
@@ -108,22 +110,11 @@ class ProjectTemplate(GenericTemplate):
                 proj_path.bibinfo,
                 force=True)
 
-        def make_link(linker, name):
-            """Helper function for linking."""
-            linker.link_name(name,
-                    proj_path.data_dir,
-                    frozen=self.template_dict['frozen'],
-                    force=force)
+        linker = PackageLinker(proj_path, force=False, silent_fail=True)
+        linker.link_macros(self.template_dict['macros'])
+        linker.link_citations(self.template_dict['citations'])
 
-        for macro in self.template_dict['macros']:
-            make_link(macro_linker, macro)
-
-        for cit in self.template_dict['citations']:
-            make_link(citation_linker, cit)
-
-        make_link(format_linker, self.template_dict['format'])
-
-    def create_output_folder(self, proj_path, git=False):
+    def create_output_folder(self, proj_path):
         """Write user-visible output folder files into the project path."""
         self.write_template(
                 JINJA_PATH.template_doc(self.template_name),
@@ -133,12 +124,34 @@ class ProjectTemplate(GenericTemplate):
                 JINJA_PATH.project_macro,
                 proj_path.project_macro)
 
-        if git:
-            self.write_template(
-                    JINJA_PATH.gitignore,
-                    proj_path.gitignore)
+    def write_git_files(self, proj_path):
+        self.write_template(
+                JINJA_PATH.gitignore,
+                proj_path.gitignore)
 
     def write_arxiv_autotex(self, proj_path):
         self.write_template(
                 JINJA_PATH.arxiv_autotex,
                 proj_path.arxiv_autotex)
+
+
+class PackageLinker:
+    def __init__(self, proj_path, force=False, silent_fail=True):
+        self.proj_path = proj_path
+        self.force = force
+        self.silent_fail = silent_fail
+
+    def make_link(self, linker, name):
+            """Helper function for linking."""
+            linker.link_name(name,
+                    self.proj_path.data_dir,
+                    force=self.force,
+                    silent_fail=self.silent_fail)
+
+    def link_macros(self, macro_list):
+        for macro in macro_list:
+            self.make_link(macro_linker, macro)
+
+    def link_citations(self, citation_list):
+        for cit in citation_list:
+            self.make_link(citation_linker, cit)
