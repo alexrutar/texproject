@@ -208,7 +208,7 @@ class ProjectPath:
 
     @contextlib.contextmanager
     def temp_subpath(self):
-        self.temp_dir.mkdir()
+        self.temp_dir.mkdir(exist_ok=True)
         path = self.temp_dir / uuid.uuid1().hex
         try:
             yield path
