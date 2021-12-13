@@ -1,11 +1,9 @@
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 import datetime
-from pathlib import Path
-import os
 import errno
 
 from .filesystem import (CONFIG, CONFIG_PATH, DATA_PATH, JINJA_PATH,
-        ProjectPath, yaml_load, yaml_dump, yaml_load_local_template,
+        yaml_load, yaml_dump, yaml_load_local_template,
         macro_linker, format_linker, citation_linker, template_linker)
 
 from .error import SystemDataMissingError
