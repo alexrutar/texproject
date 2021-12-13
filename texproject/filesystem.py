@@ -3,7 +3,7 @@ from pathlib import Path
 import shutil
 import os
 import errno
-import yaml
+import pytomlpp
 import uuid
 import contextlib
 
@@ -19,32 +19,32 @@ def _constant(f):
     return property(fget, fset)
 
 
-def yaml_load(path_obj):
-    return yaml.safe_load(path_obj.read_text())
+def toml_load(path_obj):
+    return pytomlpp.loads(path_obj.read_text())
 
 
-def yaml_dump(path_obj, dct):
-    path_obj.write_text(yaml.dump(dct))
+def toml_dump(path_obj, dct):
+    path_obj.write_text(pytomlpp.dumps(dct))
 
 
 class _ConfigPath:
     @_constant
     def system(self):
-        return XDG_DATA_HOME / 'texproject' / 'config' / 'tpr_config.yaml'
+        return XDG_DATA_HOME / 'texproject' / 'config' / 'tpr_config.toml'
 
     @_constant
     def user(self):
-        return XDG_CONFIG_HOME / 'texproject' / 'config.yaml'
+        return XDG_CONFIG_HOME / 'texproject' / 'config.toml'
 
 
 CONFIG_PATH = _ConfigPath()
-CONFIG = yaml_load(CONFIG_PATH.system)
+CONFIG = toml_load(CONFIG_PATH.system)
 
 
 class _Naming:
     @_constant
-    def template_yaml(self):
-        return 'template.yaml'
+    def template_toml(self):
+        return 'template.toml'
 
     @_constant
     def template_doc(self):
@@ -62,7 +62,7 @@ class _DataPath:
 
     @_constant
     def default_template(self):
-        return self.data_dir / 'config' / 'default_template.yaml'
+        return self.data_dir / 'config' / 'default_template.toml'
 
     @_constant
     def _resource_absolute(self):
@@ -166,7 +166,7 @@ class ProjectPath:
 
     @relative('data')
     def config(self):
-        return 'tpr_info.yaml'
+        return 'tpr_info.toml'
 
     @relative('data')
     def classinfo(self):
@@ -310,23 +310,23 @@ class _FileLinker(_BaseLinker):
 
 def _load_default_template():
     try:
-        default_template = yaml_load(DATA_PATH.default_template)
+        default_template = toml_load(DATA_PATH.default_template)
     except FileNotFoundError:
         raise SystemDataMissingError(DATA_PATH.default_template)
     return default_template
 
-def yaml_load_local_template(path):
+def toml_load_local_template(path):
     default_template = _load_default_template()
     try:
-        template = yaml_load(path)
+        template = toml_load(path)
     except FileNotFoundError:
         raise ProjectDataMissingError(path, message="The local template file is missing.")
     return {**default_template, **template}
 
-def yaml_load_system_template(path, user_str, name=None):
+def toml_load_system_template(path, user_str, name=None):
     default_template = _load_default_template()
     try:
-        template = yaml_load(path)
+        template = toml_load(path)
     except FileNotFoundError:
         raise TemplateDataMissingError(path, user_str=user_str, name=name)
     return {**default_template, **template}
@@ -334,15 +334,15 @@ def yaml_load_system_template(path, user_str, name=None):
 
 class _TemplateLinker(_BaseLinker):
     def load_template(self, name):
-        return yaml_load_system_template(
-                self.file_path(name) / NAMES.template_yaml,
+        return toml_load_system_template(
+                self.file_path(name) / NAMES.template_toml,
                 self.user_str,
                 name=name)
 
     def valid_path(self, path):
         return (super().valid_path(path) and
                 (path / NAMES.template_doc).exists() and
-                (path / NAMES.template_yaml).exists())
+                (path / NAMES.template_toml).exists())
 
 
 macro_linker = _FileLinker(

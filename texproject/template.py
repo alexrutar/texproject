@@ -3,7 +3,7 @@ import datetime
 import errno
 
 from .filesystem import (CONFIG, CONFIG_PATH, DATA_PATH, JINJA_PATH,
-        yaml_load, yaml_dump, yaml_load_local_template,
+        toml_load, toml_dump, toml_load_local_template,
         macro_linker, format_linker, citation_linker, template_linker)
 
 from .error import SystemDataMissingError
@@ -21,7 +21,7 @@ def safe_name(name, style):
 
 class GenericTemplate:
     def __init__(self, template_dict, template_name=None):
-        self.user_dict = yaml_load(CONFIG_PATH.user)
+        self.user_dict = toml_load(CONFIG_PATH.user)
         self.template_dict = template_dict
         self.template_name = template_name
 
@@ -81,7 +81,7 @@ class ProjectTemplate(GenericTemplate):
     @classmethod
     def load_from_project(cls, proj_path):
         """Load the template generator from an existing project."""
-        template_dict = yaml_load_local_template(proj_path.config)
+        template_dict = toml_load_local_template(proj_path.config)
         return cls(template_dict)
 
     @classmethod
@@ -95,7 +95,7 @@ class ProjectTemplate(GenericTemplate):
         proj_path.data_dir.mkdir(exist_ok=True, parents=True)
 
         if write_template:
-            yaml_dump(
+            toml_dump(
                     proj_path.config,
                     self.template_dict)
 

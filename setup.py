@@ -22,7 +22,7 @@ setup(
     python_requires='>=3.10',
     packages=find_packages(),
     install_requires=[
-        'pyYAML>=3.13',
+        'pytomlpp>=1.0.9',
         'Jinja2>=2.11.2',
         'xdg>=4.0.1',
         'click>=8.0'
