@@ -18,11 +18,26 @@ from .latex import compile_tex
 
 
 click_proj_dir_option = click.option(
-    '-C', 'proj_dir',
-    default='.',
-    show_default=True,
-    help='working directory',
-    type=click.Path(exists=True, file_okay=False, dir_okay=True, writable=True, path_type=Path))
+        '-C', 'proj_dir',
+        default='.',
+        show_default=True,
+        help='working directory',
+        type=click.Path(
+            exists=True, file_okay=False, dir_okay=True, writable=True, path_type=Path))
+
+click_output_directory_option = click.option(
+        '-D', 'output_dir',
+        default='.',
+        help="output directory",
+        show_default=True,
+        type=click.Path(
+            exists=True, file_okay=False, dir_okay=True, writable=True, path_type=Path))
+
+click_output_file_option = click.option(
+            '-O', 'output_file',
+            help="specify output filename",
+            type=click.Path(
+                exists=False, writable=True, path_type=Path))
 
 class CatchInternalExceptions(click.Group):
     def __call__(self, *args, **kwargs):
@@ -124,13 +139,66 @@ def import_(macro, citation, format, path, proj_dir):
 
 
 @cli.command()
+@click.option(
+        '-O', '--output',
+        'output_file',
+        help="specify name for output .pdf",
+        type=click.Path(
+            exists=False, writable=True, path_type=Path))
 @click_proj_dir_option
-def build(proj_dir):
+def build(output_file, proj_dir):
     """Compile the current file, using 'latex_compile_command'.
     """
     proj_path = ProjectPath(proj_dir, exists=True)
-    compile_tex(proj_path.dir)
+    with proj_path.temp_subpath() as build_dir:
+        build_dir.mkdir()
+        compile_tex(proj_path.dir, outdir=build_dir, output_map={'.pdf': output_file})
 
+
+@cli.command()
+@click_proj_dir_option
+def clean(proj_dir):
+    """Cleans the project directory.
+    """
+    proj_path = ProjectPath(proj_dir, exists=True)
+    proj_path.clear_temp()
+
+# add copy .bbl option?
+# option to specify out folder or output name?
+# TODO: see https://click.palletsprojects.com/en/7.x/commands/#overriding-defaults
+@cli.command()
+@click.option('--compression',
+        type=click.Choice([ar[0] for ar in shutil.get_archive_formats()],
+            case_sensitive=False),
+        show_default=True,
+        default=CONFIG['default_compression'],
+        help="compression mode")
+@click.option('--arxiv/--no-arxiv',
+        default=False,
+        show_default=True,
+        help="format for arXiv")
+@click.argument('output',
+        type=click.Path(exists=False, writable=True, path_type=Path))
+@click_proj_dir_option
+def export(compression, arxiv, output, proj_dir):
+    """Create a compressed export with name OUTPUT.
+
+    \b
+    Compression modes:
+     bztar: bzip2'ed tar-file
+     gztar: gzip'ed tar-file
+     tar: uncompressed tar-file
+     xztar: xz'ed tar-file
+     zip: ZIP file
+
+    Note that not all compression modes may be available on your system.
+    """
+    proj_path = ProjectPath(proj_dir)
+    create_export(proj_path, compression, output, arxiv=arxiv)
+
+
+# TODO: create git subcommand, with init sub sub-command
+# and other convenient sub sub-commands (maybe some sort of incremental tagging would be convenient)
 @cli.command()
 @click.option('--gh/--no-gh',
         default=True,
@@ -150,37 +218,6 @@ def git_init(gh, proj_dir):
             capture_output=True) # ? keep or no? depends on verbosity...
     if gh:
         pass
-
-# add copy .bbl option?
-# option to specify out folder or output name?
-# TODO: see https://click.palletsprojects.com/en/7.x/commands/#overriding-defaults
-@cli.command()
-@click_proj_dir_option
-@click.option('--compression',
-        type=click.Choice([ar[0] for ar in shutil.get_archive_formats()],
-            case_sensitive=False),
-        show_default=True,
-        default=CONFIG['default_compression'],
-        help="compression mode")
-@click.option('--arxiv/--no-arxiv',
-        default=False,
-        show_default=True,
-        help="format for arXiv")
-def export(proj_dir, compression, arxiv):
-    """Create a compressed export of an existing project.
-
-    \b
-    Compression modes:
-     bztar: bzip2'ed tar-file
-     gztar: gzip'ed tar-file
-     tar: uncompressed tar-file
-     xztar: xz'ed tar-file
-     zip: ZIP file
-
-    Note that not all compression modes may be available on your system.
-    """
-    proj_path = ProjectPath(proj_dir)
-    create_export(proj_path, compression, arxiv)
 
 
 # TODO: refactor this
@@ -222,6 +259,8 @@ MIT License.""")
 # .gitignore should include past .sty version?
 # what happens if you call refresh? past versions might be broken
 # need to build a complete copy of the directory at the given revision
+# TODO: don't write to aux file
+# TODO just replace this with a command which prints differences in the .tex files
 @cli.command()
 @click.argument('revision')
 @click_proj_dir_option
@@ -234,30 +273,30 @@ def diff(revision, proj_dir):
     git_show = subprocess.run(
             ['git', 'show', f"{revision}:{CONFIG['default_tex_name']}.tex"],
             capture_output=True)
-    temp_subdir = proj_path.get_temp_subdir()
+    with proj_path.temp_subdir() as temp_subdir:
 
-    revision_file = temp_subdir / 'diff_rev.tex'
-    revision_file.write_text(str(git_show.stdout, 'utf-8'))
+        revision_file = temp_subdir / 'diff_rev.tex'
+        revision_file.write_text(str(git_show.stdout, 'utf-8'))
 
-    current_file = temp_subdir / 'diff_cur.tex'
-    current_file.write_text(proj_path.main.read_text())
+        current_file = temp_subdir / 'diff_cur.tex'
+        current_file.write_text(proj_path.main.read_text())
 
-    output_tex = temp_subdir / 'diff_out.tex'
-    output_pdf = temp_subdir / 'diff_out.pdf'
+        output_tex = temp_subdir / 'diff_out.tex'
+        output_pdf = temp_subdir / 'diff_out.pdf'
 
-    latexdiff = subprocess.run(
-            ['latexdiff', revision_file.name, current_file.name],
-            capture_output=True,
-            cwd = temp_subdir)
+        latexdiff = subprocess.run(
+                ['latexdiff', revision_file.name, current_file.name],
+                capture_output=True,
+                cwd = temp_subdir)
 
-    output_tex.write_text(
-            str(latexdiff.stdout, 'utf-8'))
+        output_tex.write_text(
+                str(latexdiff.stdout, 'utf-8'))
 
-    proc = subprocess.run(shlex.split(CONFIG['latex_compile_command']) + \
-            [str(output_tex)],
-            cwd=proj_path.dir,
-            capture_output=True)
-    (proj_path.log_dir / 'temp.log').write_text(str(proc.stdout,'utf-8'))
+        proc = subprocess.run(shlex.split(CONFIG['latex_compile_command']) + \
+                [str(output_tex)],
+                cwd=proj_path.dir,
+                capture_output=True)
+        (proj_path.log_dir / 'temp.log').write_text(str(proc.stdout,'utf-8'))
 
-    click.echo(f"Diff file written to '.texproject/aux/diff_out.pdf'")
+        click.echo(f"Diff file written to '.texproject/aux/diff_out.pdf'")
 

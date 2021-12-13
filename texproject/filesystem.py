@@ -5,6 +5,7 @@ import os
 import errno
 import yaml
 import uuid
+import contextlib
 
 from .error import (BasePathError, ProjectExistsError, ProjectDataMissingError,
         ProjectMissingError, TemplateDataMissingError, SystemDataMissingError)
@@ -126,18 +127,26 @@ def relative(base):
             if base == 'root':
                 return self.out_folder / func(self)
             elif base == 'data':
-                return self.out_folder / CONFIG['project_data_folder'] / func(self)
+                if self.nohidden:
+                    data_folder = CONFIG['project_data_folder'].lstrip('.')
+                else:
+                    data_folder = CONFIG['project_data_folder']
+
+                return self.out_folder / data_folder / func(self)
         return property(fget, fset)
 
     return decorator
 
 
 class ProjectPath:
-    def __init__(self, out_folder, exists=True):
+    def __init__(self, out_folder, exists=True, nohidden=False, no_check=False):
         """If exists is False, check that there are no conflicts"""
         self.out_folder = out_folder.resolve()
+        self.nohidden = nohidden
         self.name = self.dir.name
-        if not exists and self.project_exists():
+        if no_check:
+            pass
+        elif not exists and self.project_exists():
             raise ProjectExistsError(self.out_folder)
         elif exists and not self.is_minimal_project():
             raise ProjectMissingError(self.out_folder)
@@ -173,14 +182,6 @@ class ProjectPath:
     def temp_dir(self):
         return 'tmp'
 
-    @relative('data')
-    def log_dir(self):
-        return 'log'
-
-    @relative('data')
-    def aux_dir(self):
-        return 'aux'
-
     @relative('root')
     def main(self):
         return f"{CONFIG['default_tex_name']}.tex"
@@ -197,11 +198,6 @@ class ProjectPath:
     def gitignore(self):
         return f".gitignore"
 
-
-    @_constant
-    def data_subdirs(self):
-        return (self.data_dir, self.log_dir, self.temp_dir, self.aux_dir)
-
     @_constant
     def rootfiles(self):
         return (self.main, self.project_macro, self.data_dir, self.gitignore)
@@ -210,10 +206,20 @@ class ProjectPath:
     def minimal_files(self):
         return (self.main, self.data_dir)
 
-    def get_temp_subdir(self):
+    @contextlib.contextmanager
+    def temp_subpath(self):
+        self.temp_dir.mkdir()
         path = self.temp_dir / uuid.uuid1().hex
-        path.mkdir()
-        return path
+        try:
+            yield path
+        finally:
+            try:
+                if path.is_file() or path.is_symlink():
+                    path.unlink()
+                elif path.is_dir():
+                    shutil.rmtree(path)
+            except Exception as e:
+                print(f"Failed to delete '{path}'. Reason: {e}")
 
     def clear_temp(self):
         #  folder = '/path/to/folder'
