@@ -8,5 +8,6 @@ def compile_tex(proj_dir):
             [CONFIG['default_tex_name'] + '.tex'],
             cwd=str(proj_dir),
             capture_output=True)
+
     if proc.returncode != 0:
         raise BuildError(proc.stderr.decode('ascii'))

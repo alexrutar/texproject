@@ -6,7 +6,7 @@ import errno
 import yaml
 import uuid
 
-from .error import (ProjectExistsError, ProjectDataMissingError,
+from .error import (BasePathError, ProjectExistsError, ProjectDataMissingError,
         ProjectMissingError, TemplateDataMissingError, SystemDataMissingError)
 
 
@@ -258,14 +258,22 @@ class _FileLinker(_BaseLinker):
 
     def link_name(
             self, name, rel_path,
-            force=False, silent_fail=True):
-        source_path = self.file_path(name).resolve()
-        target_path = rel_path / (self.safe_name(name) + self.suffix)
-        if not source_path.exists():
-            raise TemplateDataMissingError(
-                    source_path,
-                    user_str=self.user_str,
-                    name=name)
+            force=False, silent_fail=True, is_path=False):
+        if is_path:
+            source_path = Path(name).resolve()
+            if source_path.suffix != self.suffix:
+                raise BasePathError(
+                        source_path,
+                        message=f"Filetype {source_path.suffix} is invalid!")
+            target_path = rel_path / (self.safe_name(source_path.name))
+        else:
+            source_path = self.file_path(name).resolve()
+            target_path = rel_path / (self.safe_name(name) + self.suffix)
+            if not source_path.exists():
+                raise TemplateDataMissingError(
+                        source_path,
+                        user_str=self.user_str,
+                        name=name)
 
         if target_path.exists():
             if force:

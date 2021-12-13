@@ -26,12 +26,15 @@ class CatchInternalExceptions(click.Group):
     def __call__(self, *args, **kwargs):
         try:
             return self.main(*args, **kwargs)
+
         except BasePathError as err:
             err_echo(err.message)
+            sys.exit(1)
+
         except BuildError as err:
             err_echo(err.message + " Here is the build error output:\n")
             click.echo(err.stderr, err=True)
-        sys.exit(1)
+            sys.exit(1)
 
 
 @click.group(cls=CatchInternalExceptions)
@@ -96,17 +99,21 @@ def config(config_file, proj_dir):
 
 
 @cli.command('import')
-@click.option('--macro', multiple=True)
-@click.option('--citation', multiple=True)
-@click.option('--format', default=None)
+@click.option('--macro', multiple=True,
+        help="macro file")
+@click.option('--citation', multiple=True,
+        help="citation file")
+@click.option('--format', default=None,
+        help="format file")
+@click.option('--path/--no-path', default=False,
+        help="files given as absolute paths")
 @click_proj_dir_option
-def import_(macro, citation, format, proj_dir):
+def import_(macro, citation, format, path, proj_dir):
     """Import macro and citation files without using them in the main document.
     Warning: this command replaces existing files.
     """
     proj_path = ProjectPath(proj_dir, exists=True)
-
-    linker = PackageLinker(proj_path, force=True)
+    linker = PackageLinker(proj_path, force=True, is_path=path)
     linker.link_macros(macro)
     linker.link_citations(citation)
     linker.link_format(format)

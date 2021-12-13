@@ -134,15 +134,17 @@ class ProjectTemplate(GenericTemplate):
 
 
 class PackageLinker:
-    def __init__(self, proj_path, force=False, silent_fail=True):
+    def __init__(self, proj_path, force=False, silent_fail=True, is_path=False):
         self.proj_path = proj_path
         self.force = force
         self.silent_fail = silent_fail
+        self.is_path = is_path
 
     def make_link(self, linker, name):
             """Helper function for linking."""
             linker.link_name(name,
                     self.proj_path.data_dir,
+                    is_path=self.is_path,
                     force=self.force,
                     silent_fail=self.silent_fail)
 
