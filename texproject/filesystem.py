@@ -129,40 +129,35 @@ def relative(base):
     def decorator(func):
         def fget(self):
             if base == 'root':
-                return self.out_folder / func(self)
+                return self.working_dir / func(self)
             elif base == 'data':
                 if self.nohidden:
                     data_folder = CONFIG['project_data_folder'].lstrip('.')
                 else:
                     data_folder = CONFIG['project_data_folder']
 
-                return self.out_folder / data_folder / func(self)
+                return self.working_dir / data_folder / func(self)
             elif base == 'gh_actions':
-                return self.out_folder / '.github' / 'workflows' / func(self)
+                return self.working_dir / '.github' / 'workflows' / func(self)
         return property(fget, fset)
 
     return decorator
 
 
 class ProjectPath:
-    def __init__(self, out_folder, exists=True, nohidden=False, no_check=False):
+    def __init__(self, working_dir, nohidden=False):
         """If exists is False, check that there are no conflicts"""
-        self.out_folder = out_folder.resolve()
+        self.working_dir = working_dir.resolve()
         self.nohidden = nohidden
         self.name = self.dir.name
-        if no_check:
-            pass
-        elif not exists and self.project_exists():
-            raise ProjectExistsError(self.out_folder)
-        elif exists and not self.is_minimal_project():
-            raise ProjectMissingError(self.out_folder)
 
-    def project_exists(self):
-        """Check if there is an existing project at the path"""
-        return any(path.exists() for path in self.rootfiles)
-
-    def is_minimal_project(self):
-        return all(path.exists() for path in self.minimal_files)
+    def validate(self, exists=True):
+        if not exists and any(path.exists() for path in self.rootfiles):
+            raise ProjectExistsError(self.working_dir)
+        elif exists and any(not path.exists() for path in self.minimal_files):
+            raise ProjectMissingError(self.working_dir)
+        else:
+            return
 
     @relative('data')
     def config(self):

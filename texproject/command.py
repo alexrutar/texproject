@@ -16,28 +16,6 @@ from .term import REPO_FORMATTED, err_echo
 from .latex import compile_tex
 
 
-click_proj_dir_option = click.option(
-        '-C', 'proj_dir',
-        default='.',
-        show_default=True,
-        help='working directory',
-        type=click.Path(
-            exists=True, file_okay=False, dir_okay=True, writable=True, path_type=Path))
-
-click_output_directory_option = click.option(
-        '-D', 'output_dir',
-        default='.',
-        help="output directory",
-        show_default=True,
-        type=click.Path(
-            exists=True, file_okay=False, dir_okay=True, writable=True, path_type=Path))
-
-click_output_file_option = click.option(
-            '-O', 'output_file',
-            help="specify output filename",
-            type=click.Path(
-                exists=False, writable=True, path_type=Path))
-
 class CatchInternalExceptions(click.Group):
     def __call__(self, *args, **kwargs):
         try:
@@ -55,8 +33,16 @@ class CatchInternalExceptions(click.Group):
 
 @click.group(cls=CatchInternalExceptions)
 @click.version_option(prog_name="tpr (texproject)")
-def cli():
-    pass
+@click.option(
+        '-C', 'proj_dir',
+        default='.',
+        show_default=True,
+        help='working directory',
+        type=click.Path(
+            exists=True, file_okay=False, dir_okay=True, writable=True, path_type=Path))
+@click.pass_context
+def cli(ctx, proj_dir):
+    ctx.obj = ProjectPath(proj_dir)
 
 
 @cli.command()
@@ -64,15 +50,15 @@ def cli():
 @click.option('--citation','-c',
         multiple=True,
         help="include citation file")
-@click_proj_dir_option
-def init(template, citation, proj_dir):
+@click.pass_obj
+def init(proj_path, template, citation):
     """Initialize a new project in the current directory. The project is
     created using the template with name TEMPLATE and placed in the output
     folder OUTPUT.
 
     The path OUTPUT either must not exist or be an empty folder. Missing
     intermediate directories are automatically constructed."""
-    proj_path = ProjectPath(proj_dir, exists=False)
+    proj_path.validate(exists=False)
 
     proj_gen = ProjectTemplate.load_from_template(
             template,
@@ -89,8 +75,8 @@ def init(template, citation, proj_dir):
         help="Edit user information.")
 @click.option('--system', 'config_file', flag_value='system',
         help="Edit global system configuration.")
-@click_proj_dir_option
-def config(config_file, proj_dir):
+@click.pass_obj
+def config(proj_path, config_file):
     """Edit texproject configuration files. This opens the corresponding file
     in your $EDITOR. By default, edit the project configuration file; this
     requires the current directory (or the directory specified by -C) to be
@@ -101,10 +87,11 @@ def config(config_file, proj_dir):
     """
     match config_file:
         case 'local':
-            proj_path = ProjectPath(proj_dir, exists=True)
-            click.edit(filename=str(proj_path.config))
-            proj_info = ProjectTemplate.load_from_project(proj_path)
+            proj_path.validate(exists=True)
 
+            click.edit(filename=str(proj_path.config))
+
+            proj_info = ProjectTemplate.load_from_project(proj_path)
             proj_info.write_tpr_files(proj_path)
 
         case 'user':
@@ -123,12 +110,13 @@ def config(config_file, proj_dir):
         help="format file")
 @click.option('--path/--no-path', default=False,
         help="files given as absolute paths")
-@click_proj_dir_option
-def import_(macro, citation, format, path, proj_dir):
+@click.pass_obj
+def import_(proj_path, macro, citation, format, path):
     """Import macro, citation, and format files.
     Warning: this command replaces existing files.
     """
-    proj_path = ProjectPath(proj_dir, exists=True)
+    proj_path.validate(exists=True)
+
     linker = PackageLinker(proj_path, force=True, is_path=path)
     linker.link_macros(macro)
     linker.link_citations(citation)
@@ -144,11 +132,11 @@ def import_(macro, citation, format, path, proj_dir):
         help="specify name for output .pdf",
         type=click.Path(
             exists=False, writable=True, path_type=Path))
-@click_proj_dir_option
-def build(force, output, proj_dir):
+@click.pass_obj
+def build(proj_path, force, output):
     """Compile the current file, using 'latex_compile_command'.
     """
-    proj_path = ProjectPath(proj_dir, exists=True)
+    proj_path.validate(exists=True)
     if output is not None and output.exists() and not force:
         raise BasePathError(output, "Output file already exists! Run with '-f' to overwrite")
     else:
@@ -156,15 +144,6 @@ def build(force, output, proj_dir):
         with proj_path.temp_subpath() as build_dir:
             build_dir.mkdir()
             compile_tex(proj_path.dir, outdir=build_dir, output_map=output_map)
-
-
-@cli.command()
-@click_proj_dir_option
-def clean(proj_dir):
-    """Cleans the project directory.
-    """
-    proj_path = ProjectPath(proj_dir, exists=True)
-    proj_path.clear_temp()
 
 
 @cli.command()
@@ -182,8 +161,8 @@ def clean(proj_dir):
         help="overwrite files")
 @click.argument('output',
         type=click.Path(exists=False, writable=True, path_type=Path))
-@click_proj_dir_option
-def export(compression, arxiv, force, output, proj_dir):
+@click.pass_obj
+def export(proj_path, compression, arxiv, force, output):
     """Create a compressed export with name OUTPUT.
 
     \b
@@ -196,11 +175,20 @@ def export(compression, arxiv, force, output, proj_dir):
 
     Note that not all compression modes may be available on your system.
     """
-    proj_path = ProjectPath(proj_dir)
+    proj_path.validate(exists=True)
     if output.exists() and not force:
         raise BasePathError(output, "Output file already exists! Run with '-f' to overwrite")
     else:
         create_export(proj_path, compression, output, arxiv=arxiv)
+
+
+@cli.command()
+@click.pass_obj
+def clean(proj_path):
+    """Cleans the project directory.
+    """
+    proj_path.validate(exists=True)
+    proj_path.clear_temp()
 
 
 # TODO: create git subcommand, with init sub sub-command
@@ -211,18 +199,41 @@ def export(compression, arxiv, force, output, proj_dir):
         default=True,
         show_default=True,
         help="automatically sync with github")
-@click_proj_dir_option
-def git_init(gh, proj_dir):
+@click.pass_obj
+def git_init(proj_path, gh):
     """Initialize the git repository."""
-    proj_path = ProjectPath(proj_dir, exists=True)
+    proj_path.validate(exists=True)
 
     proj_gen = ProjectTemplate.load_from_project(proj_path)
 
     proj_gen.write_git_files(proj_path, gh=gh)
+
+    # initialize repo
     subprocess.run(
             ['git', 'init'],
             cwd=proj_path.dir,
             capture_output=True) # ? keep or no? depends on verbosity...
+
+@cli.command()
+@click.option('--repo-name', 'repo_name',
+        prompt='Repository name',
+        type=str)
+@click.option('--repo-description', 'repo_desc',
+        prompt='Repository description',
+        type=str)
+@click.option('--repo-visiblity', 'vis',
+        prompt='Repository visibility',
+        type=click.Choice(['public', 'private']),
+        default='private')
+@click.pass_obj
+def it(proj_path, repo_name, repo_desc, vis):
+    proj_path.validate(exists=True)
+    proj_gen = ProjectTemplate.load_from_project(proj_path)
+    # proj_gen.user_dict is the user configuration file
+
+    print(repo_name, repo_desc,vis)
+
+
 
 @cli.command()
 @click.argument('res_class',
@@ -238,6 +249,20 @@ def list(res_class):
             }
 
     click.echo("\n".join(linker_map[res_class].list_names()))
+
+@cli.command()
+@click.pass_obj
+def migrate_yaml(proj_path):
+    import yaml
+    import pytomlpp
+    proj_path.validate(exists=True)
+    yaml_path = proj_path.data_dir / 'tpr_info.yaml'
+    if yaml_path.exists():
+        proj_path.config.write_text(
+                pytomlpp.dumps(
+                    yaml.safe_load(
+                        yaml_path.read_text())))
+        yaml_path.unlink()
 
 # TODO: refactor this
 # - have option positional argument for listing / descriptions?

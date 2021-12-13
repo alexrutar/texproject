@@ -34,7 +34,7 @@ def _modify_arxiv(archive_dir):
     old_proj_path = ProjectPath(archive_dir)
     old_proj_info = ProjectTemplate.load_from_project(old_proj_path)
 
-    new_proj_path = ProjectPath(archive_dir, nohidden=True, no_check=True)
+    new_proj_path = ProjectPath(archive_dir, nohidden=True)
     new_proj_info = ProjectTemplate.from_dict(old_proj_info.template_dict)
 
     # remove hidden folders
