@@ -102,6 +102,10 @@ class _JinjaTemplatePath:
         return self._template_resource_dir / 'gitignore'
 
     @_constant
+    def build_latex(self):
+        return self._template_resource_dir / 'build_latex.yml'
+
+    @_constant
     def classinfo(self):
         return self._template_resource_dir / 'classinfo.tex'
 
@@ -133,6 +137,8 @@ def relative(base):
                     data_folder = CONFIG['project_data_folder']
 
                 return self.out_folder / data_folder / func(self)
+            elif base == 'gh_actions':
+                return self.out_folder / '.github' / 'workflows' / func(self)
         return property(fget, fset)
 
     return decorator
@@ -198,6 +204,10 @@ class ProjectPath:
     def gitignore(self):
         return f".gitignore"
 
+    @relative('gh_actions')
+    def build_latex(self):
+        return f"build_latex.yml"
+
     @_constant
     def rootfiles(self):
         return (self.main, self.project_macro, self.data_dir, self.gitignore)
@@ -247,8 +257,8 @@ class _BaseLinker:
         return path.suffix == self.suffix
 
     def list_names(self):
-        return [path.stem for path in self.dir_path.iterdir()
-                if self.valid_path(path)]
+        return sorted([path.stem for path in self.dir_path.iterdir()
+                if self.valid_path(path)])
 
     def file_path(self, name):
         return self.dir_path / f'{name}{self.suffix}'

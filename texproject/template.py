@@ -60,6 +60,8 @@ class GenericTemplate:
                     f"Template write location aready exists",
                     str(target_path.resolve()))
         try:
+            # recursively create parent directories, if needed
+            target_path.parent.mkdir(parents=True, exist_ok=True)
             target_path.write_text(
                 self.render_template(
                     self.env.get_template(str(template_path))))
@@ -121,10 +123,14 @@ class ProjectTemplate(GenericTemplate):
                 JINJA_PATH.project_macro,
                 proj_path.project_macro)
 
-    def write_git_files(self, proj_path):
+    def write_git_files(self, proj_path, gh=False):
         self.write_template(
                 JINJA_PATH.gitignore,
                 proj_path.gitignore)
+        if gh:
+            self.write_template(
+                    JINJA_PATH.build_latex,
+                    proj_path.build_latex)
 
     def write_arxiv_autotex(self, proj_path):
         self.write_template(

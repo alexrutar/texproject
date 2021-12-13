@@ -1,14 +1,13 @@
 import click
 import subprocess
 import shutil
-import shlex
 import sys
 from pathlib import Path
 
 from . import __version__, __repo__
 from .template import ProjectTemplate, PackageLinker
 from .filesystem import (CONFIG, ProjectPath, CONFIG_PATH,
-        macro_linker, citation_linker, template_linker)
+        format_linker, macro_linker, citation_linker, template_linker)
 from .export import create_export
 
 from .error import BasePathError, BuildError
@@ -221,46 +220,36 @@ def git_init(gh, proj_dir):
 
     proj_gen = ProjectTemplate.load_from_project(proj_path)
 
-    proj_gen.write_git_files(proj_path)
+    proj_gen.write_git_files(proj_path, gh=gh)
     subprocess.run(
             ['git', 'init'],
             cwd=proj_path.dir,
             capture_output=True) # ? keep or no? depends on verbosity...
-    if gh:
-        pass
 
+@cli.command()
+@click.argument('res_class',
+        type=click.Choice(['citation', 'macro', 'format', 'template']))
+def list(res_class):
+    """Retrieve program and template information."""
+
+    linker_map = {
+            'citation': citation_linker,
+            'macro':macro_linker,
+            'format': format_linker,
+            'template': template_linker
+            }
+
+    click.echo("\n".join(linker_map[res_class].list_names()))
 
 # TODO: refactor this
 # - have option positional argument for listing / descriptions?
 # - write descriptions into packages, and write access methods
 @cli.command()
-@click.option('--list','-l', 'listfiles',
-        type=click.Choice(['C','M','T']))
-@click.option('--description','-d',
-        type=click.Choice(['C','M','T']))
-@click.option('--show-all', is_flag=True)
-def info(listfiles,description,show_all):
+@click.argument('res_class',
+        type=click.Choice(['citation', 'macro', 'format', 'template', 'repo']))
+def info(res_class):
     """Retrieve program and template information."""
-    if show_all or listfiles is None:
-        click.echo(f"""
-TPR - TexPRoject (version {__version__})
+    if res_class == 'repo':
+        click.echo(f"""TPR - TexPRoject (version {__version__})
 Maintained by Alex Rutar ({REPO_FORMATTED}).
 MIT License.""")
-
-    if show_all:
-        listfiles = ['C','M','T']
-    elif listfiles is None:
-        listfiles = []
-    else:
-        listfiles = [listfiles]
-
-    linker = {'C': citation_linker,
-            'M': macro_linker,
-            'T': template_linker}
-
-    for code in listfiles:
-        ld = linker[code]
-        if show_all:
-            click.echo(f"\nDirectory for {ld.user_str}s: '{ld.dir_path}'.")
-            click.echo(f"Available {ld.user_str}s:")
-        click.echo(" " + "\t".join(ld.list_names()))
