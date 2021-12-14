@@ -330,19 +330,6 @@ def list(res_class):
 
     click.echo("\n".join(linker_map[res_class].list_names()))
 
-@cli.command()
-@click.pass_obj
-def migrate_yaml(ctxo):
-    import yaml
-    import pytomlpp
-    ctxo.proj_path.validate(exists=True)
-    yaml_path = ctxo.proj_path.data_dir / 'tpr_info.yaml'
-    if yaml_path.exists():
-        ctxo.proj_path.config.write_text(
-                pytomlpp.dumps(
-                    yaml.safe_load(
-                        yaml_path.read_text())))
-        yaml_path.unlink()
 
 # TODO: refactor this
 # - have option positional argument for listing / descriptions?
@@ -356,3 +343,54 @@ def info(res_class):
         click.echo(f"""TPR - TexPRoject (version {__version__})
 Maintained by Alex Rutar ({REPO_FORMATTED}).
 MIT License.""")
+
+
+@cli.group()
+@click.pass_obj
+def upgrade(ctxo):
+    """Various utilities to facilitate the upgrading of old repositories.
+    Warning: these commands are destructive!
+    """
+    ctxo.proj_path.validate(exists=True)
+
+@upgrade.command()
+@click.pass_obj
+def yaml(ctxo):
+    """Update configuration file to .toml.
+    """
+    import yaml
+    import pytomlpp
+    yaml_path = ctxo.proj_path.data_dir / 'tpr_info.yaml'
+    if yaml_path.exists():
+        ctxo.proj_path.config.write_text(
+                pytomlpp.dumps(
+                    yaml.safe_load(
+                        yaml_path.read_text())))
+        yaml_path.unlink()
+
+
+@upgrade.command()
+@click.pass_obj
+def build_latex(ctxo):
+    """Update the github action 'build_latex.yml' script.
+    """
+    from .filesystem import JINJA_PATH
+    proj_gen = ProjectTemplate.load_from_project(ctxo.proj_path)
+    proj_gen.write_template(
+            JINJA_PATH.build_latex,
+            ctxo.proj_path.build_latex,
+            force=True)
+
+
+
+@upgrade.command()
+@click.pass_obj
+def gitignore(ctxo):
+    """Update the '.gitignore' file.
+    """
+    from .filesystem import JINJA_PATH
+    proj_gen = ProjectTemplate.load_from_project(ctxo.proj_path)
+    proj_gen.write_template(
+            JINJA_PATH.gitignore,
+            ctxo.proj_path.gitignore,
+            force=True)
