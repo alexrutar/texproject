@@ -99,7 +99,6 @@ Texproject also has an automated tool that is useful for setting up a remote a r
 In order to use these features, [git](https://git-scm.com/), along with the [GitHub CLI](https://cli.github.com/), must be installed and properly authenticated.
 
 > **_WARNING:_** The commands in this section will create and modify repositories and continuous integration on your GitHub account.
-> Make sure you understand what they are doing before you run the commands locally!
 
 In a new project without an initialized `.git` repo, run the command
 ```
