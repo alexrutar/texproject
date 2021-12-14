@@ -197,5 +197,3 @@ See the [example user configuration file](https://github.com/alexrutar/texprojec
 This configuration file controls many aspects of the behaviour of `tpr`, and can be accessed with `tpr config --system`.
 All variables are accessible using the `config` dictionary within templates.
 See the [example system configuration file](https://github.com/alexrutar/texproject-templates/blob/master/config/system_config_example.toml) for more details.
-
-## Terminology
