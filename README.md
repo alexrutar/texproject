@@ -116,17 +116,16 @@ This command does the following:
 In order to see the commands which will be run without executing them, use `tpr -n git init`.
 
 This GitHub repository is initialized with a custom action (see `.github/workflows/build_latex.yml`) which automatically creates GitHub releases for tagged versions on your project.
-For example, suppose you make some changes to your `.tex` file and commit them to your repository.
+For example, suppose you make some changes to your `.tex` file and commit them to your repository:
 ```
 echo "% a new comment" >> main.tex
 git add main.tex
 git commit -m "A nice commit message"
-git push
 ```
 You can create a release by tagging the current commit, and pushing the tag:
 ```
 git tag v1.0 -m "First release!"
-git push origin v1.0
+git push --follow-tags
 ```
 Now, after the action has finished running, the compiled files will be visible at the URL `https://github.com/username/reponame/releases`.
 
