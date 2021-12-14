@@ -11,6 +11,16 @@ from .error import (BasePathError, ProjectExistsError, ProjectDataMissingError,
         ProjectMissingError, TemplateDataMissingError, SystemDataMissingError,
         GitExistsError, GitMissingError)
 
+SHUTIL_ARCHIVE_FORMATS = [ar[0] for ar in shutil.get_archive_formats()]
+_suffix_map_helper = {
+        '.tar': 'tar',
+        '.tar.bz': 'bztar',
+        '.tar.gz': 'gztar',
+        '.tar.xz': 'xztar',
+        '.zip': 'zip'
+        }
+SHUTIL_ARCHIVE_SUFFIX_MAP = {k:v for k, v in _suffix_map_helper.items()
+        if v in SHUTIL_ARCHIVE_FORMATS}
 
 def _constant(f):
     def fset(self, value):

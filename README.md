@@ -7,7 +7,8 @@ On UNIX-like systems, typically one can install the command-line tool with the f
 pip install texproject
 git clone https://github.com/alexrutar/texproject-templates ~/.local/share/texproject
 mkdir -p ~/.config/texproject
-cp ~/.local/share/texproject/config/user_config_example.toml ~/.config/texproject/config.toml
+cp ~/.local/share/texproject/config/user_config_example.toml ~/.config/texproject/user.toml
+cp ~/.local/share/texproject/config/system_config_example.toml ~/.config/texproject/system.toml
 ```
 Texproject complies with the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html); replace `~/.local/share` or `~/.config` with your configured directories.
 Currently, there is no installation script or package manager support, but I hope to implement this eventually.
@@ -23,13 +24,13 @@ To specify a different directory, use the `-C <path>` flag.
 This creates the files `main.tex` (for primary document contents) and `project-macros.sty` (for project-specific macros).
 To get a list of available templates, run
 ```
-tpr info --list T
+tpr list template
 ```
 If you are currently in a project file, run
 ```
-tpr export
+tpr archive <output.zip>
 ```
-to create an exported version of your project in the same directory, with frozen (unlinked) packages.
+to create compressed source files for your project in the same directory.
 
 If you want to edit parameters of your document (such as citation files, additional macro sets, or other features), run
 ```

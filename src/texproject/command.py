@@ -6,6 +6,7 @@ from pathlib import Path
 from . import __version__, __repo__
 from .template import ProjectTemplate, PackageLinker
 from .filesystem import (CONFIG, ProjectPath, CONFIG_PATH,
+        SHUTIL_ARCHIVE_FORMATS, SHUTIL_ARCHIVE_SUFFIX_MAP,
         format_linker, macro_linker, citation_linker, template_linker)
 from .export import create_archive
 from .error import BasePathError, SubcommandError, LaTeXCompileError
@@ -25,6 +26,7 @@ class CatchInternalExceptions(click.Group):
 class ProjectInfo(ProjectPath):
     def __init__(self, proj_dir, dry_run, verbose):
         self.dry_run = dry_run
+        self.force = False
         self.verbose = verbose or dry_run # always verbose during dry_run
         super().__init__(proj_dir)
 
@@ -167,13 +169,11 @@ def validate_exists(ctx, _, path):
 @cli.command()
 @click.option('--force/--no-force','-f/-F', default=False,
         help="overwrite files")
-@click.option('--compression',
-        type=click.Choice([ar[0] for ar in shutil.get_archive_formats()],
+@click.option('--format', 'compression',
+        type=click.Choice(SHUTIL_ARCHIVE_FORMATS,
             case_sensitive=False),
-        show_default=True,
-        default=CONFIG['default_compression'],
         help="compression mode")
-@click.option('--format', 'fmt',
+@click.option('--include', 'inc',
         type=click.Choice(['arxiv' , 'build', 'source']),
         default='source',
         show_default=True,
@@ -184,13 +184,18 @@ def validate_exists(ctx, _, path):
             exists=False, writable=True, path_type=Path),
         callback=validate_exists)
 @click.pass_obj
-def archive(proj_info, force, compression, fmt, output):
+def archive(proj_info, force, compression, inc, output):
     """Create a compressed export with name OUTPUT. If the 'arxiv' or 'build' options are
     chosen, 'latexmk' is used to compile additional required files. Run 'tpr validate --help'
     for more information.
 
+    The --format option specifies the format of the resulting archive. If unspecified, the format is
+    inferred from the resulting filename if possible. Otherwise, the output format is 'tar'.
+
+    Note: if the format is not inferred from the filename, the archive file suffix is appended automatically.
+
     \b
-    Format modes:
+    File inclusion modes:
      arxiv: format source files for arxiv (https://arxiv.org)
      build: compile the .pdf and export
      source: export
@@ -205,9 +210,17 @@ def archive(proj_info, force, compression, fmt, output):
 
     Note that not all compression modes may be available on your system.
     """
-    proj_info.validate(exists=True)
     proj_info.force = force
-    create_archive(proj_info, compression, output, fmt=fmt)
+    proj_info.validate(exists=True)
+
+    if compression is None:
+        try:
+            compression = SHUTIL_ARCHIVE_SUFFIX_MAP[output.suffix]
+            output = output.parent / output.stem
+        except KeyError:
+            compression = 'tar'
+
+    create_archive(proj_info, compression, output, fmt=inc)
 
 
 
