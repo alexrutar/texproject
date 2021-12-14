@@ -8,5 +8,5 @@ Automatic LaTeX project management.
 """
 
 
-__version__ = "0.5.2"
+__version__ = "0.5.3"
 __repo__ = "https://github.com/alexrutar/texproject"
