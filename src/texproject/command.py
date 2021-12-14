@@ -1,7 +1,6 @@
 import click
 import shutil
 import sys
-import subprocess
 from pathlib import Path
 
 from . import __version__, __repo__
@@ -9,10 +8,8 @@ from .template import ProjectTemplate, PackageLinker
 from .filesystem import (CONFIG, ProjectPath, CONFIG_PATH,
         format_linker, macro_linker, citation_linker, template_linker)
 from .export import create_export
-
 from .error import BasePathError, BuildError
 from .term import REPO_FORMATTED, err_echo, subproc_run, get_github_api_token
-
 from .latex import compile_tex
 
 
@@ -120,8 +117,10 @@ def config(ctxo, config_file):
         help="files given as absolute paths")
 @click.pass_obj
 def import_(ctxo, macro, citation, format, path):
-    """Import macro, citation, and format files.
-    Warning: this command replaces existing files.
+    """Import macro, citation, and format files. This command will replace existing
+    files. When called with the --path option, the arguments are interpreted as paths.
+    This is convenient when importing packages which are not installed in the texproject
+    directories.
     """
     ctxo.proj_path.validate(exists=True)
 
@@ -142,16 +141,17 @@ def export(ctxo, force):
     ctxo.force = force
 
 
-click_output_option = click.argument(
+click_output_argument = click.argument(
         'output',
         type=click.Path(
             exists=False, writable=True, path_type=Path))
 
 @export.command()
-@click_output_option
+@click_output_argument
 @click.pass_obj
 def pdf(ctxo, output):
-    """Compile the current file, using 'latex_compile_command'.
+    """Compile the project to a pdf with name OUTPUT.
+    By default, this uses the compilation command specified in 'config.user.latex_compile_command'.
     """
     if output is not None and output.exists() and not ctxo.force:
         raise BasePathError(output, "Output file already exists! Run with '-f' to overwrite")
@@ -163,7 +163,7 @@ def pdf(ctxo, output):
 
 
 @export.command()
-@click_output_option
+@click_output_argument
 @click.pass_obj
 def source(ctxo, output):
     """Export the source files.
@@ -182,7 +182,7 @@ def source(ctxo, output):
         default=False,
         show_default=True,
         help="format for arXiv")
-@click_output_option
+@click_output_argument
 @click.pass_obj
 def archive(ctxo, compression, arxiv, output):
     """Create a compressed export with name OUTPUT.
@@ -204,23 +204,15 @@ def archive(ctxo, compression, arxiv, output):
         create_export(ctxo.proj_path, compression, output, arxiv=arxiv)
 
 
-@cli.command()
-@click.pass_obj
-def clean(ctxo):
-    """Cleans the project directory.
-    """
-    ctxo.proj_path.validate(exists=True)
-    ctxo.proj_path.clear_temp()
-
-
 @cli.group()
 @click.pass_obj
 def git(ctxo):
     """Subcommand to manage git files.
     """
     ctxo.proj_path.validate(exists=True)
-    ctxo.proj_path.validate_git(exists=False)
 
+
+# todo: allow specification using keyring
 @git.command('init')
 @click.option('--repo-name', 'repo_name',
         prompt='Repository name',
@@ -262,6 +254,8 @@ def git_init(ctxo, repo_name, repo_desc, vis, wiki, issues):
     Otherwise, the token will default to the empty string. The access token is not required for
     the build functionality.
     """
+    ctxo.proj_path.validate_git(exists=False)
+
     proj_gen = ProjectTemplate.load_from_project(ctxo.proj_path)
     # proj_gen.user_dict is the user configuration file
     proj_gen.write_git_files(ctxo.proj_path)
@@ -394,3 +388,18 @@ def gitignore(ctxo):
             JINJA_PATH.gitignore,
             ctxo.proj_path.gitignore,
             force=True)
+
+
+@upgrade.command()
+@click.pass_obj
+def clean(ctxo):
+    """Cleans the project directory.
+
+    Currently not fully implemented.
+    """
+    # also clean up old stuff which might not be needed? e.g. any macro files etc. that are not
+    # linked, for example
+    ctxo.proj_path.validate(exists=True)
+    ctxo.proj_path.clear_temp()
+
+
