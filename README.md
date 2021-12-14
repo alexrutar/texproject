@@ -1,6 +1,7 @@
 # TexProject: An automatic LaTeX project manager.
 TexPRoject is a command-line LaTeX template and project manager written in Python.
 
+# Introduction
 ## Installation
 On UNIX-like systems, typically one can install the command-line tool with the following commands:
 ```
@@ -59,7 +60,7 @@ tpr <subcommand> --help
 ```
 This is the canonical source of documentation for the program.
 
-### Usage Example
+## Usage Example
 Here, we demonstrate the construction of a basic project.
 First, create a project with the name `example` using the `empty` template, and change into the directory.
 ```
@@ -84,8 +85,8 @@ tpr archive output.zip
 which will generate the file `output.zip` within the project directory.
 This zipfile contains all the source files requires to compile the document.
 
-## Other major features
-### Automatic Compilation
+# Other Major Features
+## Automatic Compilation
 A number of subcommands used by Texproject use the [latexmk](https://personal.psu.edu/~jcc8/software/latexmk/) program for automatic compilation.
 This is useful in order to programmatically verify compilation, as well as automatic creation of `.pdf` or `.bbl` files from source files when exporting.
 For example, to create a compressed export with includes a `.pdf` of the current build, run
@@ -94,7 +95,7 @@ tpr archive output.zip --include build
 ```
 Run `tpr validate --help` or `tpr archive --help` for more information on some subcommands which use automatic compilation.
 
-### GitHub Repository Management
+## GitHub Repository Management
 Texproject also has an automated tool that is useful for setting up a remote a repository on [GitHub](https://github.com) with convenient continuous integration features.
 In order to use these features, [git](https://git-scm.com/), along with the [GitHub CLI](https://cli.github.com/), must be installed and properly authenticated.
 
@@ -114,21 +115,25 @@ This command does the following:
 
 In order to see the commands which will be run without executing them, use `tpr -n git init`.
 
+### Automatic releases
 This GitHub repository is initialized with a custom action (see `.github/workflows/build_latex.yml`) which automatically creates GitHub releases for tagged versions on your project.
 For example, suppose you make some changes to your `.tex` file and commit them to your repository:
 ```
-echo "% a new comment" >> main.tex
+echo "% a comment" >> main.tex
 git add main.tex
 git commit -m "A nice commit message"
 ```
-You can create a release by tagging the current commit, and pushing the tag:
+Then, create a tag and push the commit along with the tag:
 ```
 git tag v1.0 -m "First release!"
 git push --follow-tags
 ```
 Now, after the action has finished running, the compiled files will be visible at the URL `https://github.com/username/reponame/releases`.
 
-The action also has the ability to automatically push the compiled `.pdf` files to a centralized GitHub repository.
+### Automatic commits to a centralized repository
+The action can also be configured to automatically push the compiled `.pdf` releases to a centralized GitHub repository.
+For example, you might want to automatically add release files to your personal website every time the files are updated.
+
 In order to set this up, add a `[github]` table to your system configuration (`tpr config --system`).
 The keys
 ```
@@ -144,6 +149,7 @@ folder = 'pdfs'
 branch = 'main'
 ```
 specify the target repository, folder, and branch where the commits will be pushed.
+
 In order to correctly authenticate, the repository must have access to a valid API token.
 This token must have, at least, (and preferably at most), repo privileges on your GitHub account.
 This can be specified in one of two ways.
@@ -158,7 +164,7 @@ Then, add the table
 username = '<name>'
 entry = '<github_cli_token>'
 ```
-to your system configuration.
+to your Texproject system configuration.
 Of course, `<name>` and `<github_cli_token>` can be whatever you want.
 You can also set the `API_TOKEN_GITHUB` environment variable.
 
