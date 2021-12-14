@@ -333,20 +333,6 @@ def list(res_class):
     click.echo("\n".join(linker_map[res_class].list_names()))
 
 
-# TODO: refactor this
-# - have option positional argument for listing / descriptions?
-# - write descriptions into packages, and write access methods
-@cli.command()
-@click.argument('res_class',
-        type=click.Choice(['citation', 'macro', 'format', 'template', 'repo']))
-def info(res_class):
-    """Retrieve program and template information."""
-    if res_class == 'repo':
-        click.echo(f"""TPR - TexPRoject (version {__version__})
-Maintained by Alex Rutar ({REPO_FORMATTED}).
-MIT License.""")
-
-
 @cli.group()
 @click.pass_obj
 def upgrade(proj_info):
