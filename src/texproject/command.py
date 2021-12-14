@@ -211,6 +211,10 @@ def git(ctxo):
     """
     ctxo.proj_path.validate(exists=True)
 
+@git.command('set-api-token')
+@click.pass_obj
+def set_api_token(ctxo):
+    pass
 
 # todo: allow specification using keyring
 @git.command('init')
