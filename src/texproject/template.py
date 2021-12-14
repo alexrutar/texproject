@@ -47,7 +47,7 @@ class GenericTemplate:
         """Render template and return template text."""
         return template.render(
             user = self.user_dict,
-            template = self.template_dict,
+            local = self.template_dict,
             config = CONFIG,
             bibliography = self.bibtext,
             replace = CONFIG['replace_text'],
