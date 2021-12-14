@@ -353,6 +353,7 @@ def upgrade(ctxo):
     """
     ctxo.proj_path.validate(exists=True)
 
+
 @upgrade.command()
 @click.pass_obj
 def yaml(ctxo):
@@ -380,7 +381,6 @@ def build_latex(ctxo):
             JINJA_PATH.build_latex,
             ctxo.proj_path.build_latex,
             force=True)
-
 
 
 @upgrade.command()
