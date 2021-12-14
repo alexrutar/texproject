@@ -23,6 +23,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         'pytomlpp>=1.0.9',
+        'PyYAML>=6.0',
         'Jinja2>=2.11.2',
         'xdg>=4.0.1',
         'click>=8.0'
