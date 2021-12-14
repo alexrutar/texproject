@@ -42,3 +42,13 @@ class ProjectExistsError(BasePathError):
     def __init__(self, path):
         message = f"Conflicting files already exist in the working directory."
         super().__init__(path, message=message)
+
+class GitMissingError(BasePathError):
+    def __init__(self, path):
+        message = f"The working directory is not a valid git repository."
+        super().__init__(path, message=message)
+
+class GitExistsError(BasePathError):
+    def __init__(self, path):
+        message = f"Conflicting git files already exist in the working directory."
+        super().__init__(path, message=message)

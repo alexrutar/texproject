@@ -107,6 +107,9 @@ class ProjectTemplate(GenericTemplate):
                 JINJA_PATH.bibinfo,
                 proj_path.bibinfo,
                 force=True)
+        self.write_template(
+                JINJA_PATH.gitignore,
+                proj_path.gitignore)
 
         linker = PackageLinker(proj_path, force=False, silent_fail=True)
         linker.link_macros(self.template_dict['macros'])
@@ -123,14 +126,10 @@ class ProjectTemplate(GenericTemplate):
                 JINJA_PATH.project_macro,
                 proj_path.project_macro)
 
-    def write_git_files(self, proj_path, gh=False):
+    def write_git_files(self, proj_path):
         self.write_template(
-                JINJA_PATH.gitignore,
-                proj_path.gitignore)
-        if gh:
-            self.write_template(
-                    JINJA_PATH.build_latex,
-                    proj_path.build_latex)
+                JINJA_PATH.build_latex,
+                proj_path.build_latex)
 
     def write_arxiv_autotex(self, proj_path):
         self.write_template(

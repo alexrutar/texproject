@@ -8,7 +8,8 @@ import uuid
 import contextlib
 
 from .error import (BasePathError, ProjectExistsError, ProjectDataMissingError,
-        ProjectMissingError, TemplateDataMissingError, SystemDataMissingError)
+        ProjectMissingError, TemplateDataMissingError, SystemDataMissingError,
+        GitExistsError, GitMissingError)
 
 
 def _constant(f):
@@ -159,6 +160,12 @@ class ProjectPath:
         else:
             return
 
+    def validate_git(self, exists=True):
+        if not exists and any(path.exists() for path in self.gitfiles):
+            raise GitExistsError(self.working_dir)
+        elif exists and any(not path.exists() for path in self.minimal_gitfiles):
+            raise GitMissingError(self.working_dir)
+
     @relative('data')
     def config(self):
         return 'tpr_info.toml'
@@ -199,13 +206,29 @@ class ProjectPath:
     def gitignore(self):
         return f".gitignore"
 
+    @relative('root')
+    def git_home(self):
+        return ".git"
+
+    @relative('root')
+    def github_home(self):
+        return '.github'
+
     @relative('gh_actions')
     def build_latex(self):
         return f"build_latex.yml"
 
     @_constant
+    def gitfiles(self):
+        return (self.git_home, self.github_home)
+
+    @_constant
+    def minimal_gitfiles(self):
+        return (self.git_home,)
+
+    @_constant
     def rootfiles(self):
-        return (self.main, self.project_macro, self.data_dir, self.gitignore)
+        return (self.main, self.project_macro, self.data_dir)
 
     @_constant
     def minimal_files(self):
