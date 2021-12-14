@@ -1,7 +1,7 @@
 import shutil
 from .filesystem import CONFIG, ProjectPath
 from .template import ProjectTemplate
-from .proc import compile_tex
+from .process import compile_tex
 
 
 def create_archive(proj_path, compression, archive_file, fmt='build'):

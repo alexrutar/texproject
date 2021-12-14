@@ -10,7 +10,7 @@ from .filesystem import (CONFIG, ProjectPath, CONFIG_PATH,
 from .export import create_archive
 from .error import BasePathError, SubcommandError, LaTeXCompileError
 from .term import REPO_FORMATTED, err_echo
-from .proc import subproc_run, compile_tex, get_github_api_token
+from .process import subproc_run, compile_tex, get_github_api_token
 
 
 class CatchInternalExceptions(click.Group):
