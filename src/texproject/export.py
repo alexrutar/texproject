@@ -1,11 +1,10 @@
 import shutil
 from .filesystem import CONFIG, ProjectPath
 from .template import ProjectTemplate
-from .latex import compile_tex
+from .proc import compile_tex
 
-# TODO: should compile first
-# check that .zip etc. are automatically appended
-def create_export(proj_path, compression, archive_file, arxiv=False):
+
+def create_archive(proj_path, compression, archive_file, fmt='build'):
 
     with proj_path.temp_subpath() as archive_dir, proj_path.temp_subpath() as build_dir:
         shutil.copytree(proj_path.dir,
@@ -13,17 +12,18 @@ def create_export(proj_path, compression, archive_file, arxiv=False):
                 copy_function=shutil.copy,
                 ignore=shutil.ignore_patterns(*CONFIG['ignore_patterns']))
 
-        if arxiv:
-            output_map = {'.bbl': archive_dir / (CONFIG['default_tex_name'] + '.bbl')}
-        else:
-            output_map = {'.pdf': archive_dir / (CONFIG['default_tex_name'] + '.pdf')}
+        # compile the tex files to get .bbl / .pdf
+        if fmt in ('arxiv', 'build'):
+            build_dir.mkdir()
+            if fmt == 'arxiv':
+                output_map = {'.bbl': archive_dir / (CONFIG['default_tex_name'] + '.bbl')}
+            else:
+                output_map = {'.pdf': archive_dir / (CONFIG['default_tex_name'] + '.pdf')}
 
-        # build in the files automatically
-        build_dir.mkdir()
-        compile_tex(proj_path.dir, outdir=build_dir, output_map=output_map)
+            compile_tex(proj_path.dir, outdir=build_dir, output_map=output_map)
 
-        if arxiv:
-            _modify_arxiv(archive_dir)
+            if fmt == 'arxiv':
+                _modify_arxiv(archive_dir)
 
         shutil.make_archive(archive_file,
                 compression,

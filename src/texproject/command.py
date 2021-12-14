@@ -7,10 +7,10 @@ from . import __version__, __repo__
 from .template import ProjectTemplate, PackageLinker
 from .filesystem import (CONFIG, ProjectPath, CONFIG_PATH,
         format_linker, macro_linker, citation_linker, template_linker)
-from .export import create_export
-from .error import BasePathError, BuildError
-from .term import REPO_FORMATTED, err_echo, subproc_run, get_github_api_token
-from .latex import compile_tex
+from .export import create_archive
+from .error import BasePathError, SubcommandError, LaTeXCompileError
+from .term import REPO_FORMATTED, err_echo
+from .proc import subproc_run, compile_tex, get_github_api_token
 
 
 class CatchInternalExceptions(click.Group):
@@ -18,20 +18,15 @@ class CatchInternalExceptions(click.Group):
         try:
             return self.main(*args, **kwargs)
 
-        except BasePathError as err:
-            err_echo(err.message)
+        except (BasePathError, LaTeXCompileError, SubcommandError) as err:
+            err_echo(err)
             sys.exit(1)
 
-        except BuildError as err:
-            err_echo(err.message + " Here is the build error output:\n")
-            click.echo(err.stderr, err=True)
-            sys.exit(1)
-
-class CtxObjectWrapper:
-    def __init__(self, proj_dir, verbose):
-        self.proj_path = ProjectPath(proj_dir)
-        self.working_directory = self.proj_path.dir
-        self.verbose = verbose
+class ProjectInfo(ProjectPath):
+    def __init__(self, proj_dir, dry_run, verbose):
+        self.dry_run = dry_run
+        self.verbose = verbose or dry_run # always verbose during dry_run
+        super().__init__(proj_dir)
 
 @click.group(cls=CatchInternalExceptions)
 @click.version_option(prog_name="tpr (texproject)")
@@ -42,12 +37,18 @@ class CtxObjectWrapper:
         help='working directory',
         type=click.Path(
             exists=True, file_okay=False, dir_okay=True, writable=True, path_type=Path))
+@click.option(
+        '-n', '--dry-run',
+        'dry_run',
+        is_flag=True,
+        default=False,
+        help='do not change the filesystem')
 @click.option('--verbose/--silent', '-v/-V', 'verbose',
         default=True,
         help='Be verbose')
 @click.pass_context
-def cli(ctx, proj_dir, verbose):
-    ctx.obj = CtxObjectWrapper(proj_dir, verbose)
+def cli(ctx, proj_dir, dry_run, verbose):
+    ctx.obj = ProjectInfo(proj_dir, dry_run, verbose)
 
 
 @cli.command()
@@ -56,21 +57,21 @@ def cli(ctx, proj_dir, verbose):
         multiple=True,
         help="include citation file")
 @click.pass_obj
-def init(ctxo, template, citation):
+def init(proj_info, template, citation):
     """Initialize a new project in the current directory. The project is
     created using the template with name TEMPLATE and placed in the output
     folder OUTPUT.
 
     The path OUTPUT either must not exist or be an empty folder. Missing
     intermediate directories are automatically constructed."""
-    ctxo.proj_path.validate(exists=False)
+    proj_info.validate(exists=False)
 
     proj_gen = ProjectTemplate.load_from_template(
             template,
             citation)
 
-    proj_gen.create_output_folder(ctxo.proj_path)
-    proj_gen.write_tpr_files(ctxo.proj_path, write_template=True)
+    proj_gen.create_output_folder(proj_info)
+    proj_gen.write_tpr_files(proj_info)
 
 
 @cli.command()
@@ -81,7 +82,7 @@ def init(ctxo, template, citation):
 @click.option('--system', 'config_file', flag_value='system',
         help="Edit global system configuration.")
 @click.pass_obj
-def config(ctxo, config_file):
+def config(proj_info, config_file):
     """Edit texproject configuration files. This opens the corresponding file
     in your $EDITOR. By default, edit the project configuration file; this
     requires the current directory (or the directory specified by -C) to be
@@ -92,12 +93,12 @@ def config(ctxo, config_file):
     """
     match config_file:
         case 'local':
-            ctxo.proj_path.validate(exists=True)
+            proj_info.validate(exists=True)
 
-            click.edit(filename=str(ctxo.proj_path.config))
+            click.edit(filename=str(proj_info.config))
 
-            proj_info = ProjectTemplate.load_from_project(ctxo.proj_path)
-            proj_info.write_tpr_files(ctxo.proj_path)
+            proj_info = ProjectTemplate.load_from_project(proj_info)
+            proj_info.write_tpr_files(proj_info)
 
         case 'user':
             click.edit(filename=str(CONFIG_PATH.user))
@@ -116,76 +117,83 @@ def config(ctxo, config_file):
 @click.option('--path/--no-path', default=False,
         help="files given as absolute paths")
 @click.pass_obj
-def import_(ctxo, macro, citation, format, path):
+def import_(proj_info, macro, citation, format, path):
     """Import macro, citation, and format files. This command will replace existing
     files. When called with the --path option, the arguments are interpreted as paths.
     This is convenient when importing packages which are not installed in the texproject
     directories.
     """
-    ctxo.proj_path.validate(exists=True)
+    proj_info.validate(exists=True)
 
-    linker = PackageLinker(ctxo.proj_path, force=True, is_path=path)
+    linker = PackageLinker(proj_info, force=True, is_path=path)
     linker.link_macros(macro)
     linker.link_citations(citation)
     linker.link_format(format)
 
 
-@cli.group()
-@click.option('--force/--no-force','-f/-F', default=False,
-        help="overwrite files")
-@click.pass_obj
-def export(ctxo, force):
-    """Utilities for creating and validating export files.
-    """
-    ctxo.proj_path.validate(exists=True)
-    ctxo.force = force
 
-
-click_output_argument = click.argument(
-        'output',
+@cli.command()
+@click.option('-o', '--output',
+        help = "write .pdf to file",
         type=click.Path(
             exists=False, writable=True, path_type=Path))
-
-@export.command()
-@click_output_argument
+@click.option('--logfile',
+        help = "write .log to file",
+        type=click.Path(
+            exists=False, writable=True, path_type=Path))
 @click.pass_obj
-def pdf(ctxo, output):
-    """Compile the project to a pdf with name OUTPUT.
-    By default, this uses the compilation command specified in 'config.user.latex_compile_command'.
+def validate(proj_info, output, logfile):
+    """Check project for compilation errors. You can save the resulting pdf by specifying
+    the '--output' argument, and similarly save the log file with the '--logfile' argument.
+    Note that these options, if specified, will automatically overwrite existing files.
+
+    Compilation requires the 'latexmk' program to be installed and accessible to this program.
+    Compilation is done by executing the command
+
+    $ latexmk -pdf -interaction=nonstopmode
+
+    You can specify additional options in 'config.system.latex_compile_options'.
     """
-    if output is not None and output.exists() and not ctxo.force:
-        raise BasePathError(output, "Output file already exists! Run with '-f' to overwrite")
+    with proj_info.temp_subpath() as build_dir:
+        build_dir.mkdir()
+        compile_tex(proj_info, outdir=build_dir, output_map={'.pdf': output, '.log': logfile})
+
+
+def validate_exists(ctx, _, path):
+    if not ctx.obj.force and path.exists():
+        raise click.BadParameter('file exists. Use -f / --force to overwrite.')
     else:
-        output_map = {'.pdf': output} if output is not None else {}
-        with ctxo.proj_path.temp_subpath() as build_dir:
-            build_dir.mkdir()
-            compile_tex(ctxo.working_directory, outdir=build_dir, output_map=output_map)
-
-
-@export.command()
-@click_output_argument
-@click.pass_obj
-def source(ctxo, output):
-    """Export the source files.
-    """
-    raise NotImplementedError
-
-
-@export.command()
+        return path
+@cli.command()
+@click.option('--force/--no-force','-f/-F', default=False,
+        help="overwrite files")
 @click.option('--compression',
         type=click.Choice([ar[0] for ar in shutil.get_archive_formats()],
             case_sensitive=False),
         show_default=True,
         default=CONFIG['default_compression'],
         help="compression mode")
-@click.option('--arxiv/--no-arxiv',
-        default=False,
+@click.option('--format', 'fmt',
+        type=click.Choice(['arxiv' , 'build', 'source']),
+        default='source',
         show_default=True,
-        help="format for arXiv")
-@click_output_argument
+        help="specify what to export")
+@click.argument(
+        'output',
+        type=click.Path(
+            exists=False, writable=True, path_type=Path),
+        callback=validate_exists)
 @click.pass_obj
-def archive(ctxo, compression, arxiv, output):
-    """Create a compressed export with name OUTPUT.
+def archive(proj_info, force, compression, fmt, output):
+    """Create a compressed export with name OUTPUT. If the 'arxiv' or 'build' options are
+    chosen, 'latexmk' is used to compile additional required files. Run 'tpr validate --help'
+    for more information.
+
+    \b
+    Format modes:
+     arxiv: format source files for arxiv (https://arxiv.org)
+     build: compile the .pdf and export
+     source: export
 
     \b
     Compression modes:
@@ -197,23 +205,22 @@ def archive(ctxo, compression, arxiv, output):
 
     Note that not all compression modes may be available on your system.
     """
-    if output.exists() and not ctxo.force:
-        raise BasePathError(output,
-                "Output file already exists! Run with '-f' to overwrite")
-    else:
-        create_export(ctxo.proj_path, compression, output, arxiv=arxiv)
+    proj_info.validate(exists=True)
+    proj_info.force = force
+    create_archive(proj_info, compression, output, fmt=fmt)
+
 
 
 @cli.group()
 @click.pass_obj
-def git(ctxo):
+def git(proj_info):
     """Subcommand to manage git files.
     """
-    ctxo.proj_path.validate(exists=True)
+    proj_info.validate(exists=True)
 
 @git.command('set-api-token')
 @click.pass_obj
-def set_api_token(ctxo):
+def set_api_token(proj_info):
     pass
 
 # todo: allow specification using keyring
@@ -240,53 +247,43 @@ def set_api_token(ctxo):
         help='Create issues page',
         default=False)
 @click.pass_obj
-def git_init(ctxo, repo_name, repo_desc, vis, wiki, issues):
+def git_init(proj_info, repo_name, repo_desc, vis, wiki, issues):
     """Initialize git and a corresponding GitHub repository. If called with no options,
     this command will interactively prompt you in order to initialize the repo correctly.
     This command also creates a GitHub action with automatically compiles and releases the
     main .pdf file for tagged releases.
 
-    If you have specified the github.archive setting in your user configuration, the
+    If you have specified 'config.user.github.archive', the
     GitHub action will also automatically push the build files to the corresponding folder
     in the specified repository. In order for this to work, you must provide an access token must
     with at least repo privileges. This can be done (in order of priority) by
 
     1) setting the environment variable $API_TOKEN_GITHUB, or
 
-    2) setting the 'github.archive.github_api_token_command' in the user configuration.
+    2) setting the 'github.keyring' settings in the system configuration.
 
     Otherwise, the token will default to the empty string. The access token is not required for
-    the build functionality.
+    the build action functionality.
     """
-    ctxo.proj_path.validate_git(exists=False)
+    proj_info.validate_git(exists=False)
 
-    proj_gen = ProjectTemplate.load_from_project(ctxo.proj_path)
-    # proj_gen.user_dict is the user configuration file
-    proj_gen.write_git_files(ctxo.proj_path)
+    proj_gen = ProjectTemplate.load_from_project(proj_info)
+    proj_gen.write_git_files(proj_info)
 
     # initialize repo
-    subproc_run(
-            ['git', 'init'],
-            cwd=ctxo.working_directory,
-            check=True,
-            verbose=ctxo.verbose)
+    subproc_run(proj_info,
+            ['git', 'init'])
 
     # add and commit all files
-    subproc_run(
-            ['git', 'add', '-A'],
-            cwd=ctxo.working_directory,
-            check=True,
-            verbose=ctxo.verbose)
-    subproc_run(
-            ['git', 'commit', '-m', 'Initialize new texproject repository'],
-            cwd=ctxo.working_directory,
-            check=True,
-            verbose=ctxo.verbose)
+    subproc_run(proj_info,
+            ['git', 'add', '-A'])
+    subproc_run(proj_info,
+            ['git', 'commit', '-m', 'Initialize new texproject repository'])
 
     # initialize github with settings
     gh_command = ['gh', 'repo', 'create',
             '-d', repo_desc,
-            '--source', str(ctxo.working_directory),
+            '--source', str(proj_info.dir),
             '--remote', 'origin',
             '--push', repo_name,
             '--' + vis
@@ -298,19 +295,13 @@ def git_init(ctxo, repo_name, repo_desc, vis, wiki, issues):
     if not issues:
         gh_command.append('--disable-issues')
 
-    subproc_run(gh_command,
-            cwd=ctxo.working_directory,
-            check=True,
-            verbose=ctxo.verbose)
+    subproc_run(proj_info,
+            gh_command)
 
-    subproc_run([
-        'gh', 'secret', 'set', 'API_TOKEN_GITHUB',
-        '-b', get_github_api_token(proj_gen.user_dict),
-        '-r', repo_name],
-        cwd=ctxo.working_directory,
-        check=True,
-        verbose=ctxo.verbose,
-        conceal=True)
+    subproc_run(proj_info,
+            ['gh', 'secret', 'set', 'API_TOKEN_GITHUB',
+                '-b', get_github_api_token(),
+                '-r', repo_name])
 
 
 @cli.command()
@@ -345,23 +336,23 @@ MIT License.""")
 
 @cli.group()
 @click.pass_obj
-def upgrade(ctxo):
+def upgrade(proj_info):
     """Various utilities to facilitate the upgrading of old repositories.
     Warning: these commands are destructive!
     """
-    ctxo.proj_path.validate(exists=True)
+    proj_info.validate(exists=True)
 
 
 @upgrade.command()
 @click.pass_obj
-def yaml(ctxo):
+def yaml(proj_info):
     """Update configuration file to .toml.
     """
     import yaml
     import pytomlpp
-    yaml_path = ctxo.proj_path.data_dir / 'tpr_info.yaml'
+    yaml_path = proj_info.data_dir / 'tpr_info.yaml'
     if yaml_path.exists():
-        ctxo.proj_path.config.write_text(
+        proj_info.config.write_text(
                 pytomlpp.dumps(
                     yaml.safe_load(
                         yaml_path.read_text())))
@@ -370,40 +361,40 @@ def yaml(ctxo):
 
 @upgrade.command()
 @click.pass_obj
-def build_latex(ctxo):
+def build_latex(proj_info):
     """Update the github action 'build_latex.yml' script.
     """
     from .filesystem import JINJA_PATH
-    proj_gen = ProjectTemplate.load_from_project(ctxo.proj_path)
-    proj_gen.write_template(
+    proj_gen = ProjectTemplate.load_from_project(proj_info)
+    proj_gen.write_template_with_info(proj_info,
             JINJA_PATH.build_latex,
-            ctxo.proj_path.build_latex,
+            proj_info.build_latex,
             force=True)
 
 
 @upgrade.command()
 @click.pass_obj
-def gitignore(ctxo):
+def gitignore(proj_info):
     """Update the '.gitignore' file.
     """
     from .filesystem import JINJA_PATH
-    proj_gen = ProjectTemplate.load_from_project(ctxo.proj_path)
-    proj_gen.write_template(
+    proj_gen = ProjectTemplate.load_from_project(proj_info)
+    proj_gen.write_template_with_info(proj_info,
             JINJA_PATH.gitignore,
-            ctxo.proj_path.gitignore,
+            proj_info.gitignore,
             force=True)
 
 
 @upgrade.command()
 @click.pass_obj
-def clean(ctxo):
+def clean(proj_info):
     """Cleans the project directory.
 
     Currently not fully implemented.
     """
     # also clean up old stuff which might not be needed? e.g. any macro files etc. that are not
     # linked, for example
-    ctxo.proj_path.validate(exists=True)
-    ctxo.proj_path.clear_temp()
+    proj_info.validate(exists=True)
+    proj_info.clear_temp()
 
 

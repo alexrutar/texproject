@@ -6,6 +6,8 @@ from .filesystem import (CONFIG, CONFIG_PATH, DATA_PATH, JINJA_PATH,
         toml_load, toml_dump, toml_load_local_template,
         macro_linker, format_linker, citation_linker, template_linker)
 
+from .term import render_echo, link_echo, init_echo
+
 from .error import SystemDataMissingError
 def safe_name(name, style):
     """Safe namer for use in templates."""
@@ -79,75 +81,88 @@ class ProjectTemplate(GenericTemplate):
         return self
 
     @classmethod
-    def load_from_project(cls, proj_path):
+    def load_from_project(cls, proj_info):
         """Load the template generator from an existing project."""
-        template_dict = toml_load_local_template(proj_path.config)
+        template_dict = toml_load_local_template(proj_info.config)
         return cls(template_dict)
 
     @classmethod
     def from_dict(cls, template_dict):
         return cls(template_dict)
 
-    def write_tpr_files(self, proj_path, write_template=False):
+    def write_template_with_info(self, proj_info, template_path, target_path, force=False):
+        if proj_info.verbose:
+            render_echo(template_path, target_path)
+        if not proj_info.dry_run:
+            self.write_template(
+                    template_path,
+                    target_path,
+                    force=force)
+
+    def write_tpr_files(self, proj_info):
         """Create texproject project data directory and write files."""
-
-        # initialize texproject directory
-        proj_path.data_dir.mkdir(exist_ok=True, parents=True)
-
-        if write_template:
-            toml_dump(
-                    proj_path.config,
-                    self.template_dict)
-
-        self.write_template(
+        self.write_template_with_info(proj_info,
                 JINJA_PATH.classinfo,
-                proj_path.classinfo,
+                proj_info.classinfo,
                 force=True)
-        self.write_template(
+        self.write_template_with_info(proj_info,
                 JINJA_PATH.bibinfo,
-                proj_path.bibinfo,
+                proj_info.bibinfo,
                 force=True)
-        self.write_template(
-                JINJA_PATH.gitignore,
-                proj_path.gitignore)
 
-        linker = PackageLinker(proj_path, force=False, silent_fail=True)
+        linker = PackageLinker(proj_info, force=False, silent_fail=True)
         linker.link_macros(self.template_dict['macros'])
         linker.link_citations(self.template_dict['citations'])
         linker.link_format(self.template_dict['format'])
 
-    def create_output_folder(self, proj_path):
-        """Write user-visible output folder files into the project path."""
-        self.write_template(
+    def create_output_folder(self, proj_info):
+        """Write top-level files into the project path."""
+        if proj_info.dry_run or proj_info.verbose:
+            init_echo(proj_info.dir)
+
+        if not proj_info.dry_run:
+            # initialize texproject directory
+            proj_info.data_dir.mkdir(exist_ok=True, parents=True)
+            toml_dump(
+                    proj_info.config,
+                    self.template_dict)
+
+        self.write_template_with_info(proj_info,
                 JINJA_PATH.template_doc(self.template_name),
-                proj_path.main)
+                proj_info.main)
 
-        self.write_template(
+        self.write_template_with_info(proj_info,
                 JINJA_PATH.project_macro,
-                proj_path.project_macro)
+                proj_info.project_macro)
 
-    def write_git_files(self, proj_path):
-        self.write_template(
+    def write_git_files(self, proj_info):
+        self.write_template_with_info(proj_info,
+                JINJA_PATH.gitignore,
+                proj_info.gitignore)
+        self.write_template_with_info(proj_info,
                 JINJA_PATH.build_latex,
-                proj_path.build_latex)
+                proj_info.build_latex)
 
-    def write_arxiv_autotex(self, proj_path):
-        self.write_template(
+    def write_arxiv_autotex(self, proj_info):
+        self.write_template_with_info(proj_info,
                 JINJA_PATH.arxiv_autotex,
-                proj_path.arxiv_autotex)
+                proj_info.arxiv_autotex)
 
 
 class PackageLinker:
-    def __init__(self, proj_path, force=False, silent_fail=True, is_path=False):
-        self.proj_path = proj_path
+    def __init__(self, proj_info, force=False, silent_fail=True, is_path=False):
+        self.proj_info = proj_info
         self.force = force
         self.silent_fail = silent_fail
         self.is_path = is_path
 
     def make_link(self, linker, name):
-            """Helper function for linking."""
+        """Helper function for linking."""
+        if self.proj_info.verbose:
+            link_echo(linker, name, self.proj_info.data_dir)
+        if not self.proj_info.dry_run:
             linker.link_name(name,
-                    self.proj_path.data_dir,
+                    self.proj_info.data_dir,
                     is_path=self.is_path,
                     force=self.force,
                     silent_fail=self.silent_fail)

@@ -1,36 +1,66 @@
 from . import __repo__
-import subprocess
 import shlex
-import os
 import click
+from pathlib import Path
+from .error import BasePathError, SubcommandError, LaTeXCompileError
 
 REPO_FORMATTED = click.style(__repo__, fg='bright_blue')
-def err_echo(string):
-    click.secho(f"Error: {string}", err=True, fg='red')
 
-def get_github_api_token(user_dict):
-    env_token = os.environ.get('API_TOKEN_GITHUB', None)
+def err_echo(err_inst):
+    def _err_header(string):
+        click.secho(f"Error: {string}", err=True, fg='red')
 
-    proc = subprocess.run(
-            shlex.split(user_dict['github']['archive']['github_api_token_command']),
-            capture_output=True,
-            check=True)
-    user_token = proc.stdout.decode('ascii')[:-1]
+    match err_inst:
 
-    if env_token is not None:
-        return env_token
+        case BasePathError(message=string):
+            _err_header(string)
+
+        case LaTeXCompileError(message=string):
+            _err_header(string)
+
+        case SubcommandError(message=string, cmd=cmd, stdout=stdout, stderr=stderr):
+            _err_header(string)
+            click.secho(f"Command:\n$ {shlex.join(cmd)}", err=True)
+            click.secho(f"Output:\n{stdout}", err=True)
+            click.secho(f"Error output:\n{stderr}", err=True)
+
+
+def _normalize(path):
+    try:
+        return path.relative_to(Path.cwd())
+    except ValueError:
+        return path
+
+def render_echo(template_path, target):
+    click.secho(
+            f"> Render file '{_normalize(target)}' from template at '{template_path}'",
+            fg='blue')
+
+def link_echo(linker, name, target):
+    click.secho(
+            f"> Copy {linker.user_str} '{name}' to directory '{_normalize(target)}'",
+            fg='blue')
+
+def init_echo(dirname):
+    click.secho(
+            f"> Initializing project in '{_normalize(dirname)}'",
+            fg='blue')
+
+class Secret:
+    def __init__(self, string):
+        self.string = string
+
+    def __str__(self):
+        return self.string
+
+    def redacted(self):
+        return '[*****]'
+
+def redact(obj):
+    if isinstance(obj, Secret):
+        return obj.redacted()
     else:
-        return user_token
+        return str(obj)
 
-def subproc_run(command, cwd, check=True, verbose=False, conceal=False):
-    if verbose and not conceal:
-        click.secho(f"$ {shlex.join(command)}", fg='green')
-    elif verbose and conceal:
-        click.secho(f"$ # command concealed", fg='green')
-    proc = subprocess.run(
-            command,
-            cwd=cwd,
-            check=check,
-            capture_output=True)
-    if verbose:
-        print(proc.stdout.decode('ascii'))
+def cmd_echo(cmd_list):
+    click.secho(f"$ {shlex.join([redact(cmd) for cmd in cmd_list])}", fg='green')

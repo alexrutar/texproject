@@ -1,16 +1,21 @@
-from .term import REPO_FORMATTED
-
-class BuildError(Exception):
-    def __init__(self, stderr, message="LaTeX build error."):
-        self.stderr = stderr
-        self.message = message
+class SubcommandError(Exception):
+    def __init__(self, proc_error):
+        self.message = f"Subcommand returned exit code {proc_error.returncode}."
+        self.cmd = proc_error.cmd
+        self.stdout = proc_error.stdout.decode('ascii')
+        self.stderr = proc_error.stderr.decode('ascii')
         super().__init__(self.message)
+
+class LaTeXCompileError(Exception):
+    def __init__(self, message = "Project compilation failed!"):
+        self.message = message
+        super().__init__(message)
 
 class BasePathError(Exception):
     def __init__(self, path, message="Error involving path."):
         self.path = path
         self.message = message
-        super().__init__(self.message)
+        super().__init__(message)
 
 class DataMissingError(BasePathError):
     pass
@@ -25,8 +30,7 @@ class TemplateDataMissingError(DataMissingError):
 
 class SystemDataMissingError(DataMissingError):
     def __init__(self, path):
-        message = ("System data files are missing or not up to date. "
-                f"See {REPO_FORMATTED} for more information.")
+        message = ("System data files are missing or not up to date.")
 
         super().__init__(path, message=message)
 

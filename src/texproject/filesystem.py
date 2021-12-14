@@ -31,11 +31,11 @@ def toml_dump(path_obj, dct):
 class _ConfigPath:
     @_constant
     def system(self):
-        return XDG_DATA_HOME / 'texproject' / 'config' / 'tpr_config.toml'
+        return XDG_CONFIG_HOME / 'texproject' / 'system.toml'
 
     @_constant
     def user(self):
-        return XDG_CONFIG_HOME / 'texproject' / 'config.toml'
+        return XDG_CONFIG_HOME / 'texproject' / 'user.toml'
 
 
 CONFIG_PATH = _ConfigPath()
@@ -220,7 +220,7 @@ class ProjectPath:
 
     @_constant
     def gitfiles(self):
-        return (self.git_home, self.github_home)
+        return (self.git_home, self.github_home, self.gitignore)
 
     @_constant
     def minimal_gitfiles(self):
