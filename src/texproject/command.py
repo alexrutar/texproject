@@ -1,16 +1,15 @@
 import click
-import shutil
 import sys
 from pathlib import Path
 
 from . import __version__, __repo__
 from .template import ProjectTemplate, PackageLinker
-from .filesystem import (CONFIG, ProjectPath, CONFIG_PATH,
+from .filesystem import (ProjectPath, CONFIG_PATH, JINJA_PATH,
         SHUTIL_ARCHIVE_FORMATS, SHUTIL_ARCHIVE_SUFFIX_MAP,
         format_linker, macro_linker, citation_linker, template_linker)
 from .export import create_archive
 from .error import BasePathError, SubcommandError, LaTeXCompileError
-from .term import REPO_FORMATTED, err_echo
+from .term import err_echo
 from .process import subproc_run, compile_tex, get_github_api_token
 
 
@@ -231,12 +230,7 @@ def git(proj_info):
     """
     proj_info.validate(exists=True)
 
-@git.command('set-api-token')
-@click.pass_obj
-def set_api_token(proj_info):
-    pass
 
-# todo: allow specification using keyring
 @git.command('init')
 @click.option('--repo-name', 'repo_name',
         prompt='Repository name',
@@ -315,7 +309,24 @@ def git_init(proj_info, repo_name, repo_desc, vis, wiki, issues):
             ['gh', 'secret', 'set', 'API_TOKEN_GITHUB',
                 '-b', get_github_api_token(),
                 '-r', repo_name])
-
+@git.command()
+@click.option('--repo-name', 'repo_name',
+        prompt='Repository name',
+        help='Name of the repository',
+        type=str)
+@click.pass_obj
+def set_archive(proj_info, repo_name):
+    """Set the GitHub secret and archive repository.
+    """
+    proj_gen = ProjectTemplate.load_from_project(proj_info)
+    proj_gen.write_template_with_info(proj_info,
+            JINJA_PATH.build_latex,
+            proj_info.build_latex,
+            force=True)
+    subproc_run(proj_info,
+            ['gh', 'secret', 'set', 'API_TOKEN_GITHUB',
+                '-b', get_github_api_token(),
+                '-r', repo_name])
 
 @cli.command()
 @click.argument('res_class',
