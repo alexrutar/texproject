@@ -46,13 +46,7 @@ def init_echo(dirname):
             f"> Initializing project in '{_normalize(dirname)}'",
             fg='blue')
 
-class Secret:
-    def __init__(self, string):
-        self.string = string
-
-    def __str__(self):
-        return self.string
-
+class Secret(str):
     def redacted(self):
         return '[*****]'
 
