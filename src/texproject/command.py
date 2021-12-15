@@ -309,6 +309,16 @@ def git_init(proj_info, repo_name, repo_desc, vis, wiki, issues):
             ['gh', 'secret', 'set', 'API_TOKEN_GITHUB',
                 '-b', get_github_api_token(),
                 '-r', repo_name])
+
+@git.command()
+@click.pass_obj
+def init_files(proj_info):
+    """Initialize git files, but do not create the repository."""
+    proj_info.validate_git(exists=False)
+    proj_gen = ProjectTemplate.load_from_project(proj_info)
+    proj_gen.write_git_files(proj_info)
+
+
 @git.command()
 @click.option('--repo-name', 'repo_name',
         prompt='Repository name',
@@ -367,19 +377,6 @@ def yaml(proj_info):
                     yaml.safe_load(
                         yaml_path.read_text())))
         yaml_path.unlink()
-
-
-@upgrade.command()
-@click.pass_obj
-def build_latex(proj_info):
-    """Update the github action 'build_latex.yml' script.
-    """
-    from .filesystem import JINJA_PATH
-    proj_gen = ProjectTemplate.load_from_project(proj_info)
-    proj_gen.write_template_with_info(proj_info,
-            JINJA_PATH.build_latex,
-            proj_info.build_latex,
-            force=True)
 
 
 @upgrade.command()

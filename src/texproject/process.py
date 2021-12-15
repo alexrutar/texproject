@@ -27,13 +27,13 @@ def compile_tex(proj_info, outdir=Path.cwd(), output_map={}):
                 [f"-outdir={str(outdir)}", CONFIG['default_tex_name'] + '.tex'])
     except SubcommandError:
         raise LaTeXCompileError()
-
-    for filetype, target in output_map.items():
-        if target is not None:
-            try:
-                (outdir / (CONFIG['default_tex_name'] + filetype)).rename(target)
-            except FileNotFoundError:
-                pass
+    finally:
+        for filetype, target in output_map.items():
+            if target is not None:
+                try:
+                    (outdir / (CONFIG['default_tex_name'] + filetype)).rename(target)
+                except FileNotFoundError:
+                    pass
 
 
 def subproc_run(proj_info, command):

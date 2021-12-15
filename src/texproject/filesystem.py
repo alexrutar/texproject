@@ -117,6 +117,10 @@ class _JinjaTemplatePath:
         return self._template_resource_dir / 'build_latex.yml'
 
     @_constant
+    def pre_commit(self):
+        return self._template_resource_dir / 'pre-commit'
+
+    @_constant
     def classinfo(self):
         return self._template_resource_dir / 'classinfo.tex'
 
@@ -148,8 +152,12 @@ def relative(base):
                     data_folder = CONFIG['project_data_folder']
 
                 return self.working_dir / data_folder / func(self)
+
             elif base == 'gh_actions':
                 return self.working_dir / '.github' / 'workflows' / func(self)
+
+            elif base == 'git_hooks':
+                return self.working_dir / '.git' / 'hooks' / func(self)
         return property(fget, fset)
 
     return decorator
@@ -228,9 +236,13 @@ class ProjectPath:
     def build_latex(self):
         return f"build_latex.yml"
 
+    @relative('git_hooks')
+    def pre_commit(self):
+        return f"pre-commit"
+
     @_constant
     def gitfiles(self):
-        return (self.git_home, self.github_home, self.gitignore)
+        return (self.pre_commit, self.github_home, self.gitignore)
 
     @_constant
     def minimal_gitfiles(self):

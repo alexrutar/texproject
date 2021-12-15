@@ -1,6 +1,8 @@
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 import datetime
 import errno
+import os
+import stat
 
 from .filesystem import (CONFIG, CONFIG_PATH, DATA_PATH, JINJA_PATH,
         toml_load, toml_dump, toml_load_local_template,
@@ -67,6 +69,7 @@ class GenericTemplate:
             target_path.write_text(
                 self.render_template(
                     self.env.get_template(str(template_path))))
+
         except TemplateNotFound:
             raise SystemDataMissingError(template_path)
 
@@ -90,7 +93,7 @@ class ProjectTemplate(GenericTemplate):
     def from_dict(cls, template_dict):
         return cls(template_dict)
 
-    def write_template_with_info(self, proj_info, template_path, target_path, force=False):
+    def write_template_with_info(self, proj_info, template_path, target_path, force=False, executable=False):
         if proj_info.verbose:
             render_echo(template_path, target_path)
         if not proj_info.dry_run:
@@ -98,6 +101,8 @@ class ProjectTemplate(GenericTemplate):
                     template_path,
                     target_path,
                     force=force)
+            if executable:
+                os.chmod(target_path, stat.S_IXUSR |  stat.S_IWUSR | stat.S_IRUSR)
 
     def write_tpr_files(self, proj_info):
         """Create texproject project data directory and write files."""
@@ -142,6 +147,10 @@ class ProjectTemplate(GenericTemplate):
         self.write_template_with_info(proj_info,
                 JINJA_PATH.build_latex,
                 proj_info.build_latex)
+        self.write_template_with_info(proj_info,
+                JINJA_PATH.pre_commit,
+                proj_info.pre_commit,
+                executable=True)
 
     def write_arxiv_autotex(self, proj_info):
         self.write_template_with_info(proj_info,
