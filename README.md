@@ -169,7 +169,7 @@ Of course, `<name>` and `<github_cli_token>` can be whatever you want.
 You can also set the `API_TOKEN_GITHUB` environment variable.
 
 When these settings are in place, running `tpr git init` will automatically add this action, as well as the API token, to your GitHub repository.
-(Note: not implemented) In order to upgrade an existing project to include this feature, you can also run
+In order to upgrade an existing project to include this feature, you can also run
 ```
 tpr git set-archive
 ```
