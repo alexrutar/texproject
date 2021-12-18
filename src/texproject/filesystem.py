@@ -185,8 +185,8 @@ class ProjectPath:
             raise GitMissingError(self.working_dir)
 
     @relative('data')
-    def config(self):
-        return 'tpr_info.toml'
+    def template(self):
+        return 'template.toml'
 
     @relative('data')
     def classinfo(self):
@@ -360,7 +360,8 @@ def toml_load_local_template(path):
     try:
         template = toml_load(path)
     except FileNotFoundError:
-        raise ProjectDataMissingError(path, message="The local template file is missing.")
+        raise ProjectDataMissingError(path,
+                message="The local template file is missing.")
     return {**default_template, **template}
 
 def toml_load_system_template(path, user_str, name=None):

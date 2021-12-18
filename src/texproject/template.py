@@ -49,7 +49,7 @@ class GenericTemplate:
         """Render template and return template text."""
         return template.render(
             user = self.user_dict,
-            local = self.template_dict,
+            template = self.template_dict,
             config = CONFIG,
             bibliography = self.bibtext,
             replace = CONFIG['replace_text'],
@@ -86,7 +86,7 @@ class ProjectTemplate(GenericTemplate):
     @classmethod
     def load_from_project(cls, proj_info):
         """Load the template generator from an existing project."""
-        template_dict = toml_load_local_template(proj_info.config)
+        template_dict = toml_load_local_template(proj_info.template)
         return cls(template_dict)
 
     @classmethod
@@ -129,7 +129,7 @@ class ProjectTemplate(GenericTemplate):
             # initialize texproject directory
             proj_info.data_dir.mkdir(exist_ok=True, parents=True)
             toml_dump(
-                    proj_info.config,
+                    proj_info.template,
                     self.template_dict)
 
         self.write_template_with_info(proj_info,
@@ -140,17 +140,20 @@ class ProjectTemplate(GenericTemplate):
                 JINJA_PATH.project_macro,
                 proj_info.project_macro)
 
-    def write_git_files(self, proj_info):
+    def write_git_files(self, proj_info, force=False):
         self.write_template_with_info(proj_info,
                 JINJA_PATH.gitignore,
-                proj_info.gitignore)
+                proj_info.gitignore,
+                force=force)
         self.write_template_with_info(proj_info,
                 JINJA_PATH.build_latex,
-                proj_info.build_latex)
+                proj_info.build_latex,
+                force=force)
         self.write_template_with_info(proj_info,
                 JINJA_PATH.pre_commit,
                 proj_info.pre_commit,
-                executable=True)
+                executable=True,
+                force=force)
 
     def write_arxiv_autotex(self, proj_info):
         self.write_template_with_info(proj_info,

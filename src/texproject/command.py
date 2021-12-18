@@ -37,7 +37,8 @@ class ProjectInfo(ProjectPath):
         show_default=True,
         help='working directory',
         type=click.Path(
-            exists=True, file_okay=False, dir_okay=True, writable=True, path_type=Path))
+            exists=True, file_okay=False, dir_okay=True, writable=True,
+            path_type=Path))
 @click.option(
         '-n', '--dry-run',
         'dry_run',
@@ -76,7 +77,9 @@ def init(proj_info, template, citation):
 
 
 @cli.command()
-@click.option('--local', 'config_file', flag_value='local', default=True,
+@click.option('--template', 'config_file', flag_value='template', default=True,
+        help="Edit local project configuration.")
+@click.option('--local', 'config_file', flag_value='local',
         help="Edit local project configuration.")
 @click.option('--user', 'config_file', flag_value='user',
         help="Edit user information.")
@@ -86,20 +89,22 @@ def init(proj_info, template, citation):
 def config(proj_info, config_file):
     """Edit texproject configuration files. This opens the corresponding file
     in your $EDITOR. By default, edit the project configuration file; this
-    requires the current directory (or the directory specified by -C) to be
-    a texproject directory.
+    requires the current directory (or the directory specified by -C) to be a
+    texproject directory.
 
-    Note that this command does not replace existing macro files. See the
-    `tpr import` command for this functionality.
+    Note that this command does not replace existing macro files. See the `tpr
+    import` command for this functionality.
     """
     match config_file:
-        case 'local':
+        case 'template':
             proj_info.validate(exists=True)
 
-            click.edit(filename=str(proj_info.config))
+            click.edit(filename=str(proj_info.template))
 
-            proj_info = ProjectTemplate.load_from_project(proj_info)
-            proj_info.write_tpr_files(proj_info)
+            proj_gen = ProjectTemplate.load_from_project(proj_info)
+            proj_gen.write_tpr_files(proj_info)
+        case 'local':
+            pass
 
         case 'user':
             click.edit(filename=str(CONFIG_PATH.user))
@@ -119,10 +124,10 @@ def config(proj_info, config_file):
         help="files given as absolute paths")
 @click.pass_obj
 def import_(proj_info, macro, citation, format, path):
-    """Import macro, citation, and format files. This command will replace existing
-    files. When called with the --path option, the arguments are interpreted as paths.
-    This is convenient when importing packages which are not installed in the texproject
-    directories.
+    """Import macro, citation, and format files. This command will replace
+    existing files. When called with the --path option, the arguments are
+    interpreted as paths. This is convenient when importing packages which are
+    not installed in the texproject directories.
     """
     proj_info.validate(exists=True)
 
@@ -144,20 +149,24 @@ def import_(proj_info, macro, citation, format, path):
             exists=False, writable=True, path_type=Path))
 @click.pass_obj
 def validate(proj_info, output, logfile):
-    """Check project for compilation errors. You can save the resulting pdf by specifying
-    the '--output' argument, and similarly save the log file with the '--logfile' argument.
-    Note that these options, if specified, will automatically overwrite existing files.
+    """Check project for compilation errors. You can save the resulting pdf by
+    specifying the '--output' argument, and similarly save the log file with
+    the '--logfile' argument. Note that these options, if specified, will
+    automatically overwrite existing files.
 
-    Compilation requires the 'latexmk' program to be installed and accessible to this program.
-    Compilation is done by executing the command
+    Compilation requires the 'latexmk' program to be installed and accessible
+    to this program. Compilation is done by executing the command
 
     $ latexmk -pdf -interaction=nonstopmode
 
-    You can specify additional options in 'config.system.latex_compile_options'.
+    You can specify additional options in
+    'config.system.latex_compile_options'.
     """
     with proj_info.temp_subpath() as build_dir:
         build_dir.mkdir()
-        compile_tex(proj_info, outdir=build_dir, output_map={'.pdf': output, '.log': logfile})
+        compile_tex(proj_info,
+                outdir=build_dir,
+                output_map={'.pdf': output, '.log': logfile})
 
 
 def validate_exists(ctx, _, path):
@@ -184,14 +193,16 @@ def validate_exists(ctx, _, path):
         callback=validate_exists)
 @click.pass_obj
 def archive(proj_info, force, compression, inc, output):
-    """Create a compressed export with name OUTPUT. If the 'arxiv' or 'build' options are
-    chosen, 'latexmk' is used to compile additional required files. Run 'tpr validate --help'
-    for more information.
+    """Create a compressed export with name OUTPUT. If the 'arxiv' or 'build'
+    options are chosen, 'latexmk' is used to compile additional required files.
+    Run 'tpr validate --help' for more information.
 
-    The --format option specifies the format of the resulting archive. If unspecified, the format is
-    inferred from the resulting filename if possible. Otherwise, the output format is 'tar'.
+    The --format option specifies the format of the resulting archive. If
+    unspecified, the format is inferred from the resulting filename if
+    possible. Otherwise, the output format is 'tar'.
 
-    Note: if the format is not inferred from the filename, the archive file suffix is appended automatically.
+    Note: if the format is not inferred from the filename, the archive file
+    suffix is appended automatically.
 
     \b
     File inclusion modes:
@@ -255,22 +266,23 @@ def git(proj_info):
         default=False)
 @click.pass_obj
 def git_init(proj_info, repo_name, repo_desc, vis, wiki, issues):
-    """Initialize git and a corresponding GitHub repository. If called with no options,
-    this command will interactively prompt you in order to initialize the repo correctly.
-    This command also creates a GitHub action with automatically compiles and releases the
-    main .pdf file for tagged releases.
+    """Initialize git and a corresponding GitHub repository. If called with no
+    options, this command will interactively prompt you in order to initialize
+    the repo correctly. This command also creates a GitHub action with
+    automatically compiles and releases the main .pdf file for tagged releases.
 
     If you have specified 'config.user.github.archive', the
-    GitHub action will also automatically push the build files to the corresponding folder
-    in the specified repository. In order for this to work, you must provide an access token must
-    with at least repo privileges. This can be done (in order of priority) by
+    GitHub action will also automatically push the build files to the
+    corresponding folder in the specified repository. In order for this to
+    work, you must provide an access token must with at least repo privileges.
+    This can be done (in order of priority) by
 
     1) setting the environment variable $API_TOKEN_GITHUB, or
 
     2) setting the 'github.keyring' settings in the system configuration.
 
-    Otherwise, the token will default to the empty string. The access token is not required for
-    the build action functionality.
+    Otherwise, the token will default to the empty string. The access token is
+    not required for the build action functionality.
     """
     proj_info.validate_git(exists=False)
 
@@ -311,12 +323,15 @@ def git_init(proj_info, repo_name, repo_desc, vis, wiki, issues):
                 '-r', repo_name])
 
 @git.command()
+@click.option('--force/--no-force','-f/-F', default=False,
+        help="overwrite files")
 @click.pass_obj
-def init_files(proj_info):
+def init_files(proj_info, force):
     """Initialize git files, but do not create the repository."""
-    proj_info.validate_git(exists=False)
+    if not force:
+        proj_info.validate_git(exists=False)
     proj_gen = ProjectTemplate.load_from_project(proj_info)
-    proj_gen.write_git_files(proj_info)
+    proj_gen.write_git_files(proj_info, force=force)
 
 
 @git.command()
@@ -363,20 +378,26 @@ def upgrade(proj_info):
     proj_info.validate(exists=True)
 
 
-@upgrade.command()
+@upgrade.command('config')
 @click.pass_obj
-def yaml(proj_info):
+def config_(proj_info):
     """Update configuration file to .toml.
     """
     import yaml
     import pytomlpp
     yaml_path = proj_info.data_dir / 'tpr_info.yaml'
+    old_toml_path = proj_info.data_dir / 'tpr_info.toml'
+
     if yaml_path.exists():
-        proj_info.config.write_text(
+        proj_info.template.write_text(
                 pytomlpp.dumps(
                     yaml.safe_load(
                         yaml_path.read_text())))
         yaml_path.unlink()
+
+    if old_toml_path.exists():
+        old_toml_path.rename(proj_info.template)
+
 
 
 @upgrade.command()
@@ -399,8 +420,8 @@ def clean(proj_info):
 
     Currently not fully implemented.
     """
-    # also clean up old stuff which might not be needed? e.g. any macro files etc. that are not
-    # linked, for example
+    # also clean up old stuff which might not be needed? e.g. any macro files
+    # etc. that are not linked, for example
     proj_info.validate(exists=True)
     proj_info.clear_temp()
 
