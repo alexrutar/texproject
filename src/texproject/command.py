@@ -4,7 +4,7 @@ from pathlib import Path
 
 from . import __version__, __repo__
 from .template import ProjectTemplate, PackageLinker
-from .filesystem import (ProjectPath, CONFIG_PATH, JINJA_PATH,
+from .filesystem import (ProjectInfo, JINJA_PATH,
         SHUTIL_ARCHIVE_FORMATS, SHUTIL_ARCHIVE_SUFFIX_MAP,
         format_linker, macro_linker, citation_linker, template_linker)
 from .export import create_archive
@@ -21,13 +21,6 @@ class CatchInternalExceptions(click.Group):
         except (BasePathError, LaTeXCompileError, SubcommandError) as err:
             err_echo(err)
             sys.exit(1)
-
-class ProjectInfo(ProjectPath):
-    def __init__(self, proj_dir, dry_run, verbose):
-        self.dry_run = dry_run
-        self.force = False
-        self.verbose = verbose or dry_run # always verbose during dry_run
-        super().__init__(proj_dir)
 
 @click.group(cls=CatchInternalExceptions)
 @click.version_option(prog_name="tpr (texproject)")
@@ -81,10 +74,8 @@ def init(proj_info, template, citation):
         help="Edit local project configuration.")
 @click.option('--local', 'config_file', flag_value='local',
         help="Edit local project configuration.")
-@click.option('--user', 'config_file', flag_value='user',
-        help="Edit user information.")
-@click.option('--system', 'config_file', flag_value='system',
-        help="Edit global system configuration.")
+@click.option('--global', 'config_file', flag_value='global',
+        help="Edit global configuration.")
 @click.pass_obj
 def config(proj_info, config_file):
     """Edit texproject configuration files. This opens the corresponding file
@@ -103,14 +94,12 @@ def config(proj_info, config_file):
 
             proj_gen = ProjectTemplate.load_from_project(proj_info)
             proj_gen.write_tpr_files(proj_info)
+
         case 'local':
-            pass
+            click.edit(filename=str(proj_info.config.local_path))
 
-        case 'user':
-            click.edit(filename=str(CONFIG_PATH.user))
-
-        case 'system':
-            click.edit(filename=str(CONFIG_PATH.system))
+        case 'global':
+            click.edit(filename=str(proj_info.config.global_path))
 
 
 @cli.command('import')
@@ -162,6 +151,7 @@ def validate(proj_info, output, logfile):
     You can specify additional options in
     'config.system.latex_compile_options'.
     """
+    proj_info.validate(exists=True)
     with proj_info.temp_subpath() as build_dir:
         build_dir.mkdir()
         compile_tex(proj_info,
@@ -319,7 +309,7 @@ def git_init(proj_info, repo_name, repo_desc, vis, wiki, issues):
 
     subproc_run(proj_info,
             ['gh', 'secret', 'set', 'API_TOKEN_GITHUB',
-                '-b', get_github_api_token(),
+                '-b', get_github_api_token(proj_info),
                 '-r', repo_name])
 
 @git.command()
@@ -350,7 +340,7 @@ def set_archive(proj_info, repo_name):
             force=True)
     subproc_run(proj_info,
             ['gh', 'secret', 'set', 'API_TOKEN_GITHUB',
-                '-b', get_github_api_token(),
+                '-b', get_github_api_token(proj_info),
                 '-r', repo_name])
 
 @cli.command()

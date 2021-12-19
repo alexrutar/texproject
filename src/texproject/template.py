@@ -3,9 +3,12 @@ import datetime
 import errno
 import os
 import stat
+# from typing import TYPE_CHECKING
+# if TYPE_CHECKING:
+#     from .filesystem import Config
 
-from .filesystem import (CONFIG, CONFIG_PATH, DATA_PATH, JINJA_PATH,
-        toml_load, toml_dump, toml_load_local_template,
+from .filesystem import (DATA_PATH, JINJA_PATH,
+        toml_dump, toml_load_local_template,
         macro_linker, format_linker, citation_linker, template_linker)
 
 from .term import render_echo, link_echo, init_echo
@@ -25,7 +28,6 @@ def safe_name(name, style):
 
 class GenericTemplate:
     def __init__(self, template_dict, template_name=None):
-        self.user_dict = toml_load(CONFIG_PATH.user)
         self.template_dict = template_dict
         self.template_name = template_name
 
@@ -41,21 +43,21 @@ class GenericTemplate:
 
         self.env.filters['safe_name'] = safe_name
 
-        # bootstrap bibliography content for render_template
-        self.bibtext = self.env.get_template(
-                str(JINJA_PATH.bibliography)).render(config = CONFIG)
 
-    def render_template(self, template):
+    def render_template(self, template, config):
         """Render template and return template text."""
+        bibtext = '\\input{' + \
+                f"{config.render['project_data_folder']}/{config.render['bibinfo_file']}" + \
+                '}'
         return template.render(
-            user = self.user_dict,
+            user = config.user,
             template = self.template_dict,
-            config = CONFIG,
-            bibliography = self.bibtext,
-            replace = CONFIG['replace_text'],
+            config = config.render,
+            bibliography = bibtext,
+            replace = config.render['replace_text'],
             date=datetime.date.today())
 
-    def write_template(self, template_path, target_path, force=False):
+    def write_template(self, template_path, target_path, config, force=False):
         """Write template at location template_path to file at location
         target_path. Overwrite target_path when force=True."""
         if target_path.exists() and not force:
@@ -68,7 +70,8 @@ class GenericTemplate:
             target_path.parent.mkdir(parents=True, exist_ok=True)
             target_path.write_text(
                 self.render_template(
-                    self.env.get_template(str(template_path))))
+                    self.env.get_template(str(template_path)),
+                    config))
 
         except TemplateNotFound:
             raise SystemDataMissingError(template_path)
@@ -100,6 +103,7 @@ class ProjectTemplate(GenericTemplate):
             self.write_template(
                     template_path,
                     target_path,
+                    proj_info.config,
                     force=force)
             if executable:
                 os.chmod(target_path, stat.S_IXUSR |  stat.S_IWUSR | stat.S_IRUSR)

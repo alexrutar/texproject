@@ -1,0 +1,64 @@
+[user]
+name = ''
+initials = ''
+
+address = ''
+full_address = ''
+
+institution = ''
+
+email = ''
+website = ''
+grant = ''
+
+# initialize github settings
+[github]
+username = ''
+email = ''
+
+[render]
+bibinfo_file = 'bibinfo'
+classinfo_file = 'classinfo'
+
+# the root of the .tex file in the the working directory
+default_tex_name = 'main'
+
+# other config files at the root
+project_macro_file = 'project-macros'
+project_data_folder = '.texproject'
+
+# text subsituted for fields which require user input
+replace_text = 'REPLACE'
+
+# options given to arxiv autotex
+arxiv_autotex = []
+
+[process]
+latexmk_compile_options = []
+
+# files to ignore when exporting source files, and in .gitignore
+ignore_patterns = [
+    '*.aux',
+    '*.bak',
+    '*.bbl',
+    '*.bcf',
+    '*.blg',
+    '*.brf',
+    '*.fdb_latexmk',
+    '*.fls',
+    '*.log',
+    '*.mtc',
+    '*.out',
+    '*.pdf',
+    '*.pgs',
+    '*.run.xml',
+    '*.synctex.gz',
+    '*.tar*',
+    '*.thm',
+    '*.toc',
+    '*.zip',
+    '.DS_Store',
+    '.git',
+    'archive*',
+    'tmp'
+]

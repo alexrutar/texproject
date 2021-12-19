@@ -1,9 +1,10 @@
 from xdg import XDG_DATA_HOME, XDG_CONFIG_HOME
 from pathlib import Path
+from importlib import resources
 import shutil
 import os
 import errno
-import pytomlpp
+import toml as toml
 import uuid
 import contextlib
 
@@ -24,32 +25,71 @@ SHUTIL_ARCHIVE_SUFFIX_MAP = {k:v for k, v in _suffix_map_helper.items()
 
 def _constant(f):
     def fset(self, value):
+        del self, value
         raise AttributeError("Cannot change constant values")
     def fget(self):
         return f(self)
     return property(fget, fset)
 
 
-def toml_load(path_obj):
-    return pytomlpp.loads(path_obj.read_text())
+def toml_load(path_obj, missing_ok=False):
+    # add branch to check if the file exists / fails loading
+    try:
+        return toml.loads(path_obj.read_text())
+    except FileNotFoundError as err:
+        if missing_ok:
+            return {}
+        else:
+            raise err from None
 
 
 def toml_dump(path_obj, dct):
-    path_obj.write_text(pytomlpp.dumps(dct))
+    path_obj.write_text(toml.dumps(dct))
 
+def _merge_iter(*dcts):
 
-class _ConfigPath:
+    # iterate over all keys in all dicts being merged
+    for k in set().union(*[set(dct.keys()) for dct in dcts]):
+
+        # for a specific key, we only want the values containing that key
+        dcts_with_key = [dct[k] for dct in dcts if k in dct.keys()]
+
+        # if there's only one, or one of the items is not a dict, the last value overrides
+        if len(dcts_with_key) == 1 or any(not isinstance(dct, dict) for dct in dcts_with_key):
+            yield (k, dcts_with_key[-1])
+
+        # otherwise, recurse
+        else:
+            yield (k, {k:v for k,v in _merge_iter(*dcts_with_key)})
+
+def _merge(*dcts):
+    return {k:v for k,v in _merge_iter(*dcts)}
+
+class Config:
+    def __init__(self, working_dir):
+        self.working_dir = working_dir
+        self._dct = _merge(
+                toml.loads(
+                    resources.read_text(__package__,
+                        "config_defaults.toml")),
+                toml_load(self.global_path, missing_ok=True),
+                toml_load(self.local_path, missing_ok=True))
+        self.user = self._dct['user']
+        self.render = self._dct['render']
+        self.process = self._dct['process']
+        self.github = self._dct['github']
+
+    def set_no_hidden(self):
+        # TODO: maybe do other stuff
+        self.render['project_data_folder'] = self.render['project_data_folder'].lstrip('.')
+
     @_constant
-    def system(self):
-        return XDG_CONFIG_HOME / 'texproject' / 'system.toml'
+    def global_path(self):
+        return XDG_CONFIG_HOME / 'texproject' / 'config.toml'
 
     @_constant
-    def user(self):
-        return XDG_CONFIG_HOME / 'texproject' / 'user.toml'
-
-
-CONFIG_PATH = _ConfigPath()
-CONFIG = toml_load(CONFIG_PATH.system)
+    def local_path(self):
+        return self.working_dir / 'config.toml'
 
 
 class _Naming:
@@ -60,6 +100,19 @@ class _Naming:
     @_constant
     def template_doc(self):
         return 'document.tex'
+
+    def prefix(self, name_convention):
+        match name_convention:
+            case 'citation_prefix':
+                return 'citation'
+            case 'format_prefix':
+                return 'format'
+            case 'macro_prefix':
+                return 'macro'
+
+    @_constant
+    def prefix_separator(self):
+        return '-'
 
 
 NAMES = _Naming()
@@ -139,6 +192,7 @@ class _JinjaTemplatePath:
 
 def relative(base):
     def fset(self, value):
+        del self, value
         raise AttributeError("Cannot change constant values")
 
     def decorator(func):
@@ -146,12 +200,7 @@ def relative(base):
             if base == 'root':
                 return self.working_dir / func(self)
             elif base == 'data':
-                if self.nohidden:
-                    data_folder = CONFIG['project_data_folder'].lstrip('.')
-                else:
-                    data_folder = CONFIG['project_data_folder']
-
-                return self.working_dir / data_folder / func(self)
+                return self.working_dir / self.config.render['project_data_folder'] / func(self)
 
             elif base == 'gh_actions':
                 return self.working_dir / '.github' / 'workflows' / func(self)
@@ -164,10 +213,10 @@ def relative(base):
 
 
 class ProjectPath:
-    def __init__(self, working_dir, nohidden=False):
+    def __init__(self, working_dir):
         """If exists is False, check that there are no conflicts"""
         self.working_dir = working_dir.resolve()
-        self.nohidden = nohidden
+        self.config = Config(working_dir)
         self.name = self.dir.name
 
     def validate(self, exists=True):
@@ -190,11 +239,11 @@ class ProjectPath:
 
     @relative('data')
     def classinfo(self):
-        return f"{CONFIG['classinfo_file']}.tex"
+        return f"{self.config.render['classinfo_file']}.tex"
 
     @relative('data')
     def bibinfo(self):
-        return f"{CONFIG['bibinfo_file']}.tex"
+        return f"{self.config.render['bibinfo_file']}.tex"
 
     @relative('root')
     def dir(self):
@@ -210,7 +259,7 @@ class ProjectPath:
 
     @relative('root')
     def main(self):
-        return f"{CONFIG['default_tex_name']}.tex"
+        return f"{self.config.render['default_tex_name']}.tex"
 
     @relative('root')
     def arxiv_autotex(self):
@@ -218,7 +267,7 @@ class ProjectPath:
 
     @relative('root')
     def project_macro(self):
-        return f"{CONFIG['project_macro_file']}.sty"
+        return f"{self.config.render['project_macro_file']}.sty"
 
     @relative('root')
     def gitignore(self):
@@ -282,6 +331,13 @@ class ProjectPath:
                 except Exception as e:
                     print(f"Failed to delete '{file_path}'. Reason: {e}")
 
+class ProjectInfo(ProjectPath):
+    def __init__(self, proj_dir, dry_run, verbose):
+        self.dry_run = dry_run
+        self.force = False
+        self.verbose = verbose or dry_run # always verbose during dry_run
+        super().__init__(proj_dir)
+
 
 JINJA_PATH = _JinjaTemplatePath()
 DATA_PATH = _DataPath()
@@ -310,10 +366,9 @@ class _FileLinker(_BaseLinker):
         self.name_convention = name_convention
 
     def safe_name(self, name):
-        return f"{self.name_convention}{CONFIG['prefix_separator']}{name}"
+        return f"{NAMES.prefix(self.name_convention)}{NAMES.prefix_separator}{name}"
 
-    def link_name(
-            self, name, rel_path,
+    def link_name(self, name, rel_path,
             force=False, silent_fail=True, is_path=False):
         if is_path:
             source_path = Path(name).resolve()
@@ -390,21 +445,21 @@ macro_linker = _FileLinker(
         DATA_PATH.macro_dir,
         '.sty',
         'macro file',
-        CONFIG['macro_prefix'])
+        'macro_prefix')
 
 
 format_linker = _FileLinker(
         DATA_PATH.format_dir,
         '.sty',
         'format file',
-        CONFIG['format_prefix'])
+        'format_prefix')
 
 
 citation_linker = _FileLinker(
         DATA_PATH.citation_dir,
         '.bib',
         'citation file',
-        CONFIG['citation_prefix'])
+        'citation_prefix')
 
 
 template_linker = _TemplateLinker(
