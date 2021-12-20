@@ -30,11 +30,19 @@ _suffix_map_helper = {
 SHUTIL_ARCHIVE_SUFFIX_MAP = {k:v for k, v in _suffix_map_helper.items()
         if v in SHUTIL_ARCHIVE_FORMATS}
 
-def verbose_unlink(proj_info, path):
+# todo: do something else with this
+def verbose_unlink(proj_info: ProjectInfo, path: Path):
     if proj_info.verbose and path.exists():
         rm_echo(path)
     if not proj_info.dry_run:
-        path.unlink(missing_ok=True)
+        try:
+            if path.is_file() or path.is_symlink():
+                path.unlink()
+            elif path.is_dir():
+                shutil.rmtree(path)
+        except Exception as err:
+            # todo: better error here
+            print(f"Failed to delete '{path}'. Reason: {err}")
 
 def _constant(func):
     """TODO: write"""

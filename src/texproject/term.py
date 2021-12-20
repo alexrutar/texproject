@@ -46,7 +46,7 @@ def _normalize(path: Path) -> Path:
 def rm_echo(target: Path):
     """TODO: write"""
     click.secho(
-            f"> Removing file '{_normalize(target)}'.",
+            f"> Removing path '{_normalize(target)}'.",
             fg='yellow')
 
 def render_echo(template_path: Path, target: Path, overwrite: bool = False):
