@@ -12,15 +12,16 @@ from .error import SystemDataMissingError
 from .filesystem import (DATA_PATH, JINJA_PATH,
         toml_dump, toml_load_local_template,
         macro_linker, format_linker, citation_linker, template_linker)
-from .term import render_echo, link_echo, init_echo
-
+from .term import render_echo, init_echo
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Optional, Iterable, MutableMapping
+    from typing import Optional, Iterable, Dict
     from jinja2 import Template
     from .filesystem import Config, ProjectInfo, _FileLinker
-def safe_name(name, style):
+
+
+def safe_name(name: str, style: str) -> str:
     """Safe namer for use in templates."""
     if style == 'macro':
         return macro_linker.safe_name(name)
@@ -33,7 +34,7 @@ def safe_name(name, style):
 
 class GenericTemplate:
     """TODO: write"""
-    def __init__(self, template_dict: MutableMapping):
+    def __init__(self, template_dict: Dict) -> None:
         """TODO: write"""
         self.template_dict = template_dict
 
@@ -63,7 +64,8 @@ class GenericTemplate:
             replace = config.render['replace_text'],
             date=datetime.date.today())
 
-    def write_template(self, template_path: Path, target_path: Path, config: Config, force:bool=False) -> None:
+    def write_template(self, template_path: Path, target_path: Path, config: Config,
+            force:bool=False, verbose=False) -> None:
         """Write template at location template_path to file at location
         target_path. Overwrite target_path when force=True."""
         if target_path.exists() and not force:
@@ -72,7 +74,12 @@ class GenericTemplate:
                     "Template write location aready exists",
                     str(target_path.resolve()))
         try:
-            # recursively create parent directories, if needed
+            if verbose:
+                if target_path.exists():
+                    render_echo(template_path, target_path, overwrite=True)
+                else:
+                    render_echo(template_path, target_path, overwrite=False)
+
             target_path.parent.mkdir(parents=True, exist_ok=True)
             target_path.write_text(
                 self.render_template(
@@ -86,20 +93,21 @@ class GenericTemplate:
 class ProjectTemplate(GenericTemplate):
     """TODO: write"""
     @classmethod
-    def from_dict(cls, template_dict: MutableMapping):
+    def from_dict(cls, template_dict: Dict) -> ProjectTemplate:
         """TODO: write"""
         return cls(template_dict)
 
-    def write_template_with_info(self, proj_info: ProjectInfo, template_path: Path, target_path: Path, force:bool=False, executable:bool=False) -> None:
+    def write_template_with_info(self, proj_info: ProjectInfo,
+            template_path: Path, target_path: Path,
+            force:bool=False, executable:bool=False) -> None:
         """TODO: write"""
-        if proj_info.verbose:
-            render_echo(template_path, target_path)
         if not proj_info.dry_run:
             self.write_template(
                     template_path,
                     target_path,
                     proj_info.config,
-                    force=force)
+                    force=force,
+                    verbose=proj_info.verbose)
             if executable:
                 os.chmod(target_path, stat.S_IXUSR |  stat.S_IWUSR | stat.S_IRUSR)
 
@@ -119,7 +127,7 @@ class ProjectTemplate(GenericTemplate):
         linker.link_citations(self.template_dict['citations'])
         linker.link_format(self.template_dict['format'])
 
-    def write_git_files(self, proj_info:ProjectInfo, force:bool=False) -> None:
+    def write_git_files(self, proj_info: ProjectInfo, force: bool=False) -> None:
         """TODO: write"""
         self.write_template_with_info(proj_info,
                 JINJA_PATH.gitignore,
@@ -135,7 +143,7 @@ class ProjectTemplate(GenericTemplate):
                 executable=True,
                 force=force)
 
-    def write_arxiv_autotex(self, proj_info:ProjectInfo) -> None:
+    def write_arxiv_autotex(self, proj_info: ProjectInfo) -> None:
         """TODO: write"""
         self.write_template_with_info(proj_info,
                 JINJA_PATH.arxiv_autotex,
@@ -143,7 +151,7 @@ class ProjectTemplate(GenericTemplate):
 
 class InitTemplate(ProjectTemplate):
     """TODO: write"""
-    def __init__(self, template_name: str, citations:Iterable[str]):
+    def __init__(self, template_name: str, citations: Iterable[str]):
         """Load the template generator from a template name."""
         template_dict = template_linker.load_template(template_name)
         template_dict['citations'].extend(citations)
@@ -173,7 +181,7 @@ class InitTemplate(ProjectTemplate):
 
 class LoadTemplate(ProjectTemplate):
     """TODO: write"""
-    def __init__(self, proj_info: ProjectInfo):
+    def __init__(self, proj_info: ProjectInfo) -> None:
         """Load the template generator from an existing project."""
         template_dict = toml_load_local_template(proj_info.template)
         super().__init__(template_dict)
@@ -192,14 +200,13 @@ class PackageLinker:
 
     def make_link(self, linker: _FileLinker, name: str) -> None:
         """Helper function for linking."""
-        if self.proj_info.verbose:
-            link_echo(linker, name, self.proj_info.data_dir)
         if not self.proj_info.dry_run:
             linker.link_name(name,
                     self.proj_info.data_dir,
                     is_path=self.is_path,
                     force=self.force,
-                    silent_fail=self.silent_fail)
+                    silent_fail=self.silent_fail,
+                    verbose=self.proj_info.verbose)
 
     def link_macros(self, macro_list: Iterable[str]) -> None:
         """TODO: write"""

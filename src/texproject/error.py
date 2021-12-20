@@ -3,9 +3,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from typing import Optional
+    from typing import Optional, NoReturn
     from subprocess import CalledProcessError
     from pathlib import Path
+
+# def assert_never(value: NoReturn) -> NoReturn:
+def assert_never(value) -> NoReturn:
+    assert False, f'Unhandled value: {value} ({type(value).__name__})'
 
 class SubcommandError(Exception):
     """TODO: write"""

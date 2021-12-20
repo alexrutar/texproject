@@ -3,7 +3,6 @@ from __future__ import annotations
 import contextlib
 import errno
 from importlib import resources
-import os
 from pathlib import Path
 import shutil
 from typing import TYPE_CHECKING
@@ -15,9 +14,10 @@ from xdg import XDG_DATA_HOME, XDG_CONFIG_HOME
 from .error import (BasePathError, ProjectExistsError, ProjectDataMissingError,
         ProjectMissingError, TemplateDataMissingError, SystemDataMissingError,
         GitExistsError, GitMissingError)
+from .term import link_echo
 
 if TYPE_CHECKING:
-    from typing import Optional, MutableMapping, Tuple, Generator, List
+    from typing import Optional, Tuple, Generator, List, Dict
 
 SHUTIL_ARCHIVE_FORMATS = [ar[0] for ar in shutil.get_archive_formats()]
 _suffix_map_helper = {
@@ -40,7 +40,7 @@ def _constant(func):
     return property(fget, fset)
 
 
-def toml_load(path_obj: Path, missing_ok:bool = False) -> MutableMapping:
+def toml_load(path_obj: Path, missing_ok:bool = False) -> Dict:
     """TODO: write"""
     # add branch to check if the file exists / fails loading
     try:
@@ -52,11 +52,11 @@ def toml_load(path_obj: Path, missing_ok:bool = False) -> MutableMapping:
             raise err from None
 
 
-def toml_dump(path_obj: Path, dct: MutableMapping) -> None:
+def toml_dump(path_obj: Path, dct: Dict) -> None:
     """TODO: write"""
     path_obj.write_text(toml.dumps(dct))
 
-def _merge_iter(*dcts: MutableMapping):
+def _merge_iter(*dcts: Dict):
     """TODO: write"""
 
     # iterate over all keys in all dicts being merged
@@ -73,7 +73,7 @@ def _merge_iter(*dcts: MutableMapping):
         else:
             yield (k, {k:v for k,v in _merge_iter(*dcts_with_key)})
 
-def _merge(*dcts: MutableMapping) -> MutableMapping:
+def _merge(*dcts: Dict) -> Dict:
     """TODO: write"""
     return {k:v for k,v in _merge_iter(*dcts)}
 
@@ -446,7 +446,7 @@ class _FileLinker(_BaseLinker):
         return f"{NAMES.prefix(self.name_convention)}{NAMES.prefix_separator}{name}"
 
     def link_name(self, name: str, rel_path: Path,
-            force:bool=False, silent_fail:bool=True, is_path:bool=False) -> None:
+            force:bool=False, silent_fail:bool=True, is_path:bool=False, verbose=False) -> None:
         """TODO: write"""
         if is_path:
             source_path = Path(name).resolve()
@@ -464,23 +464,26 @@ class _FileLinker(_BaseLinker):
                         user_str=self.user_str,
                         name=name)
 
-        if target_path.exists():
-            if force:
-                os.remove(target_path)
+        if target_path.exists() and not force:
+            if silent_fail:
+                return
+            raise FileExistsError(
+                    errno.EEXIST,
+                    "Link target already exists",
+                    str(target_path.resolve()))
+
+        if verbose:
+            if target_path.exists():
+                link_echo(self, name, rel_path, overwrite=True)
             else:
-                if silent_fail:
-                    return
-                raise FileExistsError(
-                        errno.EEXIST,
-                        "Link target already exists",
-                        str(target_path.resolve()))
+                link_echo(self, name, rel_path, overwrite=False)
 
         shutil.copyfile(
                 str(source_path),
                 str(target_path.resolve()))
 
 
-def _load_default_template() -> MutableMapping:
+def _load_default_template() -> Dict:
     """TODO: write"""
     try:
         default_template = toml_load(DATA_PATH.default_template)
@@ -489,7 +492,7 @@ def _load_default_template() -> MutableMapping:
     return default_template
 
 # todo: what is this?
-def toml_load_local_template(path: Path) -> MutableMapping:
+def toml_load_local_template(path: Path) -> Dict:
     """TODO: write"""
     default_template = _load_default_template()
     try:
@@ -511,7 +514,7 @@ def toml_load_system_template(path: Path, user_str: str, name:Optional[str]=None
 
 class _TemplateLinker(_BaseLinker):
     """TODO: write"""
-    def load_template(self, name: str) -> MutableMapping:
+    def load_template(self, name: str) -> Dict:
         """TODO: write"""
         return toml_load_system_template(
                 self.file_path(name) / NAMES.template_toml,

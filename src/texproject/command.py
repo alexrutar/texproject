@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import click
 
 from . import __version__, __repo__
-from .error import BasePathError, SubcommandError, LaTeXCompileError
+from .error import BasePathError, SubcommandError, LaTeXCompileError, assert_never
 from .export import create_archive
 from .filesystem import (ProjectInfo, JINJA_PATH,
         SHUTIL_ARCHIVE_FORMATS, SHUTIL_ARCHIVE_SUFFIX_MAP,
@@ -17,11 +17,12 @@ from .template import LoadTemplate, InitTemplate, PackageLinker
 from .term import err_echo
 
 if TYPE_CHECKING:
-    from typing import Optional, Iterable
+    from typing import Optional, Iterable, Any
 
+# todo: how to annotate this function?
 class CatchInternalExceptions(click.Group):
     """TODO: write"""
-    def __call__(self, *args, **kwargs):
+    def __call__(self, *args, **kwargs) -> Any:
         try:
             return self.main(*args, **kwargs)
 
@@ -109,6 +110,9 @@ def config(proj_info: ProjectInfo, config_file: str) -> None:
         case 'global':
             click.edit(filename=str(proj_info.config.global_path))
 
+        case _:
+            assert_never(config_file)
+
 
 @cli.command('import')
 @click.option('--macro', 'macros', multiple=True,
@@ -138,7 +142,7 @@ def import_(proj_info: ProjectInfo,
 
 
 @cli.command()
-@click.option('-o', '--output',
+@click.option('--pdf', 'pdf',
         help = "write .pdf to file",
         type=click.Path(
             exists=False, writable=True, path_type=Path))
@@ -147,7 +151,7 @@ def import_(proj_info: ProjectInfo,
         type=click.Path(
             exists=False, writable=True, path_type=Path))
 @click.pass_obj
-def validate(proj_info: ProjectInfo, output: Path, logfile: Path) -> None:
+def validate(proj_info: ProjectInfo, pdf: Path, logfile: Path) -> None:
     """Check project for compilation errors. You can save the resulting pdf by
     specifying the '--output' argument, and similarly save the log file with
     the '--logfile' argument. Note that these options, if specified, will
@@ -166,7 +170,7 @@ def validate(proj_info: ProjectInfo, output: Path, logfile: Path) -> None:
         build_dir.mkdir()
         compile_tex(proj_info,
                 outdir=build_dir,
-                output_map={'.pdf': output, '.log': logfile})
+                output_map={'.pdf': pdf, '.log': logfile})
 
 
 def validate_exists(ctx, _, path) -> Path:
@@ -181,7 +185,7 @@ def validate_exists(ctx, _, path) -> Path:
         type=click.Choice(SHUTIL_ARCHIVE_FORMATS,
             case_sensitive=False),
         help="compression mode")
-@click.option('--include', 'inc',
+@click.option('--mode', 'mode',
         type=click.Choice(['arxiv' , 'build', 'source']),
         default='source',
         show_default=True,
@@ -192,7 +196,7 @@ def validate_exists(ctx, _, path) -> Path:
             exists=False, writable=True, path_type=Path),
         callback=validate_exists)
 @click.pass_obj
-def archive(proj_info: ProjectInfo, force: bool, compression: str, inc: str, output: Path) -> None:
+def archive(proj_info: ProjectInfo, force: bool, compression: str, mode: str, output: Path) -> None:
     """Create a compressed export with name OUTPUT. If the 'arxiv' or 'build'
     options are chosen, 'latexmk' is used to compile additional required files.
     Run 'tpr validate --help' for more information.
@@ -205,13 +209,13 @@ def archive(proj_info: ProjectInfo, force: bool, compression: str, inc: str, out
     suffix is appended automatically.
 
     \b
-    File inclusion modes:
+    Archive modes:
      arxiv: format source files for arxiv (https://arxiv.org)
      build: compile the .pdf and export
      source: export
 
     \b
-    Compression modes:
+    Compression:
      bztar: bzip2'ed tar-file
      gztar: gzip'ed tar-file
      tar: uncompressed tar-file
@@ -230,7 +234,7 @@ def archive(proj_info: ProjectInfo, force: bool, compression: str, inc: str, out
         except KeyError:
             compression = 'tar'
 
-    create_archive(proj_info, compression, output, fmt=inc)
+    create_archive(proj_info, compression, output, fmt=mode)
 
 
 
