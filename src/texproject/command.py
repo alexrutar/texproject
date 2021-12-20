@@ -11,7 +11,8 @@ from .error import BasePathError, SubcommandError, LaTeXCompileError, assert_nev
 from .export import create_archive
 from .filesystem import (ProjectInfo, JINJA_PATH,
         SHUTIL_ARCHIVE_FORMATS, SHUTIL_ARCHIVE_SUFFIX_MAP,
-        format_linker, macro_linker, citation_linker, template_linker)
+        format_linker, macro_linker, citation_linker, template_linker,
+        verbose_unlink)
 from .process import subproc_run, compile_tex, get_github_api_token
 from .template import LoadTemplate, InitTemplate, PackageLinker
 from .term import err_echo
@@ -375,18 +376,20 @@ def list_(res_class: str) -> None:
     click.echo("\n".join(linker_map[res_class].list_names()))
 
 
+
+
 @cli.group()
 @click.pass_obj
-def upgrade(proj_info: ProjectInfo) -> None:
+def util(proj_info: ProjectInfo) -> None:
     """Various utilities to facilitate the upgrading of old repositories.
     Warning: these commands are destructive!
     """
     proj_info.validate(exists=True)
 
 
-@upgrade.command('config')
+@util.command('upgrade-config')
 @click.pass_obj
-def config_(proj_info: ProjectInfo) -> None:
+def upgrade_config_(proj_info: ProjectInfo) -> None:
     """Update configuration file to .toml.
     """
     import yaml
@@ -406,26 +409,16 @@ def config_(proj_info: ProjectInfo) -> None:
 
 
 
-@upgrade.command()
-@click.pass_obj
-def gitignore(proj_info: ProjectInfo) -> None:
-    """Update the '.gitignore' file.
-    """
-    proj_gen = LoadTemplate(proj_info)
-    proj_gen.write_template_with_info(proj_info,
-            JINJA_PATH.gitignore,
-            proj_info.gitignore,
-            force=True)
 
-
-@upgrade.command()
+@util.command()
+@click.option('--remove-unneeded/--keep-unneeded', 'rm_unneeded',
+        default=False,
+        help="remove packages that are not imported into the file")
 @click.pass_obj
-def clean(proj_info: ProjectInfo) -> None:
-    """Cleans the project directory.
+def clean(proj_info: ProjectInfo, rm_unneeded: bool) -> None:
+    """Clean the project directory.
 
     Currently not fully implemented.
     """
-    # also clean up old stuff which might not be needed? e.g. any macro files
-    # etc. that are not linked, for example
     proj_info.validate(exists=True)
     proj_info.clear_temp()

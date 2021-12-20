@@ -14,7 +14,7 @@ from xdg import XDG_DATA_HOME, XDG_CONFIG_HOME
 from .error import (BasePathError, ProjectExistsError, ProjectDataMissingError,
         ProjectMissingError, TemplateDataMissingError, SystemDataMissingError,
         GitExistsError, GitMissingError)
-from .term import link_echo
+from .term import link_echo, rm_echo
 
 if TYPE_CHECKING:
     from typing import Optional, Tuple, Generator, List, Dict
@@ -29,6 +29,12 @@ _suffix_map_helper = {
         }
 SHUTIL_ARCHIVE_SUFFIX_MAP = {k:v for k, v in _suffix_map_helper.items()
         if v in SHUTIL_ARCHIVE_FORMATS}
+
+def verbose_unlink(proj_info, path):
+    if proj_info.verbose and path.exists():
+        rm_echo(path)
+    if not proj_info.dry_run:
+        path.unlink(missing_ok=True)
 
 def _constant(func):
     """TODO: write"""
@@ -384,6 +390,7 @@ class ProjectPath:
                 elif path.is_dir():
                     shutil.rmtree(path)
             except Exception as err:
+                # todo: better error here
                 print(f"Failed to delete '{path}'. Reason: {err}")
 
     def clear_temp(self) -> None:
@@ -396,6 +403,7 @@ class ProjectPath:
                     elif file_path.is_dir():
                         shutil.rmtree(file_path)
                 except Exception as err:
+                    # todo: better error here
                     print(f"Failed to delete '{file_path}'. Reason: {err}")
 
 class ProjectInfo(ProjectPath):
