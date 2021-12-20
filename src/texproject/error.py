@@ -1,5 +1,15 @@
+"""TODO: write"""
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import Optional
+    from subprocess import CalledProcessError
+    from pathlib import Path
+
 class SubcommandError(Exception):
-    def __init__(self, proc_error):
+    """TODO: write"""
+    def __init__(self, proc_error: CalledProcessError):
         self.message = f"Subcommand returned exit code {proc_error.returncode}."
         self.cmd = proc_error.cmd
         self.stdout = proc_error.stdout.decode('ascii')
@@ -7,21 +17,24 @@ class SubcommandError(Exception):
         super().__init__(self.message)
 
 class LaTeXCompileError(Exception):
-    def __init__(self, message = "Project compilation failed!"):
+    """TODO: write"""
+    def __init__(self, message:str = "Project compilation failed!"):
         self.message = message
         super().__init__(message)
 
 class BasePathError(Exception):
-    def __init__(self, path, message="Error involving path."):
+    """TODO: write"""
+    def __init__(self, path: Path, message:str = "Error involving path."):
         self.path = path
         self.message = message
         super().__init__(message)
 
 class DataMissingError(BasePathError):
-    pass
+    """TODO: write"""
 
 class TemplateDataMissingError(DataMissingError):
-    def __init__(self, path, user_str, name=None):
+    """TODO: write"""
+    def __init__(self, path: Path, user_str: str, name:Optional[str] = None):
         if name is not None:
             message = f"The {user_str} '{name}' does not exist."
         else:
@@ -29,30 +42,35 @@ class TemplateDataMissingError(DataMissingError):
         super().__init__(path, message=message)
 
 class SystemDataMissingError(DataMissingError):
-    def __init__(self, path):
+    """TODO: write"""
+    def __init__(self, path: Path):
         message = ("System data files are missing or not up to date.")
 
         super().__init__(path, message=message)
 
 class ProjectDataMissingError(DataMissingError):
-    pass
+    """TODO: write"""
 
 class ProjectMissingError(BasePathError):
-    def __init__(self, path):
-        message = f"The working directory is not a valid project."
+    """TODO: write"""
+    def __init__(self, path: Path):
+        message = "The working directory is not a valid project."
         super().__init__(path, message=message)
 
 class ProjectExistsError(BasePathError):
-    def __init__(self, path):
-        message = f"Conflicting files already exist in the working directory."
+    """TODO: write"""
+    def __init__(self, path: Path):
+        message = "Conflicting files already exist in the working directory."
         super().__init__(path, message=message)
 
 class GitMissingError(BasePathError):
-    def __init__(self, path):
-        message = f"The working directory is not a valid git repository."
+    """TODO: write"""
+    def __init__(self, path: Path):
+        message = "The working directory is not a valid git repository."
         super().__init__(path, message=message)
 
 class GitExistsError(BasePathError):
-    def __init__(self, path):
-        message = f"Conflicting git files already exist in the working directory."
+    """TODO: write"""
+    def __init__(self, path: Path):
+        message = "Conflicting git files already exist in the working directory."
         super().__init__(path, message=message)

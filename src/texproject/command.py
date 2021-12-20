@@ -1,19 +1,26 @@
-import click
-import sys
+"""TODO: write docstring"""
+from __future__ import annotations
 from pathlib import Path
+import sys
+from typing import TYPE_CHECKING
+
+import click
 
 from . import __version__, __repo__
-from .template import ProjectTemplate, PackageLinker
+from .error import BasePathError, SubcommandError, LaTeXCompileError
+from .export import create_archive
 from .filesystem import (ProjectInfo, JINJA_PATH,
         SHUTIL_ARCHIVE_FORMATS, SHUTIL_ARCHIVE_SUFFIX_MAP,
         format_linker, macro_linker, citation_linker, template_linker)
-from .export import create_archive
-from .error import BasePathError, SubcommandError, LaTeXCompileError
-from .term import err_echo
 from .process import subproc_run, compile_tex, get_github_api_token
+from .template import LoadTemplate, InitTemplate, PackageLinker
+from .term import err_echo
 
+if TYPE_CHECKING:
+    from typing import Optional, Iterable
 
 class CatchInternalExceptions(click.Group):
+    """TODO: write"""
     def __call__(self, *args, **kwargs):
         try:
             return self.main(*args, **kwargs)
@@ -42,17 +49,18 @@ class CatchInternalExceptions(click.Group):
         default=True,
         help='Be verbose')
 @click.pass_context
-def cli(ctx, proj_dir, dry_run, verbose):
+def cli(ctx, proj_dir: Path, dry_run: bool, verbose: bool) -> None:
+    """TODO: write"""
     ctx.obj = ProjectInfo(proj_dir, dry_run, verbose)
 
 
 @cli.command()
 @click.argument('template')
-@click.option('--citation','-c',
+@click.option('--citation','-c', 'citations',
         multiple=True,
         help="include citation file")
 @click.pass_obj
-def init(proj_info, template, citation):
+def init(proj_info: ProjectInfo, template: str, citations: Iterable[str]) -> None:
     """Initialize a new project in the current directory. The project is
     created using the template with name TEMPLATE and placed in the output
     folder OUTPUT.
@@ -61,9 +69,9 @@ def init(proj_info, template, citation):
     intermediate directories are automatically constructed."""
     proj_info.validate(exists=False)
 
-    proj_gen = ProjectTemplate.load_from_template(
+    proj_gen = InitTemplate(
             template,
-            citation)
+            citations)
 
     proj_gen.create_output_folder(proj_info)
     proj_gen.write_tpr_files(proj_info)
@@ -77,7 +85,7 @@ def init(proj_info, template, citation):
 @click.option('--global', 'config_file', flag_value='global',
         help="Edit global configuration.")
 @click.pass_obj
-def config(proj_info, config_file):
+def config(proj_info: ProjectInfo, config_file: str) -> None:
     """Edit texproject configuration files. This opens the corresponding file
     in your $EDITOR. By default, edit the project configuration file; this
     requires the current directory (or the directory specified by -C) to be a
@@ -92,7 +100,7 @@ def config(proj_info, config_file):
 
             click.edit(filename=str(proj_info.template))
 
-            proj_gen = ProjectTemplate.load_from_project(proj_info)
+            proj_gen = LoadTemplate(proj_info)
             proj_gen.write_tpr_files(proj_info)
 
         case 'local':
@@ -103,16 +111,18 @@ def config(proj_info, config_file):
 
 
 @cli.command('import')
-@click.option('--macro', multiple=True,
+@click.option('--macro', 'macros', multiple=True,
         help="macro file")
-@click.option('--citation', multiple=True,
+@click.option('--citation', 'citations', multiple=True,
         help="citation file")
-@click.option('--format', default=None,
+@click.option('--format', 'format_', default=None,
         help="format file")
 @click.option('--path/--no-path', default=False,
         help="files given as absolute paths")
 @click.pass_obj
-def import_(proj_info, macro, citation, format, path):
+def import_(proj_info: ProjectInfo,
+        macros: Iterable[str], citations: Iterable[str], format_: Optional[str],
+        path: bool) -> None:
     """Import macro, citation, and format files. This command will replace
     existing files. When called with the --path option, the arguments are
     interpreted as paths. This is convenient when importing packages which are
@@ -121,9 +131,9 @@ def import_(proj_info, macro, citation, format, path):
     proj_info.validate(exists=True)
 
     linker = PackageLinker(proj_info, force=True, is_path=path)
-    linker.link_macros(macro)
-    linker.link_citations(citation)
-    linker.link_format(format)
+    linker.link_macros(macros)
+    linker.link_citations(citations)
+    linker.link_format(format_)
 
 
 
@@ -137,7 +147,7 @@ def import_(proj_info, macro, citation, format, path):
         type=click.Path(
             exists=False, writable=True, path_type=Path))
 @click.pass_obj
-def validate(proj_info, output, logfile):
+def validate(proj_info: ProjectInfo, output: Path, logfile: Path) -> None:
     """Check project for compilation errors. You can save the resulting pdf by
     specifying the '--output' argument, and similarly save the log file with
     the '--logfile' argument. Note that these options, if specified, will
@@ -159,11 +169,11 @@ def validate(proj_info, output, logfile):
                 output_map={'.pdf': output, '.log': logfile})
 
 
-def validate_exists(ctx, _, path):
+def validate_exists(ctx, _, path) -> Path:
+    """TODO: write"""
     if not ctx.obj.force and path.exists():
         raise click.BadParameter('file exists. Use -f / --force to overwrite.')
-    else:
-        return path
+    return path
 @cli.command()
 @click.option('--force/--no-force','-f/-F', default=False,
         help="overwrite files")
@@ -182,7 +192,7 @@ def validate_exists(ctx, _, path):
             exists=False, writable=True, path_type=Path),
         callback=validate_exists)
 @click.pass_obj
-def archive(proj_info, force, compression, inc, output):
+def archive(proj_info: ProjectInfo, force: bool, compression: str, inc: str, output: Path) -> None:
     """Create a compressed export with name OUTPUT. If the 'arxiv' or 'build'
     options are chosen, 'latexmk' is used to compile additional required files.
     Run 'tpr validate --help' for more information.
@@ -226,7 +236,7 @@ def archive(proj_info, force, compression, inc, output):
 
 @cli.group()
 @click.pass_obj
-def git(proj_info):
+def git(proj_info: ProjectInfo) -> None:
     """Subcommand to manage git files.
     """
     proj_info.validate(exists=True)
@@ -255,7 +265,9 @@ def git(proj_info):
         help='Create issues page',
         default=False)
 @click.pass_obj
-def git_init(proj_info, repo_name, repo_desc, vis, wiki, issues):
+def git_init(proj_info: ProjectInfo, repo_name: str, repo_desc: str,
+        vis: str,
+        wiki: bool, issues: bool) -> None:
     """Initialize git and a corresponding GitHub repository. If called with no
     options, this command will interactively prompt you in order to initialize
     the repo correctly. This command also creates a GitHub action with
@@ -276,7 +288,7 @@ def git_init(proj_info, repo_name, repo_desc, vis, wiki, issues):
     """
     proj_info.validate_git(exists=False)
 
-    proj_gen = ProjectTemplate.load_from_project(proj_info)
+    proj_gen = LoadTemplate(proj_info)
     proj_gen.write_git_files(proj_info)
 
     # initialize repo
@@ -316,11 +328,11 @@ def git_init(proj_info, repo_name, repo_desc, vis, wiki, issues):
 @click.option('--force/--no-force','-f/-F', default=False,
         help="overwrite files")
 @click.pass_obj
-def init_files(proj_info, force):
+def init_files(proj_info: ProjectInfo, force: bool) -> None:
     """Initialize git files, but do not create the repository."""
     if not force:
         proj_info.validate_git(exists=False)
-    proj_gen = ProjectTemplate.load_from_project(proj_info)
+    proj_gen = LoadTemplate(proj_info)
     proj_gen.write_git_files(proj_info, force=force)
 
 
@@ -330,10 +342,10 @@ def init_files(proj_info, force):
         help='Name of the repository',
         type=str)
 @click.pass_obj
-def set_archive(proj_info, repo_name):
+def set_archive(proj_info: ProjectInfo, repo_name: str) -> None:
     """Set the GitHub secret and archive repository.
     """
-    proj_gen = ProjectTemplate.load_from_project(proj_info)
+    proj_gen = LoadTemplate(proj_info)
     proj_gen.write_template_with_info(proj_info,
             JINJA_PATH.build_latex,
             proj_info.build_latex,
@@ -343,10 +355,10 @@ def set_archive(proj_info, repo_name):
                 '-b', get_github_api_token(proj_info),
                 '-r', repo_name])
 
-@cli.command()
+@cli.command('list')
 @click.argument('res_class',
         type=click.Choice(['citation', 'macro', 'format', 'template']))
-def list(res_class):
+def list_(res_class: str) -> None:
     """Retrieve program and template information."""
 
     linker_map = {
@@ -361,7 +373,7 @@ def list(res_class):
 
 @cli.group()
 @click.pass_obj
-def upgrade(proj_info):
+def upgrade(proj_info: ProjectInfo) -> None:
     """Various utilities to facilitate the upgrading of old repositories.
     Warning: these commands are destructive!
     """
@@ -370,7 +382,7 @@ def upgrade(proj_info):
 
 @upgrade.command('config')
 @click.pass_obj
-def config_(proj_info):
+def config_(proj_info: ProjectInfo) -> None:
     """Update configuration file to .toml.
     """
     import yaml
@@ -392,11 +404,10 @@ def config_(proj_info):
 
 @upgrade.command()
 @click.pass_obj
-def gitignore(proj_info):
+def gitignore(proj_info: ProjectInfo) -> None:
     """Update the '.gitignore' file.
     """
-    from .filesystem import JINJA_PATH
-    proj_gen = ProjectTemplate.load_from_project(proj_info)
+    proj_gen = LoadTemplate(proj_info)
     proj_gen.write_template_with_info(proj_info,
             JINJA_PATH.gitignore,
             proj_info.gitignore,
@@ -405,7 +416,7 @@ def gitignore(proj_info):
 
 @upgrade.command()
 @click.pass_obj
-def clean(proj_info):
+def clean(proj_info: ProjectInfo) -> None:
     """Cleans the project directory.
 
     Currently not fully implemented.
@@ -414,5 +425,3 @@ def clean(proj_info):
     # etc. that are not linked, for example
     proj_info.validate(exists=True)
     proj_info.clear_temp()
-
-
