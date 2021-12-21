@@ -11,9 +11,17 @@ import uuid
 import pytomlpp as toml
 from xdg import XDG_DATA_HOME, XDG_CONFIG_HOME
 
-from .error import (BasePathError, ProjectExistsError, ProjectDataMissingError,
-        ProjectMissingError, TemplateDataMissingError, SystemDataMissingError,
-        GitExistsError, GitMissingError, assert_never)
+from .error import (
+    BasePathError,
+    ProjectExistsError,
+    ProjectDataMissingError,
+    ProjectMissingError,
+    TemplateDataMissingError,
+    SystemDataMissingError,
+    GitExistsError,
+    GitMissingError,
+    assert_never,
+)
 from .term import link_echo, rm_echo
 
 if TYPE_CHECKING:
@@ -21,14 +29,15 @@ if TYPE_CHECKING:
 
 SHUTIL_ARCHIVE_FORMATS = [ar[0] for ar in shutil.get_archive_formats()]
 _suffix_map_helper = {
-        '.tar': 'tar',
-        '.tar.bz': 'bztar',
-        '.tar.gz': 'gztar',
-        '.tar.xz': 'xztar',
-        '.zip': 'zip'
-        }
-SHUTIL_ARCHIVE_SUFFIX_MAP = {k:v for k, v in _suffix_map_helper.items()
-        if v in SHUTIL_ARCHIVE_FORMATS}
+    ".tar": "tar",
+    ".tar.bz": "bztar",
+    ".tar.gz": "gztar",
+    ".tar.xz": "xztar",
+    ".zip": "zip",
+}
+SHUTIL_ARCHIVE_SUFFIX_MAP = {
+    k: v for k, v in _suffix_map_helper.items() if v in SHUTIL_ARCHIVE_FORMATS
+}
 
 # todo: do something else with this
 def verbose_unlink(proj_info: ProjectInfo, path: Path):
@@ -44,17 +53,21 @@ def verbose_unlink(proj_info: ProjectInfo, path: Path):
             # todo: better error here
             print(f"Failed to delete '{path}'. Reason: {err}")
 
+
 def _constant(func):
     """TODO: write"""
+
     def fset(self, value):
         del self, value
         raise AttributeError("Cannot change constant values")
+
     def fget(self):
         return func(self)
+
     return property(fget, fset)
 
 
-def toml_load(path_obj: Path, missing_ok:bool = False) -> Dict:
+def toml_load(path_obj: Path, missing_ok: bool = False) -> Dict:
     """TODO: write"""
     # add branch to check if the file exists / fails loading
     try:
@@ -70,6 +83,7 @@ def toml_dump(path_obj: Path, dct: Dict) -> None:
     """TODO: write"""
     path_obj.write_text(toml.dumps(dct))
 
+
 def _merge_iter(*dcts: Dict):
     """TODO: write"""
 
@@ -80,70 +94,77 @@ def _merge_iter(*dcts: Dict):
         dcts_with_key = [dct[k] for dct in dcts if k in dct.keys()]
 
         # if there's only one, or one of the items is not a dict, the last value overrides
-        if len(dcts_with_key) == 1 or any(not isinstance(dct, dict) for dct in dcts_with_key):
+        if len(dcts_with_key) == 1 or any(
+            not isinstance(dct, dict) for dct in dcts_with_key
+        ):
             yield (k, dcts_with_key[-1])
 
         # otherwise, recurse
         else:
-            yield (k, {k:v for k,v in _merge_iter(*dcts_with_key)})
+            yield (k, {k: v for k, v in _merge_iter(*dcts_with_key)})
+
 
 def _merge(*dcts: Dict) -> Dict:
     """TODO: write"""
-    return {k:v for k,v in _merge_iter(*dcts)}
+    return {k: v for k, v in _merge_iter(*dcts)}
+
 
 class Config:
     """TODO: write"""
+
     def __init__(self, working_dir: Path):
         """TODO: write"""
         self.working_dir = working_dir
         self._dct = _merge(
-                toml.loads(
-                    resources.read_text(__package__,
-                        "config_defaults.toml")),
-                toml_load(self.global_path, missing_ok=True),
-                toml_load(self.local_path, missing_ok=True))
-        self.user = self._dct['user']
-        self.render = self._dct['render']
-        self.process = self._dct['process']
-        self.github = self._dct['github']
+            toml.loads(resources.read_text(__package__, "config_defaults.toml")),
+            toml_load(self.global_path, missing_ok=True),
+            toml_load(self.local_path, missing_ok=True),
+        )
+        self.user = self._dct["user"]
+        self.render = self._dct["render"]
+        self.process = self._dct["process"]
+        self.github = self._dct["github"]
 
     def set_no_hidden(self) -> None:
         """TODO: write"""
         # TODO: maybe do other stuff
-        self.render['project_data_folder'] = self.render['project_data_folder'].lstrip('.')
+        self.render["project_data_folder"] = self.render["project_data_folder"].lstrip(
+            "."
+        )
 
     @_constant
     def global_path(self) -> Path:
         """TODO: write"""
-        return XDG_CONFIG_HOME / 'texproject' / 'config.toml'
+        return XDG_CONFIG_HOME / "texproject" / "config.toml"
 
     @_constant
     def local_path(self) -> Path:
         """TODO: write"""
-        return self.working_dir / 'config.toml'
+        return self.working_dir / "config.toml"
 
 
 class _Naming:
     """TODO: write"""
+
     @_constant
     def template_toml(self) -> str:
         """TODO: write"""
-        return 'template.toml'
+        return "template.toml"
 
     @_constant
     def template_doc(self) -> str:
         """TODO: write"""
-        return 'document.tex'
+        return "document.tex"
 
     def prefix(self, name_convention) -> str:
         """TODO: write"""
         match name_convention:
-            case 'citation_prefix':
-                return 'citation'
-            case 'format_prefix':
-                return 'format'
-            case 'macro_prefix':
-                return 'macro'
+            case "citation_prefix":
+                return "citation"
+            case "format_prefix":
+                return "format"
+            case "macro_prefix":
+                return "macro"
             case _:
                 # todo
                 raise Exception("bad name convention")
@@ -151,7 +172,7 @@ class _Naming:
     @_constant
     def prefix_separator(self) -> str:
         """TODO: write"""
-        return '-'
+        return "-"
 
 
 NAMES = _Naming()
@@ -159,115 +180,123 @@ NAMES = _Naming()
 
 class _DataPath:
     """TODO: write"""
+
     # data location constants
     @_constant
     def data_dir(self) -> Path:
         """TODO: write"""
-        return XDG_DATA_HOME / 'texproject'
+        return XDG_DATA_HOME / "texproject"
 
     @_constant
     def default_template(self) -> Path:
         """TODO: write"""
-        return self.data_dir / 'config' / 'default_template.toml'
+        return self.data_dir / "config" / "default_template.toml"
 
     @_constant
     def _resource_absolute(self) -> Path:
         """TODO: write"""
-        return XDG_DATA_HOME / 'texproject' / 'resources'
+        return XDG_DATA_HOME / "texproject" / "resources"
 
     @_constant
     def macro_dir(self) -> Path:
         """TODO: write"""
-        return self._resource_absolute / 'macros'
+        return self._resource_absolute / "macros"
 
     @_constant
     def format_dir(self) -> Path:
         """TODO: write"""
-        return self._resource_absolute / 'format'
+        return self._resource_absolute / "format"
 
     @_constant
     def citation_dir(self) -> Path:
         """TODO: write"""
-        return self._resource_absolute / 'citations'
+        return self._resource_absolute / "citations"
 
     @_constant
     def template_dir(self) -> Path:
         """TODO: write"""
-        return self.data_dir / 'templates'
+        return self.data_dir / "templates"
 
 
 class _JinjaTemplatePath:
     """TODO: write"""
+
     def template_doc(self, name: str) -> Path:
         """TODO: write"""
-        return Path('templates', name, NAMES.template_doc)
+        return Path("templates", name, NAMES.template_doc)
 
     @_constant
     def _template_resource_dir(self) -> Path:
         """TODO: write"""
-        return  Path('resources', 'other')
+        return Path("resources", "other")
 
     @_constant
     def project_macro(self) -> Path:
         """TODO: write"""
-        return self._template_resource_dir / 'project_macro_file.tex'
+        return self._template_resource_dir / "project_macro_file.tex"
 
     @_constant
     def gitignore(self) -> Path:
         """TODO: write"""
-        return self._template_resource_dir / 'gitignore'
+        return self._template_resource_dir / "gitignore"
 
     @_constant
     def build_latex(self) -> Path:
         """TODO: write"""
-        return self._template_resource_dir / 'build_latex.yml'
+        return self._template_resource_dir / "build_latex.yml"
 
     @_constant
     def pre_commit(self) -> Path:
         """TODO: write"""
-        return self._template_resource_dir / 'pre-commit'
+        return self._template_resource_dir / "pre-commit"
 
     @_constant
     def classinfo(self) -> Path:
         """TODO: write"""
-        return self._template_resource_dir / 'classinfo.tex'
+        return self._template_resource_dir / "classinfo.tex"
 
     @_constant
     def bibinfo(self) -> Path:
         """TODO: write"""
-        return self._template_resource_dir / 'bibinfo.tex'
+        return self._template_resource_dir / "bibinfo.tex"
 
     @_constant
     def bibliography(self) -> Path:
         """TODO: write"""
-        return self._template_resource_dir / 'bibliography.tex'
+        return self._template_resource_dir / "bibliography.tex"
 
     @_constant
     def arxiv_autotex(self) -> Path:
         """TODO: write"""
-        return self._template_resource_dir / 'arxiv_autotex.txt'
+        return self._template_resource_dir / "arxiv_autotex.txt"
 
 
 def relative(base: str):
     """TODO: write"""
+
     def fset(self, value) -> None:
         del self, value
         raise AttributeError("Cannot change constant values")
 
     def decorator(func):
         def fget(self) -> Path:
-            if base == 'root':
+            if base == "root":
                 return self.working_dir / func(self)
-            elif base == 'data':
-                return self.working_dir / self.config.render['project_data_folder'] / func(self)
+            elif base == "data":
+                return (
+                    self.working_dir
+                    / self.config.render["project_data_folder"]
+                    / func(self)
+                )
 
-            elif base == 'gh_actions':
-                return self.working_dir / '.github' / 'workflows' / func(self)
+            elif base == "gh_actions":
+                return self.working_dir / ".github" / "workflows" / func(self)
 
-            elif base == 'git_hooks':
-                return self.working_dir / '.git' / 'hooks' / func(self)
+            elif base == "git_hooks":
+                return self.working_dir / ".git" / "hooks" / func(self)
             # TODO: fix
             raise Exception("something bad")
+
         return property(fget, fset)
 
     return decorator
@@ -294,72 +323,72 @@ class ProjectPath:
         if exists and any(not path.exists() for path in self.minimal_gitfiles):
             raise GitMissingError(self.working_dir)
 
-    @relative('data')
+    @relative("data")
     def template(self) -> str:
         """TODO: write"""
-        return 'template.toml'
+        return "template.toml"
 
-    @relative('data')
+    @relative("data")
     def classinfo(self) -> str:
         """TODO: write"""
         return f"{self.config.render['classinfo_file']}.tex"
 
-    @relative('data')
+    @relative("data")
     def bibinfo(self) -> str:
         """TODO: write"""
         return f"{self.config.render['bibinfo_file']}.tex"
 
-    @relative('root')
+    @relative("root")
     def dir(self) -> str:
         """TODO: write"""
-        return ''
+        return ""
 
-    @relative('data')
+    @relative("data")
     def data_dir(self) -> str:
         """TODO: write"""
-        return ''
+        return ""
 
-    @relative('data')
+    @relative("data")
     def temp_dir(self) -> str:
         """TODO: write"""
-        return 'tmp'
+        return "tmp"
 
-    @relative('root')
+    @relative("root")
     def main(self) -> str:
         """TODO: write"""
         return f"{self.config.render['default_tex_name']}.tex"
 
-    @relative('root')
+    @relative("root")
     def arxiv_autotex(self) -> str:
         """TODO: write"""
         return "000README.XXX"
 
-    @relative('root')
+    @relative("root")
     def project_macro(self) -> str:
         """TODO: write"""
         return f"{self.config.render['project_macro_file']}.sty"
 
-    @relative('root')
+    @relative("root")
     def gitignore(self) -> str:
         """TODO: write"""
         return ".gitignore"
 
-    @relative('root')
+    @relative("root")
     def git_home(self) -> str:
         """TODO: write"""
         return ".git"
 
-    @relative('root')
+    @relative("root")
     def github_home(self) -> str:
         """TODO: write"""
-        return '.github'
+        return ".github"
 
-    @relative('gh_actions')
+    @relative("gh_actions")
     def build_latex(self) -> str:
         """TODO: write"""
         return "build_latex.yml"
 
-    @relative('git_hooks')
+    @relative("git_hooks")
     def pre_commit(self) -> str:
         """TODO: write"""
         return "pre-commit"
@@ -414,13 +443,15 @@ class ProjectPath:
                     # todo: better error here
                     print(f"Failed to delete '{file_path}'. Reason: {err}")
 
+
 class ProjectInfo(ProjectPath):
     """TODO: write"""
+
     def __init__(self, proj_dir: Path, dry_run: bool, verbose: bool):
         """TODO: write"""
         self.dry_run = dry_run
         self.force = False
-        self.verbose = verbose or dry_run # always verbose during dry_run
+        self.verbose = verbose or dry_run  # always verbose during dry_run
         super().__init__(proj_dir)
 
 
@@ -430,6 +461,7 @@ DATA_PATH = _DataPath()
 
 class _BaseLinker:
     """TODO: write"""
+
     def __init__(self, dir_path: Path, suffix: str, user_str: str):
         """TODO: write"""
         self.user_str = user_str
@@ -442,17 +474,21 @@ class _BaseLinker:
 
     def list_names(self) -> List:
         """TODO: write"""
-        return sorted([path.stem for path in self.dir_path.iterdir()
-                if self.valid_path(path)])
+        return sorted(
+            [path.stem for path in self.dir_path.iterdir() if self.valid_path(path)]
+        )
 
     def file_path(self, name: str) -> Path:
         """TODO: write"""
-        return self.dir_path / f'{name}{self.suffix}'
+        return self.dir_path / f"{name}{self.suffix}"
 
 
 class _FileLinker(_BaseLinker):
     """TODO: write"""
-    def __init__(self, dir_path: Path, suffix: str, user_str: str, name_convention: str):
+
+    def __init__(
+        self, dir_path: Path, suffix: str, user_str: str, name_convention: str
+    ):
         """TODO: write"""
         super().__init__(dir_path, suffix, user_str)
         self.name_convention = name_convention
@@ -461,34 +497,72 @@ class _FileLinker(_BaseLinker):
         """TODO: write"""
         return f"{NAMES.prefix(self.name_convention)}{NAMES.prefix_separator}{name}"
 
-    def link_path(self, path: Path, rel_path: Path,
-            force:bool=False, silent_fail:bool=True, verbose=False, dry_run=False) -> bool:
+    def link_path(
+        self,
+        path: Path,
+        rel_path: Path,
+        force: bool = False,
+        silent_fail: bool = True,
+        verbose=False,
+        dry_run=False,
+    ) -> bool:
         source_path = path.resolve()
         if source_path.suffix != self.suffix:
             raise BasePathError(
-                    source_path,
-                    message=f"Filetype '{source_path.suffix}' is invalid!")
+                source_path, message=f"Filetype '{source_path.suffix}' is invalid!"
+            )
         target_path = rel_path / (self.safe_name(source_path.name))
 
-        return self._link_helper(source_path, target_path, rel_path, str(path),
-            force=force, silent_fail=silent_fail, verbose=verbose, dry_run=dry_run)
+        return self._link_helper(
+            source_path,
+            target_path,
+            rel_path,
+            str(path),
+            force=force,
+            silent_fail=silent_fail,
+            verbose=verbose,
+            dry_run=dry_run,
+        )
 
-    def link_name(self, name: str, rel_path: Path,
-            force:bool=False, silent_fail:bool=True, verbose=False, dry_run=False) -> bool:
-        """Return True if the link succeeds (either bc exists, or copied in), and False otherwise
-        """
+    def link_name(
+        self,
+        name: str,
+        rel_path: Path,
+        force: bool = False,
+        silent_fail: bool = True,
+        verbose=False,
+        dry_run=False,
+    ) -> bool:
+        """Return True if the link succeeds (either bc exists, or copied in), and False otherwise"""
         source_path = self.file_path(name).resolve()
         target_path = rel_path / (self.safe_name(name) + self.suffix)
 
-        return self._link_helper(source_path, target_path, rel_path, name,
-            force=force, silent_fail=silent_fail, verbose=verbose, dry_run=dry_run)
+        return self._link_helper(
+            source_path,
+            target_path,
+            rel_path,
+            name,
+            force=force,
+            silent_fail=silent_fail,
+            verbose=verbose,
+            dry_run=dry_run,
+        )
 
-    def _link_helper(self, source_path: Path, target_path: Path, rel_path: Path, echo_name: str,
-            force:bool=False, silent_fail:bool=True, verbose=False, dry_run=False) -> bool:
+    def _link_helper(
+        self,
+        source_path: Path,
+        target_path: Path,
+        rel_path: Path,
+        echo_name: str,
+        force: bool = False,
+        silent_fail: bool = True,
+        verbose=False,
+        dry_run=False,
+    ) -> bool:
 
         if not (source_path.exists() or target_path.exists()):
             if verbose:
-                link_echo(self, echo_name, rel_path, mode='fail')
+                link_echo(self, echo_name, rel_path, mode="fail")
             return False
             # raise TemplateDataMissingError(
             #         source_path,
@@ -497,27 +571,24 @@ class _FileLinker(_BaseLinker):
 
         if target_path.exists() and not force:
             if verbose:
-                link_echo(self, echo_name, rel_path, mode='exists')
+                link_echo(self, echo_name, rel_path, mode="exists")
             if silent_fail:
                 return True
             raise FileExistsError(
-                    errno.EEXIST,
-                    "Link target already exists",
-                    str(target_path.resolve()))
+                errno.EEXIST, "Link target already exists", str(target_path.resolve())
+            )
 
         # only print the message if the target path doesn't exist, or it if does and
         # forced replace
         # todo: same pattern as write_template (abstract out?)
         if verbose:
             if target_path.exists():
-                link_echo(self, echo_name, rel_path, mode='overwrite')
+                link_echo(self, echo_name, rel_path, mode="overwrite")
             else:
-                link_echo(self, echo_name, rel_path, mode='new')
+                link_echo(self, echo_name, rel_path, mode="new")
 
         if not dry_run:
-            shutil.copyfile(
-                    str(source_path),
-                    str(target_path.resolve()))
+            shutil.copyfile(str(source_path), str(target_path.resolve()))
             return True
         return False
 
@@ -530,6 +601,7 @@ def _load_default_template() -> Dict:
         raise SystemDataMissingError(DATA_PATH.default_template) from err
     return default_template
 
+
 # todo: what is this?
 def toml_load_local_template(path: Path) -> Dict:
     """TODO: write"""
@@ -537,11 +609,13 @@ def toml_load_local_template(path: Path) -> Dict:
     try:
         template = toml_load(path)
     except FileNotFoundError as err:
-        raise ProjectDataMissingError(path,
-                message="The local template file is missing.") from err
+        raise ProjectDataMissingError(
+            path, message="The local template file is missing."
+        ) from err
     return {**default_template, **template}
 
-def toml_load_system_template(path: Path, user_str: str, name:Optional[str]=None):
+
+def toml_load_system_template(path: Path, user_str: str, name: Optional[str] = None):
     """TODO: write"""
     default_template = _load_default_template()
     try:
@@ -553,42 +627,33 @@ def toml_load_system_template(path: Path, user_str: str, name:Optional[str]=None
 
 class _TemplateLinker(_BaseLinker):
     """TODO: write"""
+
     def load_template(self, name: str) -> Dict:
         """TODO: write"""
         return toml_load_system_template(
-                self.file_path(name) / NAMES.template_toml,
-                self.user_str,
-                name=name)
+            self.file_path(name) / NAMES.template_toml, self.user_str, name=name
+        )
 
     def valid_path(self, path: Path):
         """TODO: write"""
-        return (super().valid_path(path) and
-                (path / NAMES.template_doc).exists() and
-                (path / NAMES.template_toml).exists())
+        return (
+            super().valid_path(path)
+            and (path / NAMES.template_doc).exists()
+            and (path / NAMES.template_toml).exists()
+        )
 
 
-macro_linker = _FileLinker(
-        DATA_PATH.macro_dir,
-        '.sty',
-        'macro file',
-        'macro_prefix')
+macro_linker = _FileLinker(DATA_PATH.macro_dir, ".sty", "macro file", "macro_prefix")
 
 
 format_linker = _FileLinker(
-        DATA_PATH.format_dir,
-        '.sty',
-        'format file',
-        'format_prefix')
+    DATA_PATH.format_dir, ".sty", "format file", "format_prefix"
+)
 
 
 citation_linker = _FileLinker(
-        DATA_PATH.citation_dir,
-        '.bib',
-        'citation file',
-        'citation_prefix')
+    DATA_PATH.citation_dir, ".bib", "citation file", "citation_prefix"
+)
 
 
-template_linker = _TemplateLinker(
-        DATA_PATH.template_dir,
-        '',
-        'template')
+template_linker = _TemplateLinker(DATA_PATH.template_dir, "", "template")
