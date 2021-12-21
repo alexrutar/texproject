@@ -178,12 +178,12 @@ class _DataPath:
     @_constant
     def macro_dir(self) -> Path:
         """TODO: write"""
-        return self._resource_absolute / 'packages' / 'macros'
+        return self._resource_absolute / 'macros'
 
     @_constant
     def format_dir(self) -> Path:
         """TODO: write"""
-        return self._resource_absolute / 'packages' / 'format'
+        return self._resource_absolute / 'format'
 
     @_constant
     def citation_dir(self) -> Path:
@@ -462,7 +462,7 @@ class _FileLinker(_BaseLinker):
         return f"{NAMES.prefix(self.name_convention)}{NAMES.prefix_separator}{name}"
 
     def link_path(self, path: Path, rel_path: Path,
-            force:bool=False, silent_fail:bool=True, verbose=False, dry_run=False) -> None:
+            force:bool=False, silent_fail:bool=True, verbose=False, dry_run=False) -> bool:
         source_path = path.resolve()
         if source_path.suffix != self.suffix:
             raise BasePathError(
@@ -470,31 +470,36 @@ class _FileLinker(_BaseLinker):
                     message=f"Filetype '{source_path.suffix}' is invalid!")
         target_path = rel_path / (self.safe_name(source_path.name))
 
-        self._link_helper(source_path, target_path, rel_path, str(path),
+        return self._link_helper(source_path, target_path, rel_path, str(path),
             force=force, silent_fail=silent_fail, verbose=verbose, dry_run=dry_run)
 
     def link_name(self, name: str, rel_path: Path,
-            force:bool=False, silent_fail:bool=True, verbose=False, dry_run=False) -> None:
-        """TODO: write.
-
-        Raises: TemplateDataMissingError if the link cannot be performed.
+            force:bool=False, silent_fail:bool=True, verbose=False, dry_run=False) -> bool:
+        """Return True if the link succeeds (either bc exists, or copied in), and False otherwise
         """
         source_path = self.file_path(name).resolve()
         target_path = rel_path / (self.safe_name(name) + self.suffix)
-        if not (source_path.exists() or target_path.exists()):
-            raise TemplateDataMissingError(
-                    source_path,
-                    user_str=self.user_str,
-                    name=name)
 
-        self._link_helper(source_path, target_path, rel_path, name,
+        return self._link_helper(source_path, target_path, rel_path, name,
             force=force, silent_fail=silent_fail, verbose=verbose, dry_run=dry_run)
 
     def _link_helper(self, source_path: Path, target_path: Path, rel_path: Path, echo_name: str,
-            force:bool=False, silent_fail:bool=True, verbose=False, dry_run=False) -> None:
+            force:bool=False, silent_fail:bool=True, verbose=False, dry_run=False) -> bool:
+
+        if not (source_path.exists() or target_path.exists()):
+            if verbose:
+                link_echo(self, echo_name, rel_path, mode='fail')
+            return False
+            # raise TemplateDataMissingError(
+            #         source_path,
+            #         user_str=self.user_str,
+            #         name=name)
+
         if target_path.exists() and not force:
+            if verbose:
+                link_echo(self, echo_name, rel_path, mode='exists')
             if silent_fail:
-                return
+                return True
             raise FileExistsError(
                     errno.EEXIST,
                     "Link target already exists",
@@ -505,14 +510,16 @@ class _FileLinker(_BaseLinker):
         # todo: same pattern as write_template (abstract out?)
         if verbose:
             if target_path.exists():
-                link_echo(self, echo_name, rel_path, overwrite=True)
+                link_echo(self, echo_name, rel_path, mode='overwrite')
             else:
-                link_echo(self, echo_name, rel_path, overwrite=False)
+                link_echo(self, echo_name, rel_path, mode='new')
 
         if not dry_run:
             shutil.copyfile(
                     str(source_path),
                     str(target_path.resolve()))
+            return True
+        return False
 
 
 def _load_default_template() -> Dict:

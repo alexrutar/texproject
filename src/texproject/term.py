@@ -60,16 +60,23 @@ def render_echo(template_path: Path, target: Path, overwrite: bool = False):
                 f"> Render file '{_normalize(target)}' from template at '{template_path}'",
                 fg='blue')
 
-def link_echo(linker: _FileLinker, name: str, target: Path, overwrite: bool = False):
+def link_echo(linker: _FileLinker, name: str, target: Path, mode: str):
     """TODO: write"""
-    if overwrite:
-        click.secho(
-                f"> Replace {linker.user_str} '{name}' in directory '{_normalize(target)}'",
+    def helper(prop):
+        return f"{linker.user_str} '{name}' {prop} directory '{_normalize(target)}'",
+
+    if mode == 'overwrite':
+        click.secho(f"> Replace {helper('in')}'",
                 fg='yellow')
-    else:
-        click.secho(
-                f"> Copy {linker.user_str} '{name}' to directory '{_normalize(target)}'",
+    elif mode == 'exists':
+        click.secho(f"> Use existing {helper('in')}'",
                 fg='blue')
+    elif mode == 'new':
+        click.secho(f"> Copy {helper('to')}'",
+                fg='blue')
+    elif mode == 'fail':
+        click.secho(f"! Could not import {helper('to')}'",
+                fg='red')
 
 def init_echo(dirname: Path):
     """TODO: write"""

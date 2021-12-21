@@ -3,12 +3,13 @@ from __future__ import annotations
 import datetime
 import errno
 import os
+from pathlib import Path
 import stat
 from typing import TYPE_CHECKING
 
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
-from .error import SystemDataMissingError
+from .error import SystemDataMissingError, BasePathError
 from .filesystem import (DATA_PATH, JINJA_PATH,
         toml_dump, toml_load_local_template,
         macro_linker, format_linker, citation_linker, template_linker)
@@ -116,9 +117,19 @@ class ProjectTemplate(GenericTemplate):
         """Create texproject project data directory and write files."""
         linker = PackageLinker(proj_info, force=False, silent_fail=True)
 
-        linker.link_macros(self.template_dict['macros'])
-        linker.link_citations(self.template_dict['citations'])
-        linker.link_format(self.template_dict['format'])
+        failed = {
+                'macros': linker.link_macros(self.template_dict['macros']),
+                'citations': linker.link_citations(self.template_dict['citations'])
+                }
+
+        # missing format file is really bad
+        if linker.link_format(self.template_dict['format']):
+            # todo: make this better
+            raise Exception("Missing format file!")
+
+        # update the template
+        for k,v in failed.items():
+            self.template_dict[k] = [it for it in self.template_dict[k] if it not in v]
 
         self.write_template_with_info(proj_info,
                 JINJA_PATH.classinfo,
@@ -129,6 +140,8 @@ class ProjectTemplate(GenericTemplate):
                 proj_info.bibinfo,
                 force=True)
 
+        # todo: if something failed, still must raise an exception here
+        # that way, the return code is correct
 
     def write_git_files(self, proj_info: ProjectInfo, force: bool=False) -> None:
         """TODO: write"""
@@ -198,43 +211,44 @@ class PackageLinker:
         self.force = force
         self.silent_fail = silent_fail
 
-    def make_link(self, linker: _FileLinker, name: str) -> None:
+    def make_link(self, linker: _FileLinker, name: str) -> bool:
         """Helper function for linking. Returns True if the link was created, False if it failed,
         and None if no attempt was made"""
-        linker.link_name(name,
+        return linker.link_name(name,
                 self.proj_info.data_dir,
                 force=self.force,
                 silent_fail=self.silent_fail,
                 verbose=self.proj_info.verbose,
                 dry_run = self.proj_info.dry_run)
 
-    def make_path_link(self, linker: _FileLinker, name: Path) -> None:
+    def make_path_link(self, linker: _FileLinker, name: Path) -> bool:
         """Helper function for linking. Returns True if the link was created, False if it failed,
         and None if no attempt was made"""
-        linker.link_path(name,
+        return linker.link_path(name,
                 self.proj_info.data_dir,
                 force=self.force,
                 silent_fail=self.silent_fail,
                 verbose=self.proj_info.verbose,
                 dry_run = self.proj_info.dry_run)
 
-    def link_macros(self, macro_list: Iterable[str]) -> List[None]:
-        """TODO: write"""
-        return [self.make_link(macro_linker, macro) for macro in macro_list]
+    def link_macros(self, macro_list: Iterable[str]) -> List[str]:
+        """Returns a list of macros where the inclusion failed."""
+        return [macro for macro in macro_list if not self.make_link(macro_linker, macro)]
 
-    def link_macro_paths(self, macro_list: Iterable[Path]) -> List[None]:
+    def link_macro_paths(self, macro_list: Iterable[Path]) -> List[bool]:
         """TODO: write"""
         return [self.make_path_link(macro_linker, macro) for macro in macro_list]
 
-    def link_citations(self, citation_list: Iterable[str]) -> List[None]:
-        """TODO: write"""
-        return [self.make_link(citation_linker, citation) for citation in citation_list]
+    def link_citations(self, citation_list: Iterable[str]) -> List[str]:
+        """Returns a list of citations where the inclusion failed."""
+        return [citation for citation in citation_list if not self.make_link(citation_linker, citation)]
 
-    def link_citation_paths(self, citation_list: Iterable[Path]) -> List[None]:
+    def link_citation_paths(self, citation_list: Iterable[Path]) -> List[bool]:
         """TODO: write"""
         return [self.make_path_link(citation_linker, citation) for citation in citation_list]
 
-    def link_format(self, fmt: Optional[str]) -> None:
+    def link_format(self, fmt: Optional[str]) -> Optional[str]:
         """TODO: write"""
         if fmt is not None:
-            self.make_link(format_linker, fmt)
+            if not self.make_link(format_linker, fmt):
+                return fmt
