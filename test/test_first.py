@@ -41,7 +41,7 @@ def test_import(fs_runner):
     bibtext = "example text"
     cit_path.write_text(bibtext)
     _run_cmd_seq(fs_runner, ["import", "--citation-path", str(cit_path)])
-    assert Path(".texproject/citation-test.bib").read_text() == bibtext
+    assert Path(".texproject/citations/local-test.bib").read_text() == bibtext
 
 
 def test_git(fs_runner):

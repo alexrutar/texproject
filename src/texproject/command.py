@@ -88,6 +88,10 @@ def init(proj_info: ProjectInfo, template: str) -> None:
     proj_gen.write_tpr_files(proj_info)
 
 
+def _refresh_template(proj_info: ProjectInfo):
+    LoadTemplate(proj_info).write_tpr_files(proj_info)
+
+
 @cli.command()
 @click.option(
     "--template",
@@ -116,9 +120,7 @@ def config(proj_info: ProjectInfo, config_file: str) -> None:
             proj_info.validate(exists=True)
 
             click.edit(filename=str(proj_info.template))
-
-            proj_gen = LoadTemplate(proj_info)
-            proj_gen.write_tpr_files(proj_info)
+            _refresh_template(proj_info)
 
         case "local":
             click.edit(filename=str(proj_info.config.local_path))
@@ -493,9 +495,9 @@ def util(proj_info: ProjectInfo) -> None:
     proj_info.validate(exists=True)
 
 
-@util.command("upgrade-config")
+@util.command("upgrade")
 @click.pass_obj
-def upgrade_config_(proj_info: ProjectInfo) -> None:
+def upgrade(proj_info: ProjectInfo) -> None:
     """Update configuration file to .toml."""
     import yaml
     import pytomlpp
@@ -511,6 +513,31 @@ def upgrade_config_(proj_info: ProjectInfo) -> None:
 
     if old_toml_path.exists():
         old_toml_path.rename(proj_info.template)
+
+    # rename all the files
+    for init, trg, end in [
+        ("macro", "macros", ".sty"),
+        ("citation", "citations", ".bib"),
+        ("format", "style", ".sty"),
+    ]:
+        (proj_info.data_dir / trg).mkdir(exist_ok=True)
+        for path in proj_info.data_dir.glob(f"{init}-*{end}"):
+            path.rename(
+                proj_info.data_dir
+                / trg
+                / ("local-" + "".join(path.name.split("-")[1:]))
+            )
+
+    # rename format key to style key, if needed
+    try:
+        tpl_dict = pytomlpp.load(proj_info.template)
+        tpl_dict["style"] = tpl_dict.pop("format")
+        proj_info.template.write_text(pytomlpp.dumps(tpl_dict))
+    except KeyError:
+        pass
+
+    # refresh the template
+    _refresh_template(proj_info)
 
 
 @util.command()

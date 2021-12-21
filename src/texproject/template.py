@@ -29,14 +29,13 @@ if TYPE_CHECKING:
     from .filesystem import Config, ProjectInfo, _FileLinker
 
 
-def safe_name(name: str, style: str) -> str:
-    """Safe namer for use in templates."""
-    if style == "macro":
-        return macro_linker.safe_name(name)
-    if style == "citation":
-        return citation_linker.safe_name(name)
-    if style == "style":
-        return style_linker.safe_name(name)
+def data_name(name: str, mode: str) -> str:
+    if mode == "macro":
+        return f"macros/local-{name}"
+    if mode == "citation":
+        return f"citations/local-{name}"
+    if mode == "style":
+        return f"style/local-{name}"
     return name
 
 
@@ -58,7 +57,7 @@ class GenericTemplate:
             trim_blocks=True,
         )
 
-        self.env.filters["safe_name"] = safe_name
+        self.env.filters["data_name"] = data_name
 
     def render_template(self, template: Template, config: Config) -> str:
         """Render template and return template text."""
@@ -207,7 +206,7 @@ class InitTemplate(ProjectTemplate):
 
         if not proj_info.dry_run:
             # initialize texproject directory
-            proj_info.data_dir.mkdir(exist_ok=True, parents=True)
+            proj_info.mk_data_dir()
             toml_dump(proj_info.template, self.template_dict)
 
         self.write_template_with_info(

@@ -25,7 +25,7 @@ from .error import (
 from .term import link_echo, rm_echo
 
 if TYPE_CHECKING:
-    from typing import Optional, Tuple, Generator, List, Dict, Union
+    from typing import Optional, Tuple, Generator, List, Dict
 
 SHUTIL_ARCHIVE_FORMATS = [ar[0] for ar in shutil.get_archive_formats()]
 _suffix_map_helper = {
@@ -156,18 +156,14 @@ class _Naming:
         """TODO: write"""
         return "document.tex"
 
-    def prefix(self, name_convention) -> str:
-        """TODO: write"""
-        match name_convention:
-            case "citation_prefix":
-                return "citation"
-            case "style_prefix":
-                return "style"
-            case "macro_prefix":
-                return "macro"
-            case _:
-                # todo
-                raise Exception("bad name convention")
+    def rel_data_path(self, path: Path, name_convention: str, name: str) -> Path:
+        prefix_lookup = {
+            "citation_prefix": "citations",
+            "style_prefix": "style",
+            "macro_prefix": "macros",
+        }
+        # prepend local- to minimize name collisions with existing packages
+        return path / prefix_lookup[name_convention] / ("local-" + name)
 
     @_constant
     def prefix_separator(self) -> str:
@@ -179,9 +175,11 @@ NAMES = _Naming()
 
 
 class _DataPath:
-    """TODO: write"""
+    """TODO: write
 
-    # data location constants
+    Data location constants
+    """
+
     @_constant
     def data_dir(self) -> Path:
         """TODO: write"""
@@ -413,6 +411,14 @@ class ProjectPath:
         """TODO: write"""
         return (self.main, self.data_dir)
 
+    def mk_data_dir(self):
+        for path in [
+            self.data_dir / "macros",
+            self.data_dir / "style",
+            self.data_dir / "citations",
+        ]:
+            path.mkdir(exist_ok=True, parents=True)
+
     @contextlib.contextmanager
     def temp_subpath(self) -> Generator:
         """TODO: write"""
@@ -493,10 +499,6 @@ class _FileLinker(_BaseLinker):
         super().__init__(dir_path, suffix, user_str)
         self.name_convention = name_convention
 
-    def safe_name(self, name: str) -> str:
-        """TODO: write"""
-        return f"{NAMES.prefix(self.name_convention)}{NAMES.prefix_separator}{name}"
-
     def link_path(
         self,
         path: Path,
@@ -511,7 +513,9 @@ class _FileLinker(_BaseLinker):
             raise BasePathError(
                 source_path, message=f"Filetype '{source_path.suffix}' is invalid!"
             )
-        target_path = rel_path / (self.safe_name(source_path.name))
+        target_path = NAMES.rel_data_path(
+            rel_path, self.name_convention, source_path.name
+        )
 
         return self._link_helper(
             source_path,
@@ -535,7 +539,9 @@ class _FileLinker(_BaseLinker):
     ) -> bool:
         """Return True if the link succeeds (either bc exists, or copied in), and False otherwise"""
         source_path = self.file_path(name).resolve()
-        target_path = rel_path / (self.safe_name(name) + self.suffix)
+        target_path = NAMES.rel_data_path(
+            rel_path, self.name_convention, name + self.suffix
+        )
 
         return self._link_helper(
             source_path,
@@ -602,7 +608,6 @@ def _load_default_template() -> Dict:
     return default_template
 
 
-# todo: what is this?
 def toml_load_local_template(path: Path) -> Dict:
     """TODO: write"""
     default_template = _load_default_template()
@@ -646,9 +651,7 @@ class _TemplateLinker(_BaseLinker):
 macro_linker = _FileLinker(DATA_PATH.macro_dir, ".sty", "macro file", "macro_prefix")
 
 
-style_linker = _FileLinker(
-    DATA_PATH.style_dir, ".sty", "style file", "style_prefix"
-)
+style_linker = _FileLinker(DATA_PATH.style_dir, ".sty", "style file", "style_prefix")
 
 
 citation_linker = _FileLinker(
