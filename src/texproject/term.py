@@ -51,6 +51,18 @@ def rm_echo(target: Path):
     click.secho(f"> Removing path '{_normalize(target)}'.", fg="yellow")
 
 
+def write_template_echo(target: Path, overwrite: bool = False):
+    if overwrite:
+        click.secho(
+            f"> Replace template dictionary in directory '{_normalize(target)}",
+            fg="yellow",
+        )
+    else:
+        click.secho(
+            f"> Write template dictionary to directory '{_normalize(target)}", fg="blue"
+        )
+
+
 def render_echo(template_path: Path, target: Path, overwrite: bool = False):
     """TODO: write"""
     if overwrite:

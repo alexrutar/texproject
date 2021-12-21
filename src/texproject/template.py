@@ -14,23 +14,22 @@ from .filesystem import (
     DATA_PATH,
     JINJA_PATH,
     NAMES,
+    LINKER_MAP,
     toml_dump,
     toml_load_local_template,
-    macro_linker,
-    style_linker,
-    citation_linker,
     template_linker,
 )
-from .term import render_echo, init_echo
+from .term import render_echo, init_echo, write_template_echo
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Optional, Iterable, Dict, List
+    from typing import Iterable, Dict, List
     from jinja2 import Template
     from .filesystem import Config, ProjectInfo, _FileLinker
+    from .base import Modes
 
 
-def data_name(name: str, mode: str) -> str:
+def data_name(name: str, mode: Modes) -> str:
     return str(NAMES.rel_data_path(name, mode))
 
 
@@ -53,6 +52,14 @@ class GenericTemplate:
         )
 
         self.env.filters["data_name"] = data_name
+
+    def add(self, mode: Modes, name, index: int = 0) -> None:
+        """TODO: write"""
+        self.template_dict[NAMES.convert_mode(mode)].insert(index, name)
+
+    def remove(self, mode: Modes, name) -> None:
+        """TODO: write"""
+        self.template_dict[NAMES.convert_mode(mode)].remove(name)
 
     def render_template(self, template: Template, config: Config) -> str:
         """Render template and return template text."""
@@ -135,23 +142,23 @@ class ProjectTemplate(GenericTemplate):
         if not proj_info.dry_run and executable:
             os.chmod(target_path, stat.S_IXUSR | stat.S_IWUSR | stat.S_IRUSR)
 
-    def write_tpr_files(self, proj_info: ProjectInfo) -> None:
+    def write_tpr_files(self, proj_info: ProjectInfo, force: bool = False) -> None:
         """Create texproject project data directory and write files."""
-        linker = PackageLinker(proj_info, force=False, silent_fail=True)
+        linker = PackageLinker(proj_info, force=force, silent_fail=True)
 
+        # careful: side effects are important!
         failed = {
-            "macros": linker.link_macros(self.template_dict["macros"]),
-            "citations": linker.link_citations(self.template_dict["citations"]),
+            NAMES.convert_mode(mode): linker.link(
+                mode, self.template_dict[NAMES.convert_mode(mode)]
+            )
+            for mode in NAMES.modes
         }
 
-        # missing style file is really bad
-        if linker.link_style(self.template_dict["style"]):
-            # todo: make this better
-            raise Exception("Missing style file!")
-
         # update the template
-        for k, v in failed.items():
-            self.template_dict[k] = [it for it in self.template_dict[k] if it not in v]
+        for key, failed_names in failed.items():
+            self.template_dict[key] = [
+                name for name in self.template_dict[key] if name not in failed_names
+            ]
 
         self.write_template_with_info(
             proj_info, JINJA_PATH.classinfo, proj_info.classinfo, force=True
@@ -185,6 +192,15 @@ class ProjectTemplate(GenericTemplate):
             proj_info, JINJA_PATH.arxiv_autotex, proj_info.arxiv_autotex
         )
 
+    def write_template_dict(self, proj_info: ProjectInfo):
+        if proj_info.verbose:
+            write_template_echo(proj_info.data_dir)
+
+        if not proj_info.dry_run:
+            # initialize texproject directory
+            proj_info.mk_data_dir()
+            toml_dump(proj_info.template, self.template_dict)
+
 
 class InitTemplate(ProjectTemplate):
     """TODO: write"""
@@ -200,15 +216,10 @@ class InitTemplate(ProjectTemplate):
         if proj_info.dry_run or proj_info.verbose:
             init_echo(proj_info.dir)
 
-        if not proj_info.dry_run:
-            # initialize texproject directory
-            proj_info.mk_data_dir()
-            toml_dump(proj_info.template, self.template_dict)
-
+        self.write_template_dict(proj_info)
         self.write_template_with_info(
             proj_info, JINJA_PATH.template_doc(self.template_name), proj_info.main
         )
-
         self.write_template_with_info(
             proj_info, JINJA_PATH.project_macro, proj_info.project_macro
         )
@@ -258,32 +269,11 @@ class PackageLinker:
             dry_run=self.proj_info.dry_run,
         )
 
-    def link_macros(self, macro_list: Iterable[str]) -> List[str]:
-        """Returns a list of macros where the inclusion failed."""
+    def link(self, mode: Modes, name_list: Iterable[str]) -> List[str]:
         return [
-            macro for macro in macro_list if not self.make_link(macro_linker, macro)
+            name for name in name_list if not self.make_link(LINKER_MAP[mode], name)
         ]
 
-    def link_macro_paths(self, macro_list: Iterable[Path]) -> List[bool]:
+    def link_paths(self, mode: Modes, path_list: Iterable[Path]) -> List[bool]:
         """TODO: write"""
-        return [self.make_path_link(macro_linker, macro) for macro in macro_list]
-
-    def link_citations(self, citation_list: Iterable[str]) -> List[str]:
-        """Returns a list of citations where the inclusion failed."""
-        return [
-            citation
-            for citation in citation_list
-            if not self.make_link(citation_linker, citation)
-        ]
-
-    def link_citation_paths(self, citation_list: Iterable[Path]) -> List[bool]:
-        """TODO: write"""
-        return [
-            self.make_path_link(citation_linker, citation) for citation in citation_list
-        ]
-
-    def link_style(self, fmt: Optional[str]) -> Optional[str]:
-        """TODO: write"""
-        if fmt is not None:
-            if not self.make_link(style_linker, fmt):
-                return fmt
+        return [self.make_path_link(LINKER_MAP[mode], path) for path in path_list]

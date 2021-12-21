@@ -1,5 +1,7 @@
 """TODO: write docstring"""
 from __future__ import annotations
+
+# from difflib import unified_diff
 from pathlib import Path
 import sys
 from typing import TYPE_CHECKING
@@ -12,6 +14,7 @@ from .export import create_archive
 from .filesystem import (
     ProjectInfo,
     JINJA_PATH,
+    NAMES,
     SHUTIL_ARCHIVE_FORMATS,
     SHUTIL_ARCHIVE_SUFFIX_MAP,
     style_linker,
@@ -25,7 +28,8 @@ from .template import LoadTemplate, InitTemplate, PackageLinker
 from .term import err_echo
 
 if TYPE_CHECKING:
-    from typing import Optional, Iterable, Any, Literal
+    from .base import Modes, NAMES, RepoVisibility
+    from typing import Optional, Iterable, Any, List, Literal
 
 
 class CatchInternalExceptions(click.Group):
@@ -134,49 +138,37 @@ def config(proj_info: ProjectInfo, config_file: str) -> None:
             assert_never(config_file)
 
 
+def _link_option(mode: Modes):
+    linker = {"macro": macro_linker, "citation": citation_linker, "style": style_linker}
+    return click.option(
+        f"--{mode}",
+        f"{NAMES.convert_mode(mode)}",
+        multiple=True,
+        type=click.Choice(linker[mode].list_names()),
+        help=f"{mode} file",
+        show_default=False,
+    )
+
+
+def _path_option(mode: Modes):
+    return click.option(
+        f"--{mode}-path",
+        f"{mode}_paths",
+        multiple=True,
+        type=click.Path(
+            exists=True, file_okay=True, dir_okay=False, writable=False, path_type=Path
+        ),
+        help=f"{mode} file path",
+    )
+
+
 @cli.command("import")
-@click.option(
-    "--macro",
-    "macros",
-    multiple=True,
-    type=click.Choice(macro_linker.list_names()),
-    help="macro file",
-    show_default=False,
-)
-@click.option(
-    "--citation",
-    "citations",
-    multiple=True,
-    type=click.Choice(citation_linker.list_names()),
-    help="citation file",
-    show_default=False,
-)
-@click.option(
-    "--style",
-    "style",
-    default=None,
-    type=click.Choice(style_linker.list_names()),
-    help="style file",
-    show_default=False,
-)
-@click.option(
-    "--macro-path",
-    "macro_paths",
-    multiple=True,
-    type=click.Path(
-        exists=True, file_okay=True, dir_okay=False, writable=False, path_type=Path
-    ),
-    help="macro file path",
-)
-@click.option(
-    "--citation-path",
-    "citation_paths",
-    multiple=True,
-    type=click.Path(
-        exists=True, file_okay=True, dir_okay=False, writable=False, path_type=Path
-    ),
-    help="citation file path",
-)
+@_link_option("macro")
+@_link_option("citation")
+@_link_option("style")
+@_path_option("macro")
+@_path_option("citation")
+@_path_option("style")
 @click.option(
     "--gitignore",
     "gitignore",
@@ -196,9 +188,10 @@ def import_(
     proj_info: ProjectInfo,
     macros: Iterable[str],
     citations: Iterable[str],
-    style: Optional[str],
+    styles: Iterable[str],
     macro_paths: Iterable[Path],
     citation_paths: Iterable[Path],
+    style_paths: Iterable[Path],
     gitignore: bool,
     pre_commit: bool,
 ) -> None:
@@ -212,11 +205,13 @@ def import_(
     proj_info.validate(exists=True)
 
     linker = PackageLinker(proj_info, force=True)
-    linker.link_macros(macros)
-    linker.link_citations(citations)
-    linker.link_style(style)
-    linker.link_macro_paths(macro_paths)
-    linker.link_citation_paths(citation_paths)
+    for mode, names, paths in [
+        ("macro", macros, macro_paths),
+        ("citation", citations, citation_paths),
+        ("style", styles, style_paths),
+    ]:
+        linker.link(mode, names)
+        linker.link_paths(mode, paths)
 
     proj_gen = LoadTemplate(proj_info)
     if gitignore:
@@ -340,6 +335,50 @@ def archive(
 
 @cli.group()
 @click.pass_obj
+def template(proj_info: ProjectInfo) -> None:
+    """Subcommand to update the template dictionary."""
+    proj_info.validate(exists=True)
+
+
+@template.command()
+@_link_option("macro")
+@_link_option("citation")
+@_link_option("style")
+@click.option("--index", "index", help="position to insert", default=0, type=int)
+@click.pass_obj
+def add(
+    proj_info: ProjectInfo,
+    macros: List[str],
+    citations: List[str],
+    styles: List[str],
+    index: int,
+) -> None:
+    """pass"""
+    proj_gen = LoadTemplate(proj_info)
+    for mode, names in [("macro", macros), ("citation", citations), ("style", styles)]:
+        for name in names:
+            proj_gen.add(mode, name, index)
+    proj_gen.write_template_dict(proj_info)
+
+
+@template.command()
+@_link_option("macro")
+@_link_option("citation")
+@_link_option("style")
+@click.pass_obj
+def remove(
+    proj_info: ProjectInfo, macros: List[str], citations: List[str], styles: List[str]
+) -> None:
+    """"""
+    proj_gen = LoadTemplate(proj_info)
+    for mode, names in [("macro", macros), ("citation", citations), ("style", styles)]:
+        for name in names:
+            proj_gen.remove(mode, name)
+    proj_gen.write_template_dict(proj_info)
+
+
+@cli.group()
+@click.pass_obj
 def git(proj_info: ProjectInfo) -> None:
     """Subcommand to manage git files."""
     proj_info.validate(exists=True)
@@ -387,7 +426,7 @@ def git_init(
     proj_info: ProjectInfo,
     repo_name: str,
     repo_desc: str,
-    vis: Literal["public", "private"],
+    vis: RepoVisibility,
     wiki: bool,
     issues: bool,
 ) -> None:
@@ -451,12 +490,9 @@ def init_archive(proj_info: ProjectInfo, repo_name: str) -> None:
 
 
 @cli.command("list")
-@click.argument(
-    "res_class", type=click.Choice(["citation", "macro", "format", "template"])
-)
-def list_(res_class: str) -> None:
+@click.argument("res_class", type=click.Choice(NAMES.modes + ("template",)))
+def list_(res_class: Modes | Literal["template"]) -> None:
     """Retrieve program and template information."""
-
     linker_map = {
         "citation": citation_linker,
         "macro": macro_linker,
@@ -506,16 +542,29 @@ def upgrade(proj_info: ProjectInfo) -> None:
                 / ("local-" + "".join(path.name.split("-")[1:]))
             )
 
-    # rename format key to style key, if needed
-    try:
-        tpl_dict = pytomlpp.load(proj_info.template)
-        tpl_dict["style"] = tpl_dict.pop("format")
-        proj_info.template.write_text(pytomlpp.dumps(tpl_dict))
-    except KeyError:
-        pass
+    # rename style directory
+    if (proj_info.data_dir / "style").exists():
+        (proj_info.data_dir / "style").rename(proj_info.data_dir / "styles")
+
+    # rename format / style key to list of styles
+    for old_name in ("format", "style"):
+        try:
+            tpl_dict = pytomlpp.load(proj_info.template)
+            tpl_dict["styles"] = [tpl_dict.pop(old_name)]
+            proj_info.template.write_text(pytomlpp.dumps(tpl_dict))
+        except KeyError:
+            pass
 
     # refresh the template
     _refresh_template(proj_info)
+
+
+@util.command("refresh")
+@click.pass_obj
+def refresh(proj_info: ProjectInfo) -> None:
+    """"""
+    proj_gen = LoadTemplate(proj_info)
+    proj_gen.write_tpr_files(proj_info, force=True)
 
 
 @util.command()
@@ -533,3 +582,19 @@ def clean(proj_info: ProjectInfo, rm_unneeded: bool) -> None:
     """
     proj_info.validate(exists=True)
     proj_info.clear_temp()
+
+
+@util.command()
+@_link_option("macro")
+@_link_option("citation")
+@_link_option("style")
+@click.pass_obj
+def diff(
+    proj_info: ProjectInfo,
+    macros: List[str],
+    citations: List[str],
+    styles: Optional[str],
+) -> None:
+    """"""
+    raise NotImplementedError
+    # todo: write

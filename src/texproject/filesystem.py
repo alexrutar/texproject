@@ -11,6 +11,7 @@ import uuid
 import pytomlpp as toml
 from xdg import XDG_DATA_HOME, XDG_CONFIG_HOME
 
+from .base import NAMES, constant
 from .error import (
     BasePathError,
     ProjectExistsError,
@@ -24,6 +25,7 @@ from .error import (
 from .term import link_echo, rm_echo
 
 if TYPE_CHECKING:
+    from .base import Modes
     from typing import Optional, Tuple, Generator, List, Dict
 
 SHUTIL_ARCHIVE_FORMATS = [ar[0] for ar in shutil.get_archive_formats()]
@@ -51,19 +53,6 @@ def verbose_unlink(proj_info: ProjectInfo, path: Path):
         except Exception as err:
             # todo: better error here
             print(f"Failed to delete '{path}'. Reason: {err}")
-
-
-def _constant(func):
-    """TODO: write"""
-
-    def fset(self, value):
-        del self, value
-        raise AttributeError("Cannot change constant values")
-
-    def fget(self):
-        return func(self)
-
-    return property(fget, fset)
 
 
 def toml_load(path_obj: Path, missing_ok: bool = False) -> Dict:
@@ -131,50 +120,15 @@ class Config:
             "."
         )
 
-    @_constant
+    @constant
     def global_path(self) -> Path:
         """TODO: write"""
         return XDG_CONFIG_HOME / "texproject" / "config.toml"
 
-    @_constant
+    @constant
     def local_path(self) -> Path:
         """TODO: write"""
         return self.working_dir / "config.toml"
-
-
-class _Naming:
-    """TODO: write"""
-
-    @_constant
-    def template_toml(self) -> str:
-        """TODO: write"""
-        return "template.toml"
-
-    @_constant
-    def template_doc(self) -> str:
-        """TODO: write"""
-        return "document.tex"
-
-    def resource_subdir(self, mode: str) -> Path:
-        return Path(
-            {"citation": "citations", "style": "style", "macro": "macros"}[mode]
-        )
-
-    @_constant
-    def modes(self) -> tuple[str, str, str]:
-        return ("citation", "style", "macro")
-
-    def rel_data_path(self, name: str, mode: str) -> Path:
-        # prepend local- to minimize name collisions with existing packages
-        return self.resource_subdir(mode) / ("local-" + name)
-
-    @_constant
-    def prefix_separator(self) -> str:
-        """TODO: write"""
-        return "-"
-
-
-NAMES = _Naming()
 
 
 class _DataPath:
@@ -183,22 +137,22 @@ class _DataPath:
     Data location constants
     """
 
-    @_constant
+    @constant
     def data_dir(self) -> Path:
         """TODO: write"""
         return XDG_DATA_HOME / "texproject"
 
-    @_constant
+    @constant
     def default_template(self) -> Path:
         """TODO: write"""
         return self.data_dir / "config" / "default_template.toml"
 
-    @_constant
+    @constant
     def resource_dir(self) -> Path:
         """TODO: write"""
         return XDG_DATA_HOME / "texproject" / "resources"
 
-    @_constant
+    @constant
     def template_dir(self) -> Path:
         """TODO: write"""
         return self.data_dir / "templates"
@@ -211,47 +165,47 @@ class _JinjaTemplatePath:
         """TODO: write"""
         return Path("templates", name, NAMES.template_doc)
 
-    @_constant
+    @constant
     def _template_resource_dir(self) -> Path:
         """TODO: write"""
         return Path("resources", "other")
 
-    @_constant
+    @constant
     def project_macro(self) -> Path:
         """TODO: write"""
         return self._template_resource_dir / "project_macro_file.tex"
 
-    @_constant
+    @constant
     def gitignore(self) -> Path:
         """TODO: write"""
         return self._template_resource_dir / "gitignore"
 
-    @_constant
+    @constant
     def build_latex(self) -> Path:
         """TODO: write"""
         return self._template_resource_dir / "build_latex.yml"
 
-    @_constant
+    @constant
     def pre_commit(self) -> Path:
         """TODO: write"""
         return self._template_resource_dir / "pre-commit"
 
-    @_constant
+    @constant
     def classinfo(self) -> Path:
         """TODO: write"""
         return self._template_resource_dir / "classinfo.tex"
 
-    @_constant
+    @constant
     def bibinfo(self) -> Path:
         """TODO: write"""
         return self._template_resource_dir / "bibinfo.tex"
 
-    @_constant
+    @constant
     def bibliography(self) -> Path:
         """TODO: write"""
         return self._template_resource_dir / "bibliography.tex"
 
-    @_constant
+    @constant
     def arxiv_autotex(self) -> Path:
         """TODO: write"""
         return self._template_resource_dir / "arxiv_autotex.txt"
@@ -379,22 +333,22 @@ class ProjectPath:
         """TODO: write"""
         return "pre-commit"
 
-    @_constant
+    @constant
     def gitfiles(self) -> Tuple[Path, Path, Path]:
         """TODO: write"""
         return (self.pre_commit, self.github_home, self.gitignore)
 
-    @_constant
+    @constant
     def minimal_gitfiles(self) -> Tuple[Path]:
         """TODO: write"""
         return (self.git_home,)
 
-    @_constant
+    @constant
     def rootfiles(self) -> Tuple[Path, Path, Path]:
         """TODO: write"""
         return (self.main, self.project_macro, self.data_dir)
 
-    @_constant
+    @constant
     def minimal_files(self) -> Tuple[Path, Path]:
         """TODO: write"""
         return (self.main, self.data_dir)
@@ -478,12 +432,12 @@ class _BaseLinker:
 class _FileLinker(_BaseLinker):
     """TODO: write"""
 
-    def __init__(self, suffix: str, user_str: str, mode: str):
+    def __init__(self, suffix: str, user_str: str, mode: Modes):
         """TODO: write"""
         super().__init__(
             DATA_PATH.resource_dir / NAMES.resource_subdir(mode), suffix, user_str
         )
-        self.mode = mode
+        self.mode = mode  # type: Modes
 
     def link_path(
         self,
@@ -640,3 +594,10 @@ citation_linker = _FileLinker(".bib", "citation file", "citation")
 
 
 template_linker = _TemplateLinker(DATA_PATH.template_dir, "", "template")
+
+LINKER_MAP = {
+    "citation": citation_linker,
+    "macro": macro_linker,
+    "style": style_linker,
+    "template": template_linker,
+}

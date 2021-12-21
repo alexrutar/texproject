@@ -8,8 +8,7 @@ from .process import subproc_run
 from .term import Secret
 
 if TYPE_CHECKING:
-    from typing import Literal
-
+    from .base import RepoVisibility
     from .filesystem import ProjectInfo
 
 
@@ -21,7 +20,7 @@ class GHRepo:
     def create(
         self,
         description: str,
-        visibility: Literal["public", "private"] = "private",
+        visibility: RepoVisibility = "private",
         wiki: bool = False,
         issues: bool = False,
     ):
