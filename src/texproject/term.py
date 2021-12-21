@@ -19,7 +19,7 @@ REPO_FORMATTED = click.style(__repo__, fg='bright_blue')
 def err_echo(err_inst: Exception) -> None:
     """TODO: write"""
     def _err_header(string):
-        click.secho(f"Error: {string}", err=True, fg='red')
+        click.secho(f"! {string}", err=True, fg='red')
 
     match err_inst:
 

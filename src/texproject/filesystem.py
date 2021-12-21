@@ -461,27 +461,37 @@ class _FileLinker(_BaseLinker):
         """TODO: write"""
         return f"{NAMES.prefix(self.name_convention)}{NAMES.prefix_separator}{name}"
 
-    def link_name(self, name: Union[str, Path], rel_path: Path,
-            force:bool=False, silent_fail:bool=True, verbose=False) -> None:
-        """TODO: write"""
-        if isinstance(name, Path):
-            source_path = name.resolve()
-            if source_path.suffix != self.suffix:
-                raise BasePathError(
-                        source_path,
-                        message=f"Filetype '{source_path.suffix}' is invalid!")
-            target_path = rel_path / (self.safe_name(source_path.name))
-        elif isinstance(name, str):
-            source_path = self.file_path(name).resolve()
-            target_path = rel_path / (self.safe_name(name) + self.suffix)
-            if not source_path.exists():
-                raise TemplateDataMissingError(
-                        source_path,
-                        user_str=self.user_str,
-                        name=name)
-        else:
-            assert_never(name)
+    def link_path(self, path: Path, rel_path: Path,
+            force:bool=False, silent_fail:bool=True, verbose=False, dry_run=False) -> None:
+        source_path = path.resolve()
+        if source_path.suffix != self.suffix:
+            raise BasePathError(
+                    source_path,
+                    message=f"Filetype '{source_path.suffix}' is invalid!")
+        target_path = rel_path / (self.safe_name(source_path.name))
 
+        self._link_helper(source_path, target_path, rel_path, str(path),
+            force=force, silent_fail=silent_fail, verbose=verbose, dry_run=dry_run)
+
+    def link_name(self, name: str, rel_path: Path,
+            force:bool=False, silent_fail:bool=True, verbose=False, dry_run=False) -> None:
+        """TODO: write.
+
+        Raises: TemplateDataMissingError if the link cannot be performed.
+        """
+        source_path = self.file_path(name).resolve()
+        target_path = rel_path / (self.safe_name(name) + self.suffix)
+        if not (source_path.exists() or target_path.exists()):
+            raise TemplateDataMissingError(
+                    source_path,
+                    user_str=self.user_str,
+                    name=name)
+
+        self._link_helper(source_path, target_path, rel_path, name,
+            force=force, silent_fail=silent_fail, verbose=verbose, dry_run=dry_run)
+
+    def _link_helper(self, source_path: Path, target_path: Path, rel_path: Path, echo_name: str,
+            force:bool=False, silent_fail:bool=True, verbose=False, dry_run=False) -> None:
         if target_path.exists() and not force:
             if silent_fail:
                 return
@@ -490,15 +500,19 @@ class _FileLinker(_BaseLinker):
                     "Link target already exists",
                     str(target_path.resolve()))
 
+        # only print the message if the target path doesn't exist, or it if does and
+        # forced replace
+        # todo: same pattern as write_template (abstract out?)
         if verbose:
             if target_path.exists():
-                link_echo(self, str(name), rel_path, overwrite=True)
+                link_echo(self, echo_name, rel_path, overwrite=True)
             else:
-                link_echo(self, str(name), rel_path, overwrite=False)
+                link_echo(self, echo_name, rel_path, overwrite=False)
 
-        shutil.copyfile(
-                str(source_path),
-                str(target_path.resolve()))
+        if not dry_run:
+            shutil.copyfile(
+                    str(source_path),
+                    str(target_path.resolve()))
 
 
 def _load_default_template() -> Dict:

@@ -16,7 +16,7 @@ from .term import render_echo, init_echo
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Optional, Iterable, Dict, Union
+    from typing import Optional, Iterable, Dict, List
     from jinja2 import Template
     from .filesystem import Config, ProjectInfo, _FileLinker
 
@@ -65,7 +65,7 @@ class GenericTemplate:
             date=datetime.date.today())
 
     def write_template(self, template_path: Path, target_path: Path, config: Config,
-            force:bool=False, verbose=False) -> None:
+            force:bool=False, verbose=False, dry_run=False) -> None:
         """Write template at location template_path to file at location
         target_path. Overwrite target_path when force=True."""
         if target_path.exists() and not force:
@@ -73,18 +73,19 @@ class GenericTemplate:
                     errno.EEXIST,
                     "Template write location aready exists",
                     str(target_path.resolve()))
+        # todo: same pattern as _link_helper (abstract out?)
+        if verbose:
+            if target_path.exists():
+                render_echo(template_path, target_path, overwrite=True)
+            else:
+                render_echo(template_path, target_path, overwrite=False)
         try:
-            if verbose:
-                if target_path.exists():
-                    render_echo(template_path, target_path, overwrite=True)
-                else:
-                    render_echo(template_path, target_path, overwrite=False)
-
-            target_path.parent.mkdir(parents=True, exist_ok=True)
-            target_path.write_text(
-                self.render_template(
-                    self.env.get_template(str(template_path)),
-                    config))
+            if not dry_run:
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                target_path.write_text(
+                    self.render_template(
+                        self.env.get_template(str(template_path)),
+                        config))
 
         except TemplateNotFound as err:
             raise SystemDataMissingError(template_path) from err
@@ -101,18 +102,24 @@ class ProjectTemplate(GenericTemplate):
             template_path: Path, target_path: Path,
             force:bool=False, executable:bool=False) -> None:
         """TODO: write"""
-        if not proj_info.dry_run:
-            self.write_template(
-                    template_path,
-                    target_path,
-                    proj_info.config,
-                    force=force,
-                    verbose=proj_info.verbose)
-            if executable:
-                os.chmod(target_path, stat.S_IXUSR |  stat.S_IWUSR | stat.S_IRUSR)
+        self.write_template(
+                template_path,
+                target_path,
+                proj_info.config,
+                force=force,
+                verbose=proj_info.verbose,
+                dry_run=proj_info.dry_run)
+        if not proj_info.dry_run and executable:
+            os.chmod(target_path, stat.S_IXUSR |  stat.S_IWUSR | stat.S_IRUSR)
 
     def write_tpr_files(self, proj_info: ProjectInfo) -> None:
         """Create texproject project data directory and write files."""
+        linker = PackageLinker(proj_info, force=False, silent_fail=True)
+
+        linker.link_macros(self.template_dict['macros'])
+        linker.link_citations(self.template_dict['citations'])
+        linker.link_format(self.template_dict['format'])
+
         self.write_template_with_info(proj_info,
                 JINJA_PATH.classinfo,
                 proj_info.classinfo,
@@ -122,10 +129,6 @@ class ProjectTemplate(GenericTemplate):
                 proj_info.bibinfo,
                 force=True)
 
-        linker = PackageLinker(proj_info, force=False, silent_fail=True)
-        linker.link_macros(self.template_dict['macros'])
-        linker.link_citations(self.template_dict['citations'])
-        linker.link_format(self.template_dict['format'])
 
     def write_git_files(self, proj_info: ProjectInfo, force: bool=False) -> None:
         """TODO: write"""
@@ -195,24 +198,41 @@ class PackageLinker:
         self.force = force
         self.silent_fail = silent_fail
 
-    def make_link(self, linker: _FileLinker, name: Union[str, Path]) -> None:
-        """Helper function for linking."""
-        if not self.proj_info.dry_run:
-            linker.link_name(name,
-                    self.proj_info.data_dir,
-                    force=self.force,
-                    silent_fail=self.silent_fail,
-                    verbose=self.proj_info.verbose)
+    def make_link(self, linker: _FileLinker, name: str) -> None:
+        """Helper function for linking. Returns True if the link was created, False if it failed,
+        and None if no attempt was made"""
+        linker.link_name(name,
+                self.proj_info.data_dir,
+                force=self.force,
+                silent_fail=self.silent_fail,
+                verbose=self.proj_info.verbose,
+                dry_run = self.proj_info.dry_run)
 
-    def link_macros(self, macro_list: Iterable[Union[str, Path]]) -> None:
-        """TODO: write"""
-        for macro in macro_list:
-            self.make_link(macro_linker, macro)
+    def make_path_link(self, linker: _FileLinker, name: Path) -> None:
+        """Helper function for linking. Returns True if the link was created, False if it failed,
+        and None if no attempt was made"""
+        linker.link_path(name,
+                self.proj_info.data_dir,
+                force=self.force,
+                silent_fail=self.silent_fail,
+                verbose=self.proj_info.verbose,
+                dry_run = self.proj_info.dry_run)
 
-    def link_citations(self, citation_list: Iterable[Union[str, Path]]) -> None:
+    def link_macros(self, macro_list: Iterable[str]) -> List[None]:
         """TODO: write"""
-        for cit in citation_list:
-            self.make_link(citation_linker, cit)
+        return [self.make_link(macro_linker, macro) for macro in macro_list]
+
+    def link_macro_paths(self, macro_list: Iterable[Path]) -> List[None]:
+        """TODO: write"""
+        return [self.make_path_link(macro_linker, macro) for macro in macro_list]
+
+    def link_citations(self, citation_list: Iterable[str]) -> List[None]:
+        """TODO: write"""
+        return [self.make_link(citation_linker, citation) for citation in citation_list]
+
+    def link_citation_paths(self, citation_list: Iterable[Path]) -> List[None]:
+        """TODO: write"""
+        return [self.make_path_link(citation_linker, citation) for citation in citation_list]
 
     def link_format(self, fmt: Optional[str]) -> None:
         """TODO: write"""

@@ -153,8 +153,8 @@ def import_(proj_info: ProjectInfo,
     linker.link_macros(macros)
     linker.link_citations(citations)
     linker.link_format(format_)
-    linker.link_macros(macro_paths)
-    linker.link_citations(citation_paths)
+    linker.link_macro_paths(macro_paths)
+    linker.link_citation_paths(citation_paths)
 
 
 @cli.command()
