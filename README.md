@@ -37,7 +37,7 @@ If you want to edit parameters of your document (such as citation files, additio
 ```
 tpr config
 ```
-to open a project configuration file in your `$EDITOR`.
+to open the project template file in your `$EDITOR`.
 When the file is closed, the project is automatically updated.
 For project backwards compatibility, this will not overwrite existing linked files.
 
@@ -47,43 +47,21 @@ For instance, to update the `tikz` macro file, you would run
 tpr import --macro tikz
 ```
 This subcommand can also be used to import files not in the template repository.
-For example, if you have a citation file `/path/to/citation.bib`, run
+If you have a citation file `/path/to/citation.bib`, run
 ```
-tpr import --path --citation /path/to/new/file.bib
+tpr import --path --citation path/to/new/file.bib
 ```
 You can then include this file by adding `file` to the `citations` section of the project configuration file.
+You can also programmatically add new imports as well: in the above example, run
+```
+tpr template add --citation file
+```
 
 Read about more features by running
 ```
 tpr --help
 tpr <subcommand> --help
 ```
-This is the canonical source of documentation for the program.
-
-## Usage Example
-Here, we demonstrate the construction of a basic project.
-First, create a project with the name `example` using the `empty` template, and change into the directory.
-```
-mkdir example; cd example
-tpr init empty
-```
-The relevant project files in this directory are `main.tex` and `project-macros.sty`.
-The file `main.tex` file is the main document file which you can edit to produce your document.
-The `project-macros.sty` file is an empty package in which you can input custom project-dependent preamble.
-These packages are always loaded after any specified project files.
-
-Suppose we want to include the macro set `general` with our project.
-Run `tpr config` to open the project configuration file, and replace the line `macros = []` with the line
-```
-macros = ['general']
-```
-Save and close the file: the new macros are automatically added to your project file.
-If you want to share this project with someone else, simply run
-```
-tpr archive output.zip
-```
-which will generate the file `output.zip` within the project directory.
-This zipfile contains all the source files requires to compile the document.
 
 # Other Major Features
 ## Automatic Compilation
@@ -138,8 +116,8 @@ In order to set this up, add a `[github]` table to your system configuration (`t
 The keys
 ```
 [github]
-username = "johnd"
-email = "john@email.com"
+username = "johndoe"
+email = "jdoe@email.com"
 ```
 specify the name and email used to sign the automated commits made on your behalf, and the keys
 ```
@@ -150,7 +128,7 @@ branch = 'main'
 ```
 specify the target repository, folder, and branch where the commits will be pushed.
 
-In order to correctly authenticate, the repository must have access to a valid API token.
+In order to correctly authenticate, the repository must have access to a [valid API token](https://github.com/settings/tokens).
 This token must have, at least, (and preferably at most), repo privileges on your GitHub account.
 This can be specified in one of two ways.
 The first option is to use the [https://pypi.org/project/keyring/](keyring) package, which is automatically installed upon installation of Texproject.
@@ -171,7 +149,7 @@ You can also set the `API_TOKEN_GITHUB` environment variable.
 When these settings are in place, running `tpr git init` will automatically add this action, as well as the API token, to your GitHub repository.
 In order to upgrade an existing project to include this feature, you can also run
 ```
-tpr git set-archive
+tpr git init-archive
 ```
 
 ## Custom Configuration
@@ -179,9 +157,9 @@ There are three types of configuration files associated with the `tpr` command.
 Variables within these configuration file are accessible from within templates: see below for more details.
 All configuration files are formatted using [TOML](https://toml.io/en/).
 
-### Local Configuration
-This is the per-project configuration file: with an appropriate working directory, access with `tpr config` or `tpr config --local`.
-This configuration file specifies the build settings for the current project.
+### Template
+This is the per-project template file: with an appropriate working directory, access with `tpr config` or `tpr config --template`.
+This configuration file allows modification of the template used to build the current project.
 Here are the keys relevant to local modification:
 
 - `doctype`: the document class
@@ -191,14 +169,36 @@ Here are the keys relevant to local modification:
 - `citations`: a list of citation files to import
 - `format`: the format file (general appearance)
 
-All variables are accessible using the `local` dictionary within templates.
+All variables are accessible using the `template` dictionary within templates.
 
-### User Configuration
-This configuration file specifies information about the user, and can be accessed with `tpr config --user`.
-All variables are accessible using the `user` dictionary within templates.
-See the [example user configuration file](https://github.com/alexrutar/texproject-templates/blob/master/config/system_config_example.toml) for more details.
+### Local Configuration
+TODO: write this
 
-### System Configuration
-This configuration file controls many aspects of the behaviour of `tpr`, and can be accessed with `tpr config --system`.
-All variables are accessible using the `config` dictionary within templates.
-See the [example system configuration file](https://github.com/alexrutar/texproject-templates/blob/master/config/system_config_example.toml) for more details.
+### Global Configuration
+TODO: write this
+
+# Usage Examples
+## Basic project initialization
+Here, we demonstrate the construction of a basic project.
+First, create a project with the name `example` using the `empty` template, and change into the directory.
+```
+mkdir example && cd example
+tpr init empty
+```
+The relevant project files in this directory are `main.tex` and `project-macros.sty`.
+The file `main.tex` file is the main document file which you can edit to produce your document.
+The `project-macros.sty` file is an empty package in which you can input custom project-dependent preamble.
+These packages are always loaded after any specified project files.
+
+Suppose we want to include the macro set `general` with our project.
+Run `tpr config` to open the template file, and replace the line `macros = []` with the line
+```
+macros = ['general']
+```
+Save and close the file: the new macros are automatically added to your project file.
+If you want to share this project with someone else, simply run
+```
+tpr archive output.zip
+```
+which will generate the file `output.zip` within the project directory.
+This zipfile contains all the source files requires to compile the document.
