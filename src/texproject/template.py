@@ -16,7 +16,7 @@ from .term import render_echo, init_echo
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Optional, Iterable, Dict
+    from typing import Optional, Iterable, Dict, Union
     from jinja2 import Template
     from .filesystem import Config, ProjectInfo, _FileLinker
 
@@ -151,10 +151,9 @@ class ProjectTemplate(GenericTemplate):
 
 class InitTemplate(ProjectTemplate):
     """TODO: write"""
-    def __init__(self, template_name: str, citations: Iterable[str]):
+    def __init__(self, template_name: str):
         """Load the template generator from a template name."""
         template_dict = template_linker.load_template(template_name)
-        template_dict['citations'].extend(citations)
         self.template_name = template_name
         super().__init__(template_dict)
 
@@ -190,30 +189,27 @@ class LoadTemplate(ProjectTemplate):
 class PackageLinker:
     """TODO: write"""
     def __init__(self, proj_info: ProjectInfo,
-            force:bool=False, silent_fail:bool=True,
-            is_path:bool=False) -> None:
+            force:bool=False, silent_fail:bool=True) -> None:
         """TODO: write"""
         self.proj_info = proj_info
         self.force = force
         self.silent_fail = silent_fail
-        self.is_path = is_path
 
-    def make_link(self, linker: _FileLinker, name: str) -> None:
+    def make_link(self, linker: _FileLinker, name: Union[str, Path]) -> None:
         """Helper function for linking."""
         if not self.proj_info.dry_run:
             linker.link_name(name,
                     self.proj_info.data_dir,
-                    is_path=self.is_path,
                     force=self.force,
                     silent_fail=self.silent_fail,
                     verbose=self.proj_info.verbose)
 
-    def link_macros(self, macro_list: Iterable[str]) -> None:
+    def link_macros(self, macro_list: Iterable[Union[str, Path]]) -> None:
         """TODO: write"""
         for macro in macro_list:
             self.make_link(macro_linker, macro)
 
-    def link_citations(self, citation_list: Iterable[str]) -> None:
+    def link_citations(self, citation_list: Iterable[Union[str, Path]]) -> None:
         """TODO: write"""
         for cit in citation_list:
             self.make_link(citation_linker, cit)

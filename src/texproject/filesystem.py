@@ -13,11 +13,11 @@ from xdg import XDG_DATA_HOME, XDG_CONFIG_HOME
 
 from .error import (BasePathError, ProjectExistsError, ProjectDataMissingError,
         ProjectMissingError, TemplateDataMissingError, SystemDataMissingError,
-        GitExistsError, GitMissingError)
+        GitExistsError, GitMissingError, assert_never)
 from .term import link_echo, rm_echo
 
 if TYPE_CHECKING:
-    from typing import Optional, Tuple, Generator, List, Dict
+    from typing import Optional, Tuple, Generator, List, Dict, Union
 
 SHUTIL_ARCHIVE_FORMATS = [ar[0] for ar in shutil.get_archive_formats()]
 _suffix_map_helper = {
@@ -461,17 +461,17 @@ class _FileLinker(_BaseLinker):
         """TODO: write"""
         return f"{NAMES.prefix(self.name_convention)}{NAMES.prefix_separator}{name}"
 
-    def link_name(self, name: str, rel_path: Path,
-            force:bool=False, silent_fail:bool=True, is_path:bool=False, verbose=False) -> None:
+    def link_name(self, name: Union[str, Path], rel_path: Path,
+            force:bool=False, silent_fail:bool=True, verbose=False) -> None:
         """TODO: write"""
-        if is_path:
-            source_path = Path(name).resolve()
+        if isinstance(name, Path):
+            source_path = name.resolve()
             if source_path.suffix != self.suffix:
                 raise BasePathError(
                         source_path,
                         message=f"Filetype '{source_path.suffix}' is invalid!")
             target_path = rel_path / (self.safe_name(source_path.name))
-        else:
+        elif isinstance(name, str):
             source_path = self.file_path(name).resolve()
             target_path = rel_path / (self.safe_name(name) + self.suffix)
             if not source_path.exists():
@@ -479,6 +479,8 @@ class _FileLinker(_BaseLinker):
                         source_path,
                         user_str=self.user_str,
                         name=name)
+        else:
+            assert_never(name)
 
         if target_path.exists() and not force:
             if silent_fail:
@@ -490,9 +492,9 @@ class _FileLinker(_BaseLinker):
 
         if verbose:
             if target_path.exists():
-                link_echo(self, name, rel_path, overwrite=True)
+                link_echo(self, str(name), rel_path, overwrite=True)
             else:
-                link_echo(self, name, rel_path, overwrite=False)
+                link_echo(self, str(name), rel_path, overwrite=False)
 
         shutil.copyfile(
                 str(source_path),

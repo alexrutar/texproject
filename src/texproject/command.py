@@ -11,8 +11,7 @@ from .error import BasePathError, SubcommandError, LaTeXCompileError, assert_nev
 from .export import create_archive
 from .filesystem import (ProjectInfo, JINJA_PATH,
         SHUTIL_ARCHIVE_FORMATS, SHUTIL_ARCHIVE_SUFFIX_MAP,
-        format_linker, macro_linker, citation_linker, template_linker,
-        verbose_unlink)
+        format_linker, macro_linker, citation_linker, template_linker)
 from .process import subproc_run, compile_tex, get_github_api_token
 from .template import LoadTemplate, InitTemplate, PackageLinker
 from .term import err_echo
@@ -20,9 +19,10 @@ from .term import err_echo
 if TYPE_CHECKING:
     from typing import Optional, Iterable, Any
 
-# todo: how to annotate this function?
+
 class CatchInternalExceptions(click.Group):
-    """TODO: write"""
+    """Catch some special errors which occur during program execution, and print them out nicely.
+    """
     def __call__(self, *args, **kwargs) -> Any:
         try:
             return self.main(*args, **kwargs)
@@ -30,6 +30,7 @@ class CatchInternalExceptions(click.Group):
         except (BasePathError, LaTeXCompileError, SubcommandError) as err:
             err_echo(err)
             sys.exit(1)
+
 
 @click.group(cls=CatchInternalExceptions)
 @click.version_option(prog_name="tpr (texproject)")
@@ -46,34 +47,32 @@ class CatchInternalExceptions(click.Group):
         'dry_run',
         is_flag=True,
         default=False,
-        help='do not change the filesystem')
+        help='Describe changes but do not execute')
 @click.option('--verbose/--silent', '-v/-V', 'verbose',
         default=True,
         help='Be verbose')
 @click.pass_context
 def cli(ctx, proj_dir: Path, dry_run: bool, verbose: bool) -> None:
-    """TODO: write"""
+    """TexProject is a tool to help streamline the creation and distribution of files written in
+    LaTeX.
+    """
     ctx.obj = ProjectInfo(proj_dir, dry_run, verbose)
 
 
 @cli.command()
-@click.argument('template')
-@click.option('--citation','-c', 'citations',
-        multiple=True,
-        help="include citation file")
+@click.argument('template', type=click.Choice(template_linker.list_names()),
+        metavar="TEMPLATE")
 @click.pass_obj
-def init(proj_info: ProjectInfo, template: str, citations: Iterable[str]) -> None:
-    """Initialize a new project in the current directory. The project is
-    created using the template with name TEMPLATE and placed in the output
-    folder OUTPUT.
+def init(proj_info: ProjectInfo, template: str) -> None:
+    """Initialize a new project in the working directory. The project is created using the template
+    with name TEMPLATE and placed in the output folder OUTPUT.
 
-    The path OUTPUT either must not exist or be an empty folder. Missing
-    intermediate directories are automatically constructed."""
+    The path working directory either must not exist or be an empty folder. Missing intermediate
+    directories are automatically constructed.
+    """
     proj_info.validate(exists=False)
 
-    proj_gen = InitTemplate(
-            template,
-            citations)
+    proj_gen = InitTemplate(template)
 
     proj_gen.create_output_folder(proj_info)
     proj_gen.write_tpr_files(proj_info)
@@ -81,20 +80,19 @@ def init(proj_info: ProjectInfo, template: str, citations: Iterable[str]) -> Non
 
 @cli.command()
 @click.option('--template', 'config_file', flag_value='template', default=True,
-        help="Edit local project configuration.")
+        help="Edit project template.")
 @click.option('--local', 'config_file', flag_value='local',
-        help="Edit local project configuration.")
+        help="Edit local configuration.")
 @click.option('--global', 'config_file', flag_value='global',
         help="Edit global configuration.")
 @click.pass_obj
 def config(proj_info: ProjectInfo, config_file: str) -> None:
-    """Edit texproject configuration files. This opens the corresponding file
-    in your $EDITOR. By default, edit the project configuration file; this
-    requires the current directory (or the directory specified by -C) to be a
-    texproject directory.
+    """Edit texproject configuration files. This opens the corresponding file in your $EDITOR. By
+    default, edit the project template file: this requires the working directory to be texproject
+    directory.
 
-    Note that this command does not replace existing macro files. See the `tpr
-    import` command for this functionality.
+    Note that this command does not replace existing macro files. See the `tpr import` command for
+    this functionality.
     """
     match config_file:
         case 'template':
@@ -117,29 +115,46 @@ def config(proj_info: ProjectInfo, config_file: str) -> None:
 
 @cli.command('import')
 @click.option('--macro', 'macros', multiple=True,
-        help="macro file")
+        type=click.Choice(macro_linker.list_names()),
+        help="macro file",
+        show_default=False)
 @click.option('--citation', 'citations', multiple=True,
-        help="citation file")
+        type=click.Choice(citation_linker.list_names()),
+        help="citation file",
+        show_default=False)
 @click.option('--format', 'format_', default=None,
-        help="format file")
-@click.option('--path/--no-path', default=False,
-        help="files given as absolute paths")
+        type=click.Choice(format_linker.list_names()),
+        help="format file",
+        show_default=False)
+@click.option('--macro-path', 'macro_paths', multiple=True,
+        type=click.Path(
+            exists=True, file_okay=True, dir_okay=False, writable=False,
+            path_type=Path),
+        help="macro file path")
+@click.option('--citation-path', 'citation_paths', multiple=True,
+        type=click.Path(
+            exists=True, file_okay=True, dir_okay=False, writable=False,
+            path_type=Path),
+        help="citation file path")
 @click.pass_obj
 def import_(proj_info: ProjectInfo,
         macros: Iterable[str], citations: Iterable[str], format_: Optional[str],
-        path: bool) -> None:
-    """Import macro, citation, and format files. This command will replace
-    existing files. When called with the --path option, the arguments are
-    interpreted as paths. This is convenient when importing packages which are
-    not installed in the texproject directories.
+        macro_paths: Iterable[Path], citation_paths: Iterable[Path]) -> None:
+    """Import macro, citation, and format files. This command will replace existing files. Note that
+    this command does not import the files into the main .tex file.
+
+    The --macro-path and --citation-path allow macro and citation files to be specified as paths to
+    existing files. For example, this enables imports which are not installed in the texproject data
+    directory.
     """
     proj_info.validate(exists=True)
 
-    linker = PackageLinker(proj_info, force=True, is_path=path)
+    linker = PackageLinker(proj_info, force=True)
     linker.link_macros(macros)
     linker.link_citations(citations)
     linker.link_format(format_)
-
+    linker.link_macros(macro_paths)
+    linker.link_citations(citation_paths)
 
 
 @cli.command()
@@ -153,18 +168,15 @@ def import_(proj_info: ProjectInfo,
             exists=False, writable=True, path_type=Path))
 @click.pass_obj
 def validate(proj_info: ProjectInfo, pdf: Path, logfile: Path) -> None:
-    """Check project for compilation errors. You can save the resulting pdf by
-    specifying the '--output' argument, and similarly save the log file with
-    the '--logfile' argument. Note that these options, if specified, will
-    automatically overwrite existing files.
+    """Check for compilation errors. Save the resulting pdf with the '--output' argument, or the log
+    file with the '--logfile' argument. These options, if specified, will overwrite existing files.
 
     Compilation requires the 'latexmk' program to be installed and accessible
     to this program. Compilation is done by executing the command
 
     $ latexmk -pdf -interaction=nonstopmode
 
-    You can specify additional options in
-    'config.system.latex_compile_options'.
+    You can specify additional options in 'config.system.latex_compile_options'.
     """
     proj_info.validate(exists=True)
     with proj_info.temp_subpath() as build_dir:
@@ -179,6 +191,7 @@ def validate_exists(ctx, _, path) -> Path:
     if not ctx.obj.force and path.exists():
         raise click.BadParameter('file exists. Use -f / --force to overwrite.')
     return path
+
 @cli.command()
 @click.option('--force/--no-force','-f/-F', default=False,
         help="overwrite files")
@@ -198,16 +211,15 @@ def validate_exists(ctx, _, path) -> Path:
         callback=validate_exists)
 @click.pass_obj
 def archive(proj_info: ProjectInfo, force: bool, compression: str, mode: str, output: Path) -> None:
-    """Create a compressed export with name OUTPUT. If the 'arxiv' or 'build'
-    options are chosen, 'latexmk' is used to compile additional required files.
-    Run 'tpr validate --help' for more information.
+    """Create a compressed export with name OUTPUT. If the 'arxiv' or 'build' options are chosen,
+    'latexmk' is used to compile additional required files. Run 'tpr validate --help' for more
+    information.
 
-    The --format option specifies the format of the resulting archive. If
-    unspecified, the format is inferred from the resulting filename if
-    possible. Otherwise, the output format is 'tar'.
+    The --format option specifies the format of the resulting archive. If unspecified, the format is
+    inferred from the resulting filename if possible. Otherwise, the output format is 'tar'.
 
-    Note: if the format is not inferred from the filename, the archive file
-    suffix is appended automatically.
+    If the format is not inferred from the filename, the archive file suffix is appended
+    automatically.
 
     \b
     Archive modes:
