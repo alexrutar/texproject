@@ -14,7 +14,7 @@ from .filesystem import (
     JINJA_PATH,
     SHUTIL_ARCHIVE_FORMATS,
     SHUTIL_ARCHIVE_SUFFIX_MAP,
-    format_linker,
+    style_linker,
     macro_linker,
     citation_linker,
     template_linker,
@@ -148,11 +148,11 @@ def config(proj_info: ProjectInfo, config_file: str) -> None:
     show_default=False,
 )
 @click.option(
-    "--format",
-    "format_",
+    "--style",
+    "style",
     default=None,
-    type=click.Choice(format_linker.list_names()),
-    help="format file",
+    type=click.Choice(style_linker.list_names()),
+    help="style file",
     show_default=False,
 )
 @click.option(
@@ -178,7 +178,7 @@ def import_(
     proj_info: ProjectInfo,
     macros: Iterable[str],
     citations: Iterable[str],
-    format_: Optional[str],
+    style: Optional[str],
     macro_paths: Iterable[Path],
     citation_paths: Iterable[Path],
 ) -> None:
@@ -194,7 +194,7 @@ def import_(
     linker = PackageLinker(proj_info, force=True)
     linker.link_macros(macros)
     linker.link_citations(citations)
-    linker.link_format(format_)
+    linker.link_style(style)
     linker.link_macro_paths(macro_paths)
     linker.link_citation_paths(citation_paths)
 
@@ -477,7 +477,7 @@ def list_(res_class: str) -> None:
     linker_map = {
         "citation": citation_linker,
         "macro": macro_linker,
-        "format": format_linker,
+        "style": style_linker,
         "template": template_linker,
     }
 

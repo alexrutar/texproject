@@ -161,8 +161,8 @@ class _Naming:
         match name_convention:
             case "citation_prefix":
                 return "citation"
-            case "format_prefix":
-                return "format"
+            case "style_prefix":
+                return "style"
             case "macro_prefix":
                 return "macro"
             case _:
@@ -203,9 +203,9 @@ class _DataPath:
         return self._resource_absolute / "macros"
 
     @_constant
-    def format_dir(self) -> Path:
+    def style_dir(self) -> Path:
         """TODO: write"""
-        return self._resource_absolute / "format"
+        return self._resource_absolute / "style"
 
     @_constant
     def citation_dir(self) -> Path:
@@ -646,8 +646,8 @@ class _TemplateLinker(_BaseLinker):
 macro_linker = _FileLinker(DATA_PATH.macro_dir, ".sty", "macro file", "macro_prefix")
 
 
-format_linker = _FileLinker(
-    DATA_PATH.format_dir, ".sty", "format file", "format_prefix"
+style_linker = _FileLinker(
+    DATA_PATH.style_dir, ".sty", "style file", "style_prefix"
 )
 
 

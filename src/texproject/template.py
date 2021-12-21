@@ -9,14 +9,14 @@ from typing import TYPE_CHECKING
 
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
-from .error import SystemDataMissingError, BasePathError
+from .error import SystemDataMissingError
 from .filesystem import (
     DATA_PATH,
     JINJA_PATH,
     toml_dump,
     toml_load_local_template,
     macro_linker,
-    format_linker,
+    style_linker,
     citation_linker,
     template_linker,
 )
@@ -35,8 +35,8 @@ def safe_name(name: str, style: str) -> str:
         return macro_linker.safe_name(name)
     if style == "citation":
         return citation_linker.safe_name(name)
-    if style == "format":
-        return format_linker.safe_name(name)
+    if style == "style":
+        return style_linker.safe_name(name)
     return name
 
 
@@ -149,10 +149,10 @@ class ProjectTemplate(GenericTemplate):
             "citations": linker.link_citations(self.template_dict["citations"]),
         }
 
-        # missing format file is really bad
-        if linker.link_format(self.template_dict["format"]):
+        # missing style file is really bad
+        if linker.link_style(self.template_dict["style"]):
             # todo: make this better
-            raise Exception("Missing format file!")
+            raise Exception("Missing style file!")
 
         # update the template
         for k, v in failed.items():
@@ -287,8 +287,8 @@ class PackageLinker:
             self.make_path_link(citation_linker, citation) for citation in citation_list
         ]
 
-    def link_format(self, fmt: Optional[str]) -> Optional[str]:
+    def link_style(self, fmt: Optional[str]) -> Optional[str]:
         """TODO: write"""
         if fmt is not None:
-            if not self.make_link(format_linker, fmt):
+            if not self.make_link(style_linker, fmt):
                 return fmt
