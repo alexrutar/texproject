@@ -152,31 +152,6 @@ In order to upgrade an existing project to include this feature, you can also ru
 tpr git init-archive
 ```
 
-## Custom Configuration
-There are three types of configuration files associated with the `tpr` command.
-Variables within these configuration file are accessible from within templates: see below for more details.
-All configuration files are formatted using [TOML](https://toml.io/en/).
-
-### Template
-This is the per-project template file: with an appropriate working directory, access with `tpr config` or `tpr config --template`.
-This configuration file allows modification of the template used to build the current project.
-Here are the keys relevant to local modification:
-
-- `doctype`: the document class
-- `class_options`: a list of options to pass to the document class
-- `geometry`: a list of key-value options to pass to the geometry package
-- `macros`: a list of macro files to import (order is preserved)
-- `citations`: a list of citation files to import
-- `format`: the format file (general appearance)
-
-All variables are accessible using the `template` dictionary within templates.
-
-### Local Configuration
-TODO: write this
-
-### Global Configuration
-TODO: write this
-
 # Usage Examples
 ## Basic project initialization
 Here, we demonstrate the construction of a basic project.
