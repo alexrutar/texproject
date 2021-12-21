@@ -42,6 +42,8 @@ def test_import(fs_runner):
     cit_path.write_text(bibtext)
     _run_cmd_seq(fs_runner, ["import", "--citation-path", str(cit_path)])
     assert Path(".texproject/citations/local-test.bib").read_text() == bibtext
+    _run_cmd_seq(fs_runner, ["import", "--gitignore"])
+    assert len(Path(".gitignore").read_text()) > 0
 
 
 def test_git(fs_runner):

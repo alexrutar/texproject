@@ -65,6 +65,7 @@ class GenericTemplate:
             user=config.user,
             template=self.template_dict,
             config=config.render,
+            process=config.process,
             bibliography=bibtext,
             replace=config.render["replace_text"],
             date=datetime.date.today(),
