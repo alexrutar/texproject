@@ -13,6 +13,7 @@ from .error import SystemDataMissingError
 from .filesystem import (
     DATA_PATH,
     JINJA_PATH,
+    NAMES,
     toml_dump,
     toml_load_local_template,
     macro_linker,
@@ -30,13 +31,7 @@ if TYPE_CHECKING:
 
 
 def data_name(name: str, mode: str) -> str:
-    if mode == "macro":
-        return f"macros/local-{name}"
-    if mode == "citation":
-        return f"citations/local-{name}"
-    if mode == "style":
-        return f"style/local-{name}"
-    return name
+    return str(NAMES.rel_data_path(name, mode))
 
 
 class GenericTemplate:

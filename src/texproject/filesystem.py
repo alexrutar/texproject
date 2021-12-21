@@ -20,7 +20,6 @@ from .error import (
     SystemDataMissingError,
     GitExistsError,
     GitMissingError,
-    assert_never,
 )
 from .term import link_echo, rm_echo
 
@@ -156,14 +155,18 @@ class _Naming:
         """TODO: write"""
         return "document.tex"
 
-    def rel_data_path(self, path: Path, name_convention: str, name: str) -> Path:
-        prefix_lookup = {
-            "citation_prefix": "citations",
-            "style_prefix": "style",
-            "macro_prefix": "macros",
-        }
+    def resource_subdir(self, mode: str) -> Path:
+        return Path(
+            {"citation": "citations", "style": "style", "macro": "macros"}[mode]
+        )
+
+    @_constant
+    def modes(self) -> tuple[str, str, str]:
+        return ("citation", "style", "macro")
+
+    def rel_data_path(self, name: str, mode: str) -> Path:
         # prepend local- to minimize name collisions with existing packages
-        return path / prefix_lookup[name_convention] / ("local-" + name)
+        return self.resource_subdir(mode) / ("local-" + name)
 
     @_constant
     def prefix_separator(self) -> str:
@@ -191,24 +194,9 @@ class _DataPath:
         return self.data_dir / "config" / "default_template.toml"
 
     @_constant
-    def _resource_absolute(self) -> Path:
+    def resource_dir(self) -> Path:
         """TODO: write"""
         return XDG_DATA_HOME / "texproject" / "resources"
-
-    @_constant
-    def macro_dir(self) -> Path:
-        """TODO: write"""
-        return self._resource_absolute / "macros"
-
-    @_constant
-    def style_dir(self) -> Path:
-        """TODO: write"""
-        return self._resource_absolute / "style"
-
-    @_constant
-    def citation_dir(self) -> Path:
-        """TODO: write"""
-        return self._resource_absolute / "citations"
 
     @_constant
     def template_dir(self) -> Path:
@@ -412,12 +400,10 @@ class ProjectPath:
         return (self.main, self.data_dir)
 
     def mk_data_dir(self):
-        for path in [
-            self.data_dir / "macros",
-            self.data_dir / "style",
-            self.data_dir / "citations",
-        ]:
-            path.mkdir(exist_ok=True, parents=True)
+        for mode in NAMES.modes:
+            (self.data_dir / NAMES.resource_subdir(mode)).mkdir(
+                exist_ok=True, parents=True
+            )
 
     @contextlib.contextmanager
     def temp_subpath(self) -> Generator:
@@ -492,12 +478,12 @@ class _BaseLinker:
 class _FileLinker(_BaseLinker):
     """TODO: write"""
 
-    def __init__(
-        self, dir_path: Path, suffix: str, user_str: str, name_convention: str
-    ):
+    def __init__(self, suffix: str, user_str: str, mode: str):
         """TODO: write"""
-        super().__init__(dir_path, suffix, user_str)
-        self.name_convention = name_convention
+        super().__init__(
+            DATA_PATH.resource_dir / NAMES.resource_subdir(mode), suffix, user_str
+        )
+        self.mode = mode
 
     def link_path(
         self,
@@ -513,9 +499,7 @@ class _FileLinker(_BaseLinker):
             raise BasePathError(
                 source_path, message=f"Filetype '{source_path.suffix}' is invalid!"
             )
-        target_path = NAMES.rel_data_path(
-            rel_path, self.name_convention, source_path.name
-        )
+        target_path = rel_path / NAMES.rel_data_path(source_path.name, self.mode)
 
         return self._link_helper(
             source_path,
@@ -539,9 +523,7 @@ class _FileLinker(_BaseLinker):
     ) -> bool:
         """Return True if the link succeeds (either bc exists, or copied in), and False otherwise"""
         source_path = self.file_path(name).resolve()
-        target_path = NAMES.rel_data_path(
-            rel_path, self.name_convention, name + self.suffix
-        )
+        target_path = rel_path / NAMES.rel_data_path(name + self.suffix, self.mode)
 
         return self._link_helper(
             source_path,
@@ -648,15 +630,13 @@ class _TemplateLinker(_BaseLinker):
         )
 
 
-macro_linker = _FileLinker(DATA_PATH.macro_dir, ".sty", "macro file", "macro_prefix")
+macro_linker = _FileLinker(".sty", "macro file", "macro")
 
 
-style_linker = _FileLinker(DATA_PATH.style_dir, ".sty", "style file", "style_prefix")
+style_linker = _FileLinker(".sty", "style file", "style")
 
 
-citation_linker = _FileLinker(
-    DATA_PATH.citation_dir, ".bib", "citation file", "citation_prefix"
-)
+citation_linker = _FileLinker(".bib", "citation file", "citation")
 
 
 template_linker = _TemplateLinker(DATA_PATH.template_dir, "", "template")
