@@ -28,18 +28,6 @@ if TYPE_CHECKING:
     from .base import Modes
     from typing import Optional, Tuple, Generator, List, Dict
 
-SHUTIL_ARCHIVE_FORMATS = [ar[0] for ar in shutil.get_archive_formats()]
-_suffix_map_helper = {
-    ".tar": "tar",
-    ".tar.bz": "bztar",
-    ".tar.gz": "gztar",
-    ".tar.xz": "xztar",
-    ".zip": "zip",
-}
-SHUTIL_ARCHIVE_SUFFIX_MAP = {
-    k: v for k, v in _suffix_map_helper.items() if v in SHUTIL_ARCHIVE_FORMATS
-}
-
 # todo: do something else with this
 def verbose_unlink(proj_info: ProjectInfo, path: Path):
     if proj_info.verbose and path.exists():

@@ -9,14 +9,13 @@ from typing import TYPE_CHECKING
 import click
 
 from . import __version__, __repo__
+from .base import SHUTIL_ARCHIVE_FORMATS, SHUTIL_ARCHIVE_SUFFIX_MAP
 from .error import BasePathError, SubcommandError, LaTeXCompileError, assert_never
 from .export import create_archive
 from .filesystem import (
     ProjectInfo,
     JINJA_PATH,
     NAMES,
-    SHUTIL_ARCHIVE_FORMATS,
-    SHUTIL_ARCHIVE_SUFFIX_MAP,
     style_linker,
     macro_linker,
     citation_linker,
@@ -242,16 +241,9 @@ def import_(
 )
 @click.pass_obj
 def validate(proj_info: ProjectInfo, pdf: Path, logfile: Path) -> None:
-    """Check for compilation errors. Save the resulting pdf with the '--output' argument,
-    or the log file with the '--logfile' argument. These options, if specified, will
-    overwrite existing files.
-
-    Compilation requires the 'latexmk' program to be installed and accessible to this
-    program. Compilation is done by executing the command
-
-    $ latexmk -pdf -interaction=nonstopmode
-
-    You can specify additional options in 'config.system.latex_compile_options'.
+    """Check for compilation errors. Compilation is performed by the 'latexmk' command.
+    Save the resulting pdf with the '--output' argument, or the log file with the
+    '--logfile' argument. These options, if specified, will overwrite existing files.
     """
     proj_info.validate(exists=True)
     with proj_info.temp_subpath() as build_dir:
@@ -294,8 +286,7 @@ def archive(
     proj_info: ProjectInfo, force: bool, compression: str, mode: str, output: Path
 ) -> None:
     """Create a compressed export with name OUTPUT. If the 'arxiv' or 'build' options are
-    chosen, 'latexmk' is used to compile additional required files. Run 'tpr validate
-    --help' for more information.
+    chosen, 'latexmk' is used to compile additional required files.
 
     The --format option specifies the format of the resulting archive. If unspecified,
     the format is inferred from the resulting filename if possible. Otherwise, the output
@@ -336,7 +327,7 @@ def archive(
 @cli.group()
 @click.pass_obj
 def template(proj_info: ProjectInfo) -> None:
-    """Subcommand to update the template dictionary."""
+    """Modify the template dictionary."""
     proj_info.validate(exists=True)
 
 
@@ -353,7 +344,7 @@ def add(
     styles: List[str],
     index: int,
 ) -> None:
-    """pass"""
+    """Add entries to the template dictionary."""
     proj_gen = LoadTemplate(proj_info)
     for mode, names in [("macro", macros), ("citation", citations), ("style", styles)]:
         for name in names:
@@ -369,7 +360,7 @@ def add(
 def remove(
     proj_info: ProjectInfo, macros: List[str], citations: List[str], styles: List[str]
 ) -> None:
-    """"""
+    """Remove entries from the template dictionary."""
     proj_gen = LoadTemplate(proj_info)
     for mode, names in [("macro", macros), ("citation", citations), ("style", styles)]:
         for name in names:
@@ -380,7 +371,7 @@ def remove(
 @cli.group()
 @click.pass_obj
 def git(proj_info: ProjectInfo) -> None:
-    """Subcommand to manage git files."""
+    """Manage git and GitHub repositories."""
     proj_info.validate(exists=True)
 
 
