@@ -560,11 +560,12 @@ def upgrade(proj_info: ProjectInfo) -> None:
 
 
 @util.command("refresh")
+@click.option("--force/--no-force", "-f/-F", default=False, help="overwrite files")
 @click.pass_obj
-def refresh(proj_info: ProjectInfo) -> None:
+def refresh(proj_info: ProjectInfo, force: bool) -> None:
     """"""
     proj_gen = LoadTemplate(proj_info)
-    proj_gen.write_tpr_files(proj_info, force=True)
+    proj_gen.write_tpr_files(proj_info, force=force)
 
 
 @util.command()

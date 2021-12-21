@@ -64,3 +64,14 @@ def test_git(fs_runner):
             "private",
         ],
     )
+
+
+def test_template(fs_runner):
+    _run_cmd_seq(
+        fs_runner,
+        ["init", "plain"],
+        ["template", "add", "--macro", "tikz"],
+        ["template", "add", "--citation", "main"],
+        ["template", "remove", "--macro", "tikz"],
+        ["util", "refresh"],
+    )

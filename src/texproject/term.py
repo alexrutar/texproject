@@ -54,12 +54,12 @@ def rm_echo(target: Path):
 def write_template_echo(target: Path, overwrite: bool = False):
     if overwrite:
         click.secho(
-            f"> Replace template dictionary in directory '{_normalize(target)}",
+            f"> Replace template dictionary in directory '{_normalize(target)}'",
             fg="yellow",
         )
     else:
         click.secho(
-            f"> Write template dictionary to directory '{_normalize(target)}", fg="blue"
+            f"> Write template dictionary to directory '{_normalize(target)}'", fg="blue"
         )
 
 
@@ -84,13 +84,13 @@ def link_echo(linker: _FileLinker, name: str, target: Path, mode: str):
         return f"{linker.user_str} '{name}' {prop} directory '{_normalize(target)}'"
 
     if mode == "overwrite":
-        click.secho(f"> Replace {helper('in')}'", fg="yellow")
+        click.secho(f"> Replace {helper('in')}", fg="yellow")
     elif mode == "exists":
-        click.secho(f"> Use existing {helper('in')}'", fg="blue")
+        click.secho(f"> Use existing {helper('in')}", fg="blue")
     elif mode == "new":
-        click.secho(f"> Copy {helper('to')}'", fg="blue")
+        click.secho(f"> Copy {helper('to')}", fg="blue")
     elif mode == "fail":
-        click.secho(f"! Could not import {helper('to')}'", fg="red")
+        click.secho(f"! Could not import {helper('to')}", fg="red")
 
 
 def init_echo(dirname: Path):

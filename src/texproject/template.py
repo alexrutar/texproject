@@ -55,11 +55,17 @@ class GenericTemplate:
 
     def add(self, mode: Modes, name, index: int = 0) -> None:
         """TODO: write"""
-        self.template_dict[NAMES.convert_mode(mode)].insert(index, name)
+        name_list = self.template_dict[NAMES.convert_mode(mode)]
+        if name in name_list:
+            name_list.remove(name)
+        name_list.insert(index, name)
 
     def remove(self, mode: Modes, name) -> None:
         """TODO: write"""
-        self.template_dict[NAMES.convert_mode(mode)].remove(name)
+        try:
+            self.template_dict[NAMES.convert_mode(mode)].remove(name)
+        except ValueError:
+            pass
 
     def render_template(self, template: Template, config: Config) -> str:
         """Render template and return template text."""
@@ -194,7 +200,7 @@ class ProjectTemplate(GenericTemplate):
 
     def write_template_dict(self, proj_info: ProjectInfo):
         if proj_info.verbose:
-            write_template_echo(proj_info.data_dir)
+            write_template_echo(proj_info.data_dir, overwrite=proj_info.template.exists())
 
         if not proj_info.dry_run:
             # initialize texproject directory
