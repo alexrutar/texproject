@@ -200,7 +200,9 @@ class ProjectTemplate(GenericTemplate):
 
     def write_template_dict(self, proj_info: ProjectInfo):
         if proj_info.verbose:
-            write_template_echo(proj_info.data_dir, overwrite=proj_info.template.exists())
+            write_template_echo(
+                proj_info.data_dir, overwrite=proj_info.template.exists()
+            )
 
         if not proj_info.dry_run:
             # initialize texproject directory

@@ -59,7 +59,8 @@ def write_template_echo(target: Path, overwrite: bool = False):
         )
     else:
         click.secho(
-            f"> Write template dictionary to directory '{_normalize(target)}'", fg="blue"
+            f"> Write template dictionary to directory '{_normalize(target)}'",
+            fg="blue",
         )
 
 
