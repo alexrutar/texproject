@@ -63,7 +63,7 @@ def render_echo(template_path: Path, target: Path, overwrite: bool = False):
 def link_echo(linker: _FileLinker, name: str, target: Path, mode: str):
     """TODO: write"""
     def helper(prop):
-        return f"{linker.user_str} '{name}' {prop} directory '{_normalize(target)}'",
+        return f"{linker.user_str} '{name}' {prop} directory '{_normalize(target)}'"
 
     if mode == 'overwrite':
         click.secho(f"> Replace {helper('in')}'",
