@@ -71,7 +71,8 @@ def test_template(fs_runner):
         fs_runner,
         ["init", "plain"],
         ["template", "add", "--macro", "tikz"],
-        ["template", "add", "--citation", "main"],
+        ["template", "add", "--citation", "example"],
         ["template", "remove", "--macro", "tikz"],
         ["util", "refresh"],
     )
+    assert len(Path(".texproject/citations/local-example.bib").read_text()) > 0
