@@ -11,6 +11,7 @@ import uuid
 import pytomlpp as toml
 from xdg import XDG_DATA_HOME, XDG_CONFIG_HOME
 
+from . import defaults
 from .base import NAMES, constant
 from .error import (
     BasePathError,
@@ -18,7 +19,6 @@ from .error import (
     ProjectDataMissingError,
     ProjectMissingError,
     TemplateDataMissingError,
-    SystemDataMissingError,
     GitExistsError,
     GitMissingError,
 )
@@ -92,7 +92,7 @@ class Config:
         """TODO: write"""
         self.working_dir = working_dir
         self._dct = _merge(
-            toml.loads(resources.read_text(__package__, "config_defaults.toml")),
+            toml.loads(resources.read_text(defaults, "config.toml")),
             toml_load(self.global_path, missing_ok=True),
             toml_load(self.local_path, missing_ok=True),
         )
@@ -129,11 +129,6 @@ class _DataPath:
     def data_dir(self) -> Path:
         """TODO: write"""
         return XDG_DATA_HOME / "texproject"
-
-    @constant
-    def default_template(self) -> Path:
-        """TODO: write"""
-        return self.data_dir / "config" / "default_template.toml"
 
     @constant
     def resource_dir(self) -> Path:
@@ -525,33 +520,27 @@ class _FileLinker(_BaseLinker):
 
 def _load_default_template() -> Dict:
     """TODO: write"""
-    try:
-        default_template = toml_load(DATA_PATH.default_template)
-    except FileNotFoundError as err:
-        raise SystemDataMissingError(DATA_PATH.default_template) from err
-    return default_template
+    return toml.loads(resources.read_text(defaults, "template.toml"))
 
 
 def toml_load_local_template(path: Path) -> Dict:
     """TODO: write"""
-    default_template = _load_default_template()
     try:
         template = toml_load(path)
     except FileNotFoundError as err:
         raise ProjectDataMissingError(
             path, message="The local template file is missing."
         ) from err
-    return {**default_template, **template}
+    return _merge(_load_default_template(), template)
 
 
 def toml_load_system_template(path: Path, user_str: str, name: Optional[str] = None):
     """TODO: write"""
-    default_template = _load_default_template()
     try:
         template = toml_load(path)
     except FileNotFoundError as err:
         raise TemplateDataMissingError(path, user_str=user_str, name=name) from err
-    return {**default_template, **template}
+    return _merge(_load_default_template(), template)
 
 
 class _TemplateLinker(_BaseLinker):

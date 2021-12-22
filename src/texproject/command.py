@@ -498,13 +498,13 @@ def list_(res_class: Modes | Literal["template"]) -> None:
 @click.pass_obj
 def util(proj_info: ProjectInfo) -> None:
     """Various convenient utilities."""
-    proj_info.validate(exists=True)
 
 
 @util.command("upgrade")
 @click.pass_obj
 def upgrade(proj_info: ProjectInfo) -> None:
     """Upgrade project data structure from previous versions."""
+    proj_info.validate(exists=True)
     import yaml
     import pytomlpp
 
@@ -555,6 +555,7 @@ def upgrade(proj_info: ProjectInfo) -> None:
 @click.pass_obj
 def refresh(proj_info: ProjectInfo, force: bool) -> None:
     """"""
+    proj_info.validate(exists=True)
     proj_gen = LoadTemplate(proj_info)
     proj_gen.write_tpr_files(proj_info, force=force)
 
@@ -587,6 +588,16 @@ def diff(
     citations: List[str],
     styles: Optional[str],
 ) -> None:
-    """"""
-    raise NotImplementedError
+    """TODO: write"""
     # todo: write
+    proj_info.validate(exists=True)
+    raise NotImplementedError
+
+
+@util.command()
+def show_config():
+    """"""
+    from . import defaults
+    from importlib import resources
+
+    click.echo(resources.read_text(defaults, "config.toml"), nl=False)
