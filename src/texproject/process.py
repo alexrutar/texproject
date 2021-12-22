@@ -4,7 +4,6 @@ import subprocess
 from typing import TYPE_CHECKING
 
 from .error import SubcommandError, LaTeXCompileError
-from .term import cmd_echo
 
 if TYPE_CHECKING:
     from .filesystem import ProjectInfo, List
@@ -40,8 +39,7 @@ def compile_tex(proj_info: ProjectInfo, outdir: Path = Path.cwd(), output_map=No
 
 def subproc_run(proj_info: ProjectInfo, command: List[str]):
     """TODO: write"""
-    if proj_info.verbose:
-        cmd_echo(command)
+    proj_info.echoer.cmd(command)
 
     if not proj_info.dry_run:
         try:
@@ -51,5 +49,4 @@ def subproc_run(proj_info: ProjectInfo, command: List[str]):
         except subprocess.CalledProcessError as err:
             raise SubcommandError(err) from err
 
-        if proj_info.verbose:
-            print(proc.stdout.decode("ascii"))
+        proj_info.echoer.binary(proc.stdout)

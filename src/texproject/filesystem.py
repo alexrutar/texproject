@@ -22,7 +22,7 @@ from .error import (
     GitExistsError,
     GitMissingError,
 )
-from .term import link_echo, rm_echo
+from .term import VerboseEcho
 
 if TYPE_CHECKING:
     from .base import Modes
@@ -30,8 +30,8 @@ if TYPE_CHECKING:
 
 # todo: do something else with this
 def verbose_unlink(proj_info: ProjectInfo, path: Path):
-    if proj_info.verbose and path.exists():
-        rm_echo(path)
+    if path.exists():
+        proj_info.echoer.rm(path)
     if not proj_info.dry_run:
         try:
             if path.is_file() or path.is_symlink():
@@ -380,7 +380,7 @@ class ProjectInfo(ProjectPath):
         """TODO: write"""
         self.dry_run = dry_run
         self.force = False
-        self.verbose = verbose or dry_run  # always verbose during dry_run
+        self.echoer = VerboseEcho(verbose or dry_run)
         super().__init__(proj_dir)
 
 
@@ -426,9 +426,9 @@ class _FileLinker(_BaseLinker):
         self,
         path: Path,
         rel_path: Path,
+        echoer: VerboseEcho,
         force: bool = False,
         silent_fail: bool = True,
-        verbose=False,
         dry_run=False,
     ) -> bool:
         source_path = path.resolve()
@@ -443,9 +443,9 @@ class _FileLinker(_BaseLinker):
             target_path,
             rel_path,
             str(path),
+            echoer,
             force=force,
             silent_fail=silent_fail,
-            verbose=verbose,
             dry_run=dry_run,
         )
 
@@ -453,9 +453,9 @@ class _FileLinker(_BaseLinker):
         self,
         name: str,
         rel_path: Path,
+        echoer: VerboseEcho,
         force: bool = False,
         silent_fail: bool = True,
-        verbose=False,
         dry_run=False,
     ) -> bool:
         """Return True if the link succeeds (either bc exists, or copied in), and False otherwise"""
@@ -467,9 +467,9 @@ class _FileLinker(_BaseLinker):
             target_path,
             rel_path,
             name,
+            echoer,
             force=force,
             silent_fail=silent_fail,
-            verbose=verbose,
             dry_run=dry_run,
         )
 
@@ -479,15 +479,14 @@ class _FileLinker(_BaseLinker):
         target_path: Path,
         rel_path: Path,
         echo_name: str,
+        echoer: VerboseEcho,
         force: bool = False,
         silent_fail: bool = True,
-        verbose=False,
         dry_run=False,
     ) -> bool:
 
         if not (source_path.exists() or target_path.exists()):
-            if verbose:
-                link_echo(self, echo_name, rel_path, mode="fail")
+            echoer.link(self, echo_name, rel_path, mode="fail")
             return False
             # raise TemplateDataMissingError(
             #         source_path,
@@ -495,8 +494,7 @@ class _FileLinker(_BaseLinker):
             #         name=name)
 
         if target_path.exists() and not force:
-            if verbose:
-                link_echo(self, echo_name, rel_path, mode="exists")
+            echoer.link(self, echo_name, rel_path, mode="exists")
             if silent_fail:
                 return True
             raise FileExistsError(
@@ -506,11 +504,10 @@ class _FileLinker(_BaseLinker):
         # only print the message if the target path doesn't exist, or it if does and
         # forced replace
         # todo: same pattern as write_template (abstract out?)
-        if verbose:
-            if target_path.exists():
-                link_echo(self, echo_name, rel_path, mode="overwrite")
-            else:
-                link_echo(self, echo_name, rel_path, mode="new")
+        if target_path.exists():
+            echoer.link(self, echo_name, rel_path, mode="overwrite")
+        else:
+            echoer.link(self, echo_name, rel_path, mode="new")
 
         if not dry_run:
             shutil.copyfile(str(source_path), str(target_path.resolve()))

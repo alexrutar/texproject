@@ -11,92 +11,122 @@ from .error import BasePathError, SubcommandError, LaTeXCompileError
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Iterable
+    from typing import Iterable, Literal
     from .filesystem import _FileLinker
 
 REPO_FORMATTED = click.style(__repo__, fg="bright_blue")
 
 
-def err_echo(err_inst: Exception) -> None:
+def _normalize(path: Path) -> str:
     """TODO: write"""
-
-    def _err_header(string):
-        click.secho(f"! {string}", err=True, fg="red")
-
-    match err_inst:
-
-        case BasePathError(message=string):
-            _err_header(string)
-
-        case LaTeXCompileError(message=string):
-            _err_header(string)
-
-        case SubcommandError(message=string, cmd=cmd, stdout=stdout, stderr=stderr):
-            _err_header(string)
-            click.secho(f"Command:\n$ {shlex.join(cmd)}", err=True)
-            click.secho(f"Output:\n{stdout}", err=True)
-            click.secho(f"Error output:\n{stderr}", err=True)
+    return click.format_filename(path, shorten=True)
 
 
-def _normalize(path: Path) -> Path:
-    """TODO: write"""
-    try:
-        return path.relative_to(Path.cwd())
-    except ValueError:
-        return path
+class VerboseEcho:
+    def __init__(self, verbose: bool):
+        """TODO: write"""
+        self.verbose = verbose
+        self._prefix = {
+            "cmd": "$ ",
+            "file": "> ",
+            "err": "! ",
+        }
+        # should remove fail and print err to stdout?
+        self._opts = {
+            "info": dict(fg="blue", err=False),
+            "ok": dict(fg="green", err=False),
+            "warn": dict(fg="yellow", err=False),
+            "err": dict(fg="red", err=False),
+            "fail": dict(fg="red", err=True),
+        }
 
+    def _echo(
+        self,
+        msg: str,
+        prefix: Literal["cmd", "file", "err"],
+        fmt: Literal["info", "ok", "warn", "err", "fail"],
+    ):
+        # when fail, always print to stdout?
+        if self.verbose:
+            click.secho(self._prefix[prefix] + msg, **self._opts[fmt])
 
-def rm_echo(target: Path):
-    """TODO: write"""
-    click.secho(f"> Removing path '{_normalize(target)}'.", fg="yellow")
+    def _echo_traceback(self, msg: str):
+        click.echo(msg, err=True)
 
+    def binary(self, msg):
+        click.echo(msg.decode("ascii"))
 
-def write_template_echo(target: Path, overwrite: bool = False):
-    if overwrite:
-        click.secho(
-            f"> Replace template dictionary in directory '{_normalize(target)}'",
-            fg="yellow",
-        )
-    else:
-        click.secho(
-            f"> Write template dictionary to directory '{_normalize(target)}'",
-            fg="blue",
-        )
+    def err(self, err_inst: Exception) -> None:
+        """TODO: write"""
 
+        match err_inst:
+            case BasePathError(message=string):
+                self._echo(string, "err", "fail")
 
-def render_echo(template_path: Path, target: Path, overwrite: bool = False):
-    """TODO: write"""
-    if overwrite:
-        click.secho(
-            f"> Re-render file '{_normalize(target)}' from template at '{template_path}'",
-            fg="yellow",
-        )
-    else:
-        click.secho(
-            f"> Render file '{_normalize(target)}' from template at '{template_path}'",
-            fg="blue",
-        )
+            case LaTeXCompileError(message=string):
+                self._echo(string, "err", "fail")
 
+            case SubcommandError(message=string, cmd=cmd, stdout=stdout, stderr=stderr):
+                self._echo(string, "err", "fail")
+                self._echo_traceback(f"Command:\n$ {shlex.join(cmd)}")
+                self._echo_traceback(f"Output:\n{stdout}")
+                self._echo_traceback(f"Error output:\n{stderr}")
 
-def link_echo(linker: _FileLinker, name: str, target: Path, mode: str):
-    """TODO: write"""
+    def rm(self, target: Path):
+        """TODO: write"""
+        self._echo(f"Removing path '{_normalize(target)}'.", "file", "warn")
 
-    def helper(prop):
-        return f"{linker.user_str} '{name}' {prop} directory '{_normalize(target)}'"
+    def write_template(self, target: Path, overwrite: bool = False):
+        if overwrite:
+            self._echo(
+                f"Replace template dictionary in directory '{_normalize(target)}'",
+                "file",
+                "warn",
+            )
+        else:
+            self._echo(
+                f"Write template dictionary to directory '{_normalize(target)}'",
+                "file",
+                "info",
+            )
 
-    if mode == "overwrite":
-        click.secho(f"> Replace {helper('in')}", fg="yellow")
-    elif mode == "exists":
-        click.secho(f"> Use existing {helper('in')}", fg="blue")
-    elif mode == "new":
-        click.secho(f"> Copy {helper('to')}", fg="blue")
-    elif mode == "fail":
-        click.secho(f"! Could not import {helper('to')}", fg="red")
+    def render(self, template_path: Path, target: Path, overwrite: bool = False):
+        """TODO: write"""
+        if overwrite:
+            self._echo(
+                f"Re-render file '{_normalize(target)}' from template at '{template_path}'",
+                "file",
+                "warn",
+            )
+        else:
+            self._echo(
+                f"Render file '{_normalize(target)}' from template at '{template_path}'",
+                "file",
+                "info",
+            )
 
+    def link(self, linker: _FileLinker, name: str, target: Path, mode: str):
+        """TODO: write"""
 
-def init_echo(dirname: Path):
-    """TODO: write"""
-    click.secho(f"> Initializing project in '{_normalize(dirname)}'", fg="blue")
+        def helper(prop):
+            return f"{linker.user_str} '{name}' {prop} directory '{_normalize(target)}'"
+
+        if mode == "overwrite":
+            self._echo(f"Replace {helper('in')}", "file", "warn")
+        elif mode == "exists":
+            self._echo(f"Use existing {helper('in')}", "file", "info")
+        elif mode == "new":
+            self._echo(f"Copy {helper('to')}", "file", "info")
+        elif mode == "fail":
+            self._echo(f"Could not import {helper('to')}", "err", "err")
+
+    def init(self, dirname: Path):
+        """TODO: write"""
+        self._echo(f"Initializing project in '{_normalize(dirname)}'", "file", "info")
+
+    def cmd(self, cmd_list: Iterable[str]):
+        """TODO: write"""
+        self._echo(f"$ {shlex.join([redact(cmd) for cmd in cmd_list])}", "cmd", "ok")
 
 
 class Secret(str):
@@ -108,8 +138,3 @@ def redact(obj: str):
     if isinstance(obj, Secret):
         return "[*****]"
     return str(obj)
-
-
-def cmd_echo(cmd_list: Iterable[str]):
-    """TODO: write"""
-    click.secho(f"$ {shlex.join([redact(cmd) for cmd in cmd_list])}", fg="green")

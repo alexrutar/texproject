@@ -19,7 +19,6 @@ from .filesystem import (
     toml_load_local_template,
     template_linker,
 )
-from .term import render_echo, init_echo, write_template_echo
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -27,6 +26,7 @@ if TYPE_CHECKING:
     from jinja2 import Template
     from .filesystem import Config, ProjectInfo, _FileLinker
     from .base import Modes
+    from .term import VerboseEcho
 
 
 def data_name(name: str, mode: Modes) -> str:
@@ -89,8 +89,8 @@ class GenericTemplate:
         template_path: Path,
         target_path: Path,
         config: Config,
+        echoer: VerboseEcho,
         force: bool = False,
-        verbose=False,
         dry_run=False,
     ) -> None:
         """Write template at location template_path to file at location
@@ -102,11 +102,10 @@ class GenericTemplate:
                 str(target_path.resolve()),
             )
         # todo: same pattern as _link_helper (abstract out?)
-        if verbose:
-            if target_path.exists():
-                render_echo(template_path, target_path, overwrite=True)
-            else:
-                render_echo(template_path, target_path, overwrite=False)
+        if target_path.exists():
+            echoer.render(template_path, target_path, overwrite=True)
+        else:
+            echoer.render(template_path, target_path, overwrite=False)
         try:
             if not dry_run:
                 target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -141,8 +140,8 @@ class ProjectTemplate(GenericTemplate):
             template_path,
             target_path,
             proj_info.config,
+            proj_info.echoer,
             force=force,
-            verbose=proj_info.verbose,
             dry_run=proj_info.dry_run,
         )
         if not proj_info.dry_run and executable:
@@ -199,10 +198,9 @@ class ProjectTemplate(GenericTemplate):
         )
 
     def write_template_dict(self, proj_info: ProjectInfo):
-        if proj_info.verbose:
-            write_template_echo(
-                proj_info.data_dir, overwrite=proj_info.template.exists()
-            )
+        proj_info.echoer.write_template(
+            proj_info.data_dir, overwrite=proj_info.template.exists()
+        )
 
         if not proj_info.dry_run:
             # initialize texproject directory
@@ -221,8 +219,7 @@ class InitTemplate(ProjectTemplate):
 
     def create_output_folder(self, proj_info: ProjectInfo) -> None:
         """Write top-level files into the project path."""
-        if proj_info.dry_run or proj_info.verbose:
-            init_echo(proj_info.dir)
+        proj_info.echoer.init(proj_info.dir)
 
         self.write_template_dict(proj_info)
         self.write_template_with_info(
@@ -260,8 +257,8 @@ class PackageLinker:
             name,
             self.proj_info.data_dir,
             force=self.force,
+            echoer=self.proj_info.echoer,
             silent_fail=self.silent_fail,
-            verbose=self.proj_info.verbose,
             dry_run=self.proj_info.dry_run,
         )
 
@@ -272,8 +269,8 @@ class PackageLinker:
             name,
             self.proj_info.data_dir,
             force=self.force,
+            echoer=self.proj_info.echoer,
             silent_fail=self.silent_fail,
-            verbose=self.proj_info.verbose,
             dry_run=self.proj_info.dry_run,
         )
 

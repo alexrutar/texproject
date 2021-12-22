@@ -24,7 +24,6 @@ from .filesystem import (
 from .git import GHRepo
 from .process import subproc_run, compile_tex
 from .template import LoadTemplate, InitTemplate, PackageLinker
-from .term import err_echo
 
 if TYPE_CHECKING:
     from .base import Modes, NAMES, RepoVisibility
@@ -40,7 +39,7 @@ class CatchInternalExceptions(click.Group):
         try:
             return self.main(*args, **kwargs)
         except (BasePathError, LaTeXCompileError, SubcommandError) as err:
-            err_echo(err)
+            click.echo(err, err=True)
             sys.exit(1)
 
 
@@ -495,8 +494,7 @@ def list_(res_class: Modes | Literal["template"]) -> None:
 
 
 @cli.group()
-@click.pass_obj
-def util(proj_info: ProjectInfo) -> None:
+def util() -> None:
     """Various convenient utilities."""
 
 
