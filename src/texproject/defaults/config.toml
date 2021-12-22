@@ -11,7 +11,6 @@ email = ''
 website = ''
 grant = ''
 
-# initialize github settings
 [github]
 username = ''
 email = ''
@@ -34,6 +33,7 @@ replace_text = 'REPLACE'
 arxiv_autotex = []
 
 [process]
+# extra options to pass to latexmk
 latexmk_compile_options = []
 
 # files to ignore when exporting source files, and in .gitignore

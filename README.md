@@ -7,11 +7,15 @@ On UNIX-like systems, typically one can install the command-line tool with the f
 ```
 pip install texproject
 git clone https://github.com/alexrutar/texproject-templates ~/.local/share/texproject
-mkdir -p ~/.config/texproject
-cp ~/.local/share/texproject/config/config_example.toml ~/.config/texproject/config.toml
 ```
 Texproject complies with the [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html); replace `~/.local/share` or `~/.config` with your configured directories.
 Currently, there is no installation script or package manager support, but I hope to implement this eventually.
+
+To configure Texproject, you can generate a global configuration file in the directory `~/.config/texproject/` by running
+```
+mkdir -p ~/.config/texproject
+tpr util show-config > ~/.config/texproject/config.toml
+```
 
 ## Basic Usage
 Texproject is installed under the command line tool `tpr`.
