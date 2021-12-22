@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 # from difflib import unified_diff
+from functools import update_wrapper
 from pathlib import Path
 import sys
 from typing import TYPE_CHECKING
@@ -72,11 +73,42 @@ def cli(ctx, proj_dir: Path, dry_run: bool, verbose: bool) -> None:
     ctx.obj = ProjectInfo(proj_dir, dry_run, verbose)
 
 
+def pass_obj_with_validation(*validation_funcs):
+    """Custom decorator which passes the object after performing some state verification on it."""
+
+    def decorator(f):
+        @click.pass_context
+        def new_func(ctx, *args, **kwargs):
+            for func in validation_funcs:
+                func(ctx.obj)
+            retval = ctx.invoke(f, ctx.obj, *args, **kwargs)
+            # perform operations on the return value here
+            return retval
+
+        return update_wrapper(new_func, f)
+
+    return decorator
+
+
+def _proj_exists(exists=bool):
+    def func(proj_info: ProjectInfo):
+        proj_info.validate(exists=exists)
+
+    return func
+
+
+def _git_exists(exists=bool):
+    def func(proj_info: ProjectInfo):
+        proj_info.validate_git(exists=exists)
+
+    return func
+
+
 @cli.command()
 @click.argument(
     "template", type=click.Choice(template_linker.list_names()), metavar="TEMPLATE"
 )
-@click.pass_obj
+@pass_obj_with_validation(_proj_exists(False))
 def init(proj_info: ProjectInfo, template: str) -> None:
     """Initialize a new project in the working directory. The project is created using
     the template with name TEMPLATE and placed in the output folder OUTPUT.
@@ -84,8 +116,6 @@ def init(proj_info: ProjectInfo, template: str) -> None:
     The path working directory either must not exist or be an empty folder. Missing
     intermediate directories are automatically constructed.
     """
-    proj_info.validate(exists=False)
-
     proj_gen = InitTemplate(template)
 
     proj_gen.create_output_folder(proj_info)
@@ -98,19 +128,16 @@ def _refresh_template(proj_info: ProjectInfo):
 
 @cli.command()
 @click.option(
-    "--template",
-    "config_file",
-    flag_value="template",
-    default=True,
-    help="Edit project template.",
-)
-@click.option(
     "--local", "config_file", flag_value="local", help="Edit local configuration."
 )
 @click.option(
-    "--global", "config_file", flag_value="global", help="Edit global configuration."
+    "--global",
+    "config_file",
+    flag_value="global",
+    help="Edit global configuration.",
+    default=True,
 )
-@click.pass_obj
+@pass_obj_with_validation()
 def config(proj_info: ProjectInfo, config_file: str) -> None:
     """Edit texproject configuration files. This opens the corresponding file in your
     $EDITOR. By default, edit the project template file: this requires the working
@@ -120,12 +147,6 @@ def config(proj_info: ProjectInfo, config_file: str) -> None:
     command for this functionality.
     """
     match config_file:
-        case "template":
-            proj_info.validate(exists=True)
-
-            click.edit(filename=str(proj_info.template))
-            _refresh_template(proj_info)
-
         case "local":
             click.edit(filename=str(proj_info.config.local_path))
 
@@ -181,7 +202,7 @@ def _path_option(mode: Modes):
     default=False,
     help="auto-generated pre-commit",
 )
-@click.pass_obj
+@pass_obj_with_validation(_proj_exists(True))
 def import_(
     proj_info: ProjectInfo,
     macros: Iterable[str],
@@ -200,8 +221,6 @@ def import_(
     as paths to existing files. For example, this enables imports which are not installed
     in the texproject data directory.
     """
-    proj_info.validate(exists=True)
-
     linker = PackageLinker(proj_info, force=True)
     for mode, names, paths in [
         ("macro", macros, macro_paths),
@@ -238,13 +257,12 @@ def import_(
     help="write .log to file",
     type=click.Path(exists=False, writable=True, path_type=Path),
 )
-@click.pass_obj
+@pass_obj_with_validation(_proj_exists(True))
 def validate(proj_info: ProjectInfo, pdf: Path, logfile: Path) -> None:
     """Check for compilation errors. Compilation is performed by the 'latexmk' command.
     Save the resulting pdf with the '--output' argument, or the log file with the
     '--logfile' argument. These options, if specified, will overwrite existing files.
     """
-    proj_info.validate(exists=True)
     with proj_info.temp_subpath() as build_dir:
         build_dir.mkdir()
         compile_tex(
@@ -280,7 +298,7 @@ def validate_exists(ctx, _, path) -> Path:
     type=click.Path(exists=False, writable=True, path_type=Path),
     callback=validate_exists,
 )
-@click.pass_obj
+@pass_obj_with_validation(_proj_exists(True))
 def archive(
     proj_info: ProjectInfo, force: bool, compression: str, mode: str, output: Path
 ) -> None:
@@ -311,7 +329,6 @@ def archive(
     Note that not all compression modes may be available on your system.
     """
     proj_info.force = force
-    proj_info.validate(exists=True)
 
     if compression is None:
         try:
@@ -324,10 +341,8 @@ def archive(
 
 
 @cli.group()
-@click.pass_obj
-def template(proj_info: ProjectInfo) -> None:
+def template() -> None:
     """Modify the template dictionary."""
-    proj_info.validate(exists=True)
 
 
 @template.command()
@@ -335,7 +350,7 @@ def template(proj_info: ProjectInfo) -> None:
 @_link_option("citation")
 @_link_option("style")
 @click.option("--index", "index", help="position to insert", default=0, type=int)
-@click.pass_obj
+@pass_obj_with_validation(_proj_exists(True))
 def add(
     proj_info: ProjectInfo,
     macros: List[str],
@@ -355,7 +370,7 @@ def add(
 @_link_option("macro")
 @_link_option("citation")
 @_link_option("style")
-@click.pass_obj
+@pass_obj_with_validation(_proj_exists(True))
 def remove(
     proj_info: ProjectInfo, macros: List[str], citations: List[str], styles: List[str]
 ) -> None:
@@ -367,11 +382,16 @@ def remove(
     proj_gen.write_template_dict(proj_info)
 
 
+@template.command()
+@pass_obj_with_validation(_proj_exists(True))
+def edit(proj_info: ProjectInfo):
+    click.edit(filename=str(proj_info.template))
+    _refresh_template(proj_info)
+
+
 @cli.group()
-@click.pass_obj
-def git(proj_info: ProjectInfo) -> None:
+def git() -> None:
     """Manage git and GitHub repositories."""
-    proj_info.validate(exists=True)
 
 
 @git.command("init")
@@ -411,7 +431,7 @@ def git(proj_info: ProjectInfo) -> None:
     help="Create issues page",
     default=False,
 )
-@click.pass_obj
+@pass_obj_with_validation(_proj_exists(True), _git_exists(False))
 def git_init(
     proj_info: ProjectInfo,
     repo_name: str,
@@ -437,8 +457,6 @@ def git_init(
     Otherwise, the token will default to the empty string. The access token is not
     required for the build action functionality.
     """
-    proj_info.validate_git(exists=False)
-
     proj_gen = LoadTemplate(proj_info)
     proj_gen.write_git_files(proj_info)
 
@@ -468,7 +486,7 @@ def git_init(
     help="Name of the repository",
     type=str,
 )
-@click.pass_obj
+@pass_obj_with_validation(_proj_exists(True))
 def init_archive(proj_info: ProjectInfo, repo_name: str) -> None:
     """Set the GitHub secret and archive repository."""
     proj_gen = LoadTemplate(proj_info)
@@ -499,7 +517,7 @@ def util() -> None:
 
 
 @util.command("upgrade")
-@click.pass_obj
+@pass_obj_with_validation()
 def upgrade(proj_info: ProjectInfo) -> None:
     """Upgrade project data structure from previous versions."""
     proj_info.validate(exists=True)
@@ -550,10 +568,9 @@ def upgrade(proj_info: ProjectInfo) -> None:
 
 @util.command("refresh")
 @click.option("--force/--no-force", "-f/-F", default=False, help="overwrite files")
-@click.pass_obj
+@pass_obj_with_validation(_proj_exists(True))
 def refresh(proj_info: ProjectInfo, force: bool) -> None:
     """"""
-    proj_info.validate(exists=True)
     proj_gen = LoadTemplate(proj_info)
     proj_gen.write_tpr_files(proj_info, force=force)
 
@@ -565,13 +582,12 @@ def refresh(proj_info: ProjectInfo, force: bool) -> None:
     default=False,
     help="remove packages that are not imported into the file",
 )
-@click.pass_obj
+@pass_obj_with_validation(_proj_exists(True))
 def clean(proj_info: ProjectInfo, rm_unneeded: bool) -> None:
     """Clean the project directory.
 
     Currently not fully implemented.
     """
-    proj_info.validate(exists=True)
     proj_info.clear_temp()
 
 
@@ -579,7 +595,7 @@ def clean(proj_info: ProjectInfo, rm_unneeded: bool) -> None:
 @_link_option("macro")
 @_link_option("citation")
 @_link_option("style")
-@click.pass_obj
+@pass_obj_with_validation(_proj_exists(True))
 def diff(
     proj_info: ProjectInfo,
     macros: List[str],
@@ -588,7 +604,6 @@ def diff(
 ) -> None:
     """TODO: write"""
     # todo: write
-    proj_info.validate(exists=True)
     raise NotImplementedError
 
 
