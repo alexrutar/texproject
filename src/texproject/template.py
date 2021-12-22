@@ -256,8 +256,8 @@ class PackageLinker:
         return linker.link_name(
             name,
             self.proj_info.data_dir,
+            self.proj_info.echoer,
             force=self.force,
-            echoer=self.proj_info.echoer,
             silent_fail=self.silent_fail,
             dry_run=self.proj_info.dry_run,
         )
@@ -268,8 +268,8 @@ class PackageLinker:
         return linker.link_path(
             name,
             self.proj_info.data_dir,
+            self.proj_info.echoer,
             force=self.force,
-            echoer=self.proj_info.echoer,
             silent_fail=self.silent_fail,
             dry_run=self.proj_info.dry_run,
         )
