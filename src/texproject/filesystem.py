@@ -13,12 +13,9 @@ from . import defaults
 from .base import NAMES, constant
 from .error import (
     BasePathError,
-    ProjectExistsError,
     ProjectDataMissingError,
-    ProjectMissingError,
     TemplateDataMissingError,
-    GitExistsError,
-    GitMissingError,
+    ValidationError,
 )
 from .term import VerboseEcho
 
@@ -207,16 +204,22 @@ class ProjectPath:
     def validate(self, exists=True) -> None:
         """TODO: write"""
         if not exists and any(path.exists() for path in self.rootfiles):
-            raise ProjectExistsError(self.working_dir)
+            raise ValidationError(
+                f"conflicting project files already exist in the working directory."
+            )
         if exists and any(not path.exists() for path in self.minimal_files):
-            raise ProjectMissingError(self.working_dir)
+            raise ValidationError(f"the working directory is not a valid project.")
 
     def validate_git(self, exists=True) -> None:
         """TODO: write"""
         if not exists and any(path.exists() for path in self.gitfiles):
-            raise GitExistsError(self.working_dir)
+            raise ValidationError(
+                f"conflicting git files already exist in the working directory."
+            )
         if exists and any(not path.exists() for path in self.minimal_gitfiles):
-            raise GitMissingError(self.working_dir)
+            raise ValidationError(
+                f"the working directory is not a valid git repository."
+            )
 
     @relative("data")
     def template(self) -> str:

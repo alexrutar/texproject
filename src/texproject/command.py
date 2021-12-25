@@ -13,9 +13,7 @@ import click
 
 from . import __version__, __repo__
 from .base import SHUTIL_ARCHIVE_FORMATS, SHUTIL_ARCHIVE_SUFFIX_MAP
-from .error import (
-    AbortRunner,
-)
+from .error import AbortRunner, ValidationError
 from .export import ArchiveWriter
 from .filesystem import (
     ProjectPath,
@@ -159,8 +157,14 @@ def process_atoms(
             )
             @click.pass_context
             def new_func_1(ctx, template: str, *args, **kwargs):
-                for func in validation_funcs:
-                    func(ctx.obj["proj_path"])
+                try:
+                    for func in validation_funcs:
+                        func(ctx.obj["proj_path"])
+                except ValidationError as e:
+                    click.secho(
+                        f"Error validating working directory: {e}", fg="red", err=True
+                    )
+                    sys.exit(1)
 
                 command_iter = ctx.invoke(f, *args, **kwargs)
                 runner = CommandRunner(
@@ -177,8 +181,14 @@ def process_atoms(
 
             @click.pass_context
             def new_func(ctx, *args, **kwargs):
-                for func in validation_funcs:
-                    func(ctx.obj["proj_path"])
+                try:
+                    for func in validation_funcs:
+                        func(ctx.obj["proj_path"])
+                except ValidationError as e:
+                    click.secho(
+                        f"Error validating working directory: {e}", fg="red", err=True
+                    )
+                    sys.exit(1)
 
                 command_iter = ctx.invoke(f, *args, **kwargs)
                 runner = CommandRunner(
@@ -266,10 +276,6 @@ def config(config_file: Literal["local", "global"]) -> Iterable[AtomicIterable]:
     command for this functionality.
     """
     yield FileEditor(config_file)
-
-
-# def _refresh_template(proj_path: ProjectPath):
-#     LoadTemplate(proj_path).write_tpr_files(proj_path)
 
 
 def _link_option(mode: Modes):

@@ -16,6 +16,12 @@ def assert_never(value) -> NoReturn:
 class AbortRunner(Exception):
     def __init__(self, message: str, stderr: bytes = b""):
         self.stderr = stderr
+        self.message = message
+        super().__init__(message)
+
+
+class ValidationError(AbortRunner):
+    def __init__(self, message: str):
         super().__init__(message)
 
 
@@ -73,35 +79,3 @@ class SystemDataMissingError(DataMissingError):
 
 class ProjectDataMissingError(DataMissingError):
     """TODO: write"""
-
-
-class ProjectMissingError(BasePathError):
-    """TODO: write"""
-
-    def __init__(self, path: Path):
-        message = "The working directory is not a valid project."
-        super().__init__(path, message=message)
-
-
-class ProjectExistsError(BasePathError):
-    """TODO: write"""
-
-    def __init__(self, path: Path):
-        message = "Conflicting files already exist in the working directory."
-        super().__init__(path, message=message)
-
-
-class GitMissingError(BasePathError):
-    """TODO: write"""
-
-    def __init__(self, path: Path):
-        message = "The working directory is not a valid git repository."
-        super().__init__(path, message=message)
-
-
-class GitExistsError(BasePathError):
-    """TODO: write"""
-
-    def __init__(self, path: Path):
-        message = "Conflicting git files already exist in the working directory."
-        super().__init__(path, message=message)
