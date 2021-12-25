@@ -1,30 +1,24 @@
 """TODO: write docstring"""
 from __future__ import annotations
 
-# from difflib import unified_diff
+from dataclasses import astuple
+from difflib import unified_diff
 from functools import update_wrapper
-from itertools import chain
 from pathlib import Path
 import sys
 import tempfile
 from typing import TYPE_CHECKING
-from dataclasses import astuple
 
 import click
 
 from . import __version__, __repo__
 from .base import SHUTIL_ARCHIVE_FORMATS, SHUTIL_ARCHIVE_SUFFIX_MAP
 from .error import (
-    BasePathError,
-    SubcommandError,
-    LaTeXCompileError,
-    assert_never,
     AbortRunner,
 )
 from .export import ArchiveWriter
 from .filesystem import (
     ProjectPath,
-    JINJA_PATH,
     NAMES,
     style_linker,
     macro_linker,
@@ -564,7 +558,9 @@ def git_init(
     ValidationFunction.proj_exists(True), ValidationFunction.git_exists(False)
 )
 def init_files(force: bool) -> Iterable[AtomicIterable]:
-    """Create the git repository files. This does not create a local or remote git repository."""
+    """Create the git repository files. This does not create a local or remote git
+    repository.
+    """
     yield GitFileWriter(force=force)
 
 
@@ -573,7 +569,7 @@ def init_files(force: bool) -> Iterable[AtomicIterable]:
     "--repo-name",
     "repo_name",
     prompt="Repository name",
-    help="Name of the repository",
+    help="name of the repository",
     type=str,
 )
 @process_atoms(ValidationFunction.proj_exists(True))
@@ -585,7 +581,7 @@ def init_archive(repo_name: str) -> Iterable[AtomicIterable]:
 
 @cli.group()
 def util() -> None:
-    """Various convenient utilities."""
+    """Miscellaneous utilities."""
 
 
 @util.command("upgrade")
@@ -599,7 +595,9 @@ def upgrade() -> Iterable[AtomicIterable]:
 @click.option("--force/--no-force", "-f/-F", default=False, help="overwrite files")
 @process_atoms(ValidationFunction.proj_exists(True))
 def refresh(force: bool) -> Iterable[AtomicIterable]:
-    """"""
+    """Reload template files. If --force is specified, overwrite local template files
+    with new versions from the template repository, if possible.
+    """
     yield TemplateDictLinker(force=force)
     yield InfoFileWriter()
 
@@ -607,11 +605,9 @@ def refresh(force: bool) -> Iterable[AtomicIterable]:
 @util.command()
 @process_atoms(ValidationFunction.proj_exists(True))
 def clean() -> None:
-    """Clean the project directory.
-
-    Currently not fully implemented.
+    """Clean the project directory. This deletes any template files that are not
+    currently loaded in the template dictionary.
     """
-    # todo: write this, along with helper functions, to delete all unused macro files (anything not linked by the template_
     raise NotImplementedError
 
 
@@ -625,8 +621,7 @@ def diff(
     citations: List[str],
     styles: Optional[str],
 ) -> None:
-    """TODO: write"""
-    # todo: write
+    """Display changes in local template files."""
     raise NotImplementedError
 
 

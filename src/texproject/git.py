@@ -16,7 +16,14 @@ if TYPE_CHECKING:
 
 
 class CreateGithubRepo(AtomicIterable):
-    def __init__(self, repo_name, description, visibility, wiki, issues):
+    def __init__(
+        self,
+        repo_name: str,
+        description: str,
+        visibility: RepoVisibility,
+        wiki: bool,
+        issues: bool,
+    ) -> None:
         self._repo_name = repo_name
         self._description = description
         self._visibility = visibility
@@ -51,7 +58,7 @@ class CreateGithubRepo(AtomicIterable):
 
 
 class WriteGithubApiToken(AtomicIterable):
-    def __init__(self, repo_name):
+    def __init__(self, repo_name: str):
         self._repo_name = repo_name
 
     def __call__(

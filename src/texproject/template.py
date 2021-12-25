@@ -1,5 +1,6 @@
 """TODO: write"""
 from __future__ import annotations
+
 import datetime
 import shutil
 import os
@@ -25,17 +26,14 @@ from .filesystem import (
     JINJA_PATH,
     LINKER_MAP,
     toml_dump,
-    citation_linker,
-    macro_linker,
-    style_linker,
-    template_linker,
 )
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Iterable, Dict, Iterator, Literal, Optional, Tuple
-    from .filesystem import ProjectPath, _FileLinker
+    from typing import Iterable, Dict, Literal, Optional
+
     from .base import Modes, ModCommand
+    from .filesystem import ProjectPath, _FileLinker
 
 
 def data_name(name: str, mode: Modes) -> str:

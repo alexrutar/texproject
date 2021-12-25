@@ -3,13 +3,13 @@ import subprocess
 import shlex
 from typing import TYPE_CHECKING
 
+from .error import AbortRunner
 from .control import AtomicCommand, RuntimeClosure, AtomicIterable, RuntimeOutput
 from .term import FORMAT_MESSAGE
-from .error import AbortRunner
 
 if TYPE_CHECKING:
     from .filesystem import ProjectPath
-    from typing import Dict, Optional, Iterable, Tuple, List
+    from typing import Dict, Optional, Iterable, List
     from pathlib import Path
 
 

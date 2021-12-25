@@ -24,7 +24,7 @@ from .term import VerboseEcho
 
 if TYPE_CHECKING:
     from .base import Modes
-    from typing import Optional, Tuple, Generator, List, Dict
+    from typing import Optional, Tuple, List, Dict
 
 
 def toml_load(path_obj: Path, missing_ok: bool = False) -> Dict:
@@ -46,20 +46,15 @@ def toml_dump(path_obj: Path, dct: Dict) -> None:
 
 def _merge_iter(*dcts: Dict):
     """TODO: write"""
-
-    # iterate over all keys in all dicts being merged
     for k in set().union(*[set(dct.keys()) for dct in dcts]):
-
-        # for a specific key, we only want the values containing that key
         dcts_with_key = [dct[k] for dct in dcts if k in dct.keys()]
 
-        # if there's only one, or one of the items is not a dict, the last value overrides
+        # last value always overrides
         if len(dcts_with_key) == 1 or any(
             not isinstance(dct, dict) for dct in dcts_with_key
         ):
             yield (k, dcts_with_key[-1])
 
-        # otherwise, recurse
         else:
             yield (k, {k: v for k, v in _merge_iter(*dcts_with_key)})
 
@@ -84,13 +79,6 @@ class Config:
         self.render = self._dct["render"]
         self.process = self._dct["process"]
         self.github = self._dct["github"]
-
-    def set_no_hidden(self) -> None:
-        """TODO: write"""
-        # TODO: maybe do other stuff
-        self.render["project_data_folder"] = self.render["project_data_folder"].lstrip(
-            "."
-        )
 
     @constant
     def global_path(self) -> Path:
@@ -502,14 +490,8 @@ class _TemplateLinker(_BaseLinker):
 
 
 macro_linker = _FileLinker(".sty", "macro file", "macro")
-
-
 style_linker = _FileLinker(".sty", "style file", "style")
-
-
 citation_linker = _FileLinker(".bib", "citation file", "citation")
-
-
 template_linker = _TemplateLinker(DATA_PATH.template_dir, "", "template")
 
 LINKER_MAP = {
