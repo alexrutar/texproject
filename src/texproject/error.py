@@ -13,6 +13,12 @@ def assert_never(value) -> NoReturn:
     assert False, f"Unhandled value: {value} ({type(value).__name__})"
 
 
+class AbortRunner(Exception):
+    def __init__(self, message: str, stderr: bytes = b""):
+        self.stderr = stderr
+        super().__init__(message)
+
+
 class SubcommandError(Exception):
     """TODO: write"""
 

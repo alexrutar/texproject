@@ -4,63 +4,71 @@ from typing import TYPE_CHECKING
 
 import keyring
 
-from .process import subproc_run
+from .control import AtomicIterable, RuntimeClosure
 from .term import Secret
+from .process import _CmdRunCommand
 
 if TYPE_CHECKING:
     from .base import RepoVisibility
-    from .filesystem import ProjectInfo
+    from .filesystem import ProjectPath
+    from typing import Optional, Iterable, Dict
+    from pathlib import Path
 
 
-class GHRepo:
-    def __init__(self, proj_info: ProjectInfo, repo_name: str):
-        self.proj_info = proj_info
-        self.name = repo_name
+class CreateGithubRepo(AtomicIterable):
+    def __init__(self, repo_name, description, visibility, wiki, issues):
+        self._repo_name = repo_name
+        self._description = description
+        self._visibility = visibility
+        self._wiki = wiki
+        self._issues = issues
 
-    def create(
-        self,
-        description: str,
-        visibility: RepoVisibility = "private",
-        wiki: bool = False,
-        issues: bool = False,
-    ):
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
         gh_command = [
             "gh",
             "repo",
             "create",
             "-d",
-            description,
+            self._description,
             "--source",
-            str(self.proj_info.dir),
+            str(proj_path.dir),
             "--remote",
             "origin",
             "--push",
-            self.name,
-            "--" + visibility,
+            self._repo_name,
+            "--" + self._visibility,
         ]
 
-        if not wiki:
+        if not self._wiki:
             gh_command.append("--disable-wiki")
 
-        if not issues:
+        if not self._issues:
             gh_command.append("--disable-issues")
 
-        subproc_run(self.proj_info, gh_command)
+        yield _CmdRunCommand(gh_command).get_ato(proj_path, template_dict, state)
 
-    def write_api_token(self) -> None:
+
+class WriteGithubApiToken(AtomicIterable):
+    def __init__(self, repo_name):
+        self._repo_name = repo_name
+
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
         env_token = os.environ.get("API_TOKEN_GITHUB", None)
         if env_token is not None:
             token = Secret(env_token)
         try:
-            params = self.proj_info.config.github["keyring"]
+            params = proj_path.config.github["keyring"]
             user_token = keyring.get_password(params["entry"], params["username"])
             token = Secret(user_token)
         except KeyError:
             token = None
 
         if token is not None:
-            subproc_run(
-                self.proj_info,
+            yield _CmdRunCommand(
                 [
                     "gh",
                     "secret",
@@ -69,6 +77,6 @@ class GHRepo:
                     "-b",
                     token,
                     "-r",
-                    self.name,
-                ],
-            )
+                    self._repo_name,
+                ]
+            ).get_ato(proj_path, template_dict, state)

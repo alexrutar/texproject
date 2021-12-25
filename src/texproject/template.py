@@ -1,284 +1,585 @@
 """TODO: write"""
 from __future__ import annotations
 import datetime
-import errno
+import shutil
 import os
 from pathlib import Path
 import stat
 from typing import TYPE_CHECKING
 
+import click
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
-from .error import SystemDataMissingError
+from .base import NAMES
+from .term import FORMAT_MESSAGE
+from .control import (
+    AtomicCommand,
+    RuntimeClosure,
+    AtomicIterable,
+    FAIL,
+    SUCCESS,
+    RuntimeOutput,
+)
 from .filesystem import (
     DATA_PATH,
     JINJA_PATH,
-    NAMES,
     LINKER_MAP,
     toml_dump,
-    toml_load_local_template,
+    citation_linker,
+    macro_linker,
+    style_linker,
     template_linker,
 )
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Iterable, Dict, List
-    from jinja2 import Template
-    from .filesystem import Config, ProjectInfo, _FileLinker
-    from .base import Modes
-    from .term import VerboseEcho
+    from typing import Iterable, Dict, Iterator, Literal, Optional, Tuple
+    from .filesystem import ProjectPath, _FileLinker
+    from .base import Modes, ModCommand
 
 
 def data_name(name: str, mode: Modes) -> str:
     return str(NAMES.rel_data_path(name, mode))
 
 
-class GenericTemplate:
-    """TODO: write"""
+def _apply_modification(mod: ModCommand, template_dict: Dict):
+    match mod:
+        case (mode, "remove", name):
+            template_dict[NAMES.convert_mode(mode)].remove(name)
 
-    def __init__(self, template_dict: Dict) -> None:
-        """TODO: write"""
-        self.template_dict = template_dict
+        case (mode, "add", name, index):
+            template_dict[NAMES.convert_mode(mode)].insert(index, name)
 
-        self.env = Environment(
-            loader=FileSystemLoader(searchpath=DATA_PATH.data_dir),
-            block_start_string="<*",
-            block_end_string="*>",
-            variable_start_string="<+",
-            variable_end_string="+>",
-            comment_start_string="<#",
-            comment_end_string="#>",
-            trim_blocks=True,
-        )
+        case (mode, "update", name, new_name):
+            template_dict[NAMES.convert_mode(mode)] = [
+                new_name if val == name else val
+                for val in template_dict[NAMES.convert_mode(mode)]
+            ]
 
-        self.env.filters["data_name"] = data_name
 
-    def add(self, mode: Modes, name, index: int = 0) -> None:
-        """TODO: write"""
-        name_list = self.template_dict[NAMES.convert_mode(mode)]
-        if name in name_list:
-            name_list.remove(name)
-        name_list.insert(index, name)
+class _CmdApplyModification(AtomicCommand):
+    def __init__(self, mod: ModCommand):
+        self._mod = mod  # type: ModCommand
 
-    def remove(self, mode: Modes, name) -> None:
-        """TODO: write"""
-        try:
-            self.template_dict[NAMES.convert_mode(mode)].remove(name)
-        except ValueError:
-            pass
+    def get_ato(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict
+    ) -> RuntimeClosure:
+        def _callable():
+            try:
+                _apply_modification(self._mod, template_dict)
+                return RuntimeOutput(True)
+            except ValueError:
+                # TODO: better error here!
+                return RuntimeOutput(False)
 
-    def render_template(self, template: Template, config: Config) -> str:
-        """Render template and return template text."""
+        match self._mod:
+            case mode, "remove", name:
+                msg = f"Remove {mode} '{name}' from template dict."
+            case mode, "add", name, index:
+                msg = f"Add {mode} '{name}' to template dict in position {index}."
+            case (mode, "update", name, new_name):
+                msg = f"Update {mode} {name} to {new_name}"
+            case _:
+                # todo: fix this
+                msg = "Something bad happened"
+
+        # todo: return error here if trying to remove a macro that does not exist, or something
+        # or some sort of issue with inserting
+        return RuntimeClosure(FORMAT_MESSAGE.info(msg), True, _callable)
+
+
+class ApplyModificationSequence(AtomicIterable):
+    def __init__(self, mods: Iterable[ModCommand]):
+        self._mods = mods
+
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        for mod in self._mods:
+            yield _CmdApplyModification(mod).get_ato(proj_path, template_dict, state)
+
+
+class ApplyStateModifications(AtomicIterable):
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        for mod in state["template_modifications"]:
+            yield _CmdApplyModification(mod).get_ato(proj_path, template_dict, state)
+
+        # TODO: fix this, should not modify global state outside callable
+        state["template_modifications"] = []
+
+
+class TemplateWriter(AtomicCommand):
+    _env = Environment(
+        loader=FileSystemLoader(searchpath=DATA_PATH.data_dir),
+        block_start_string="<*",
+        block_end_string="*>",
+        variable_start_string="<+",
+        variable_end_string="+>",
+        comment_start_string="<#",
+        comment_end_string="#>",
+        trim_blocks=True,
+    )
+    _env.filters["data_name"] = data_name
+
+    def __init__(
+        self,
+        template_path: Path,
+        target_path: Path,
+        force: bool = False,
+        executable: bool = False,
+    ):
+        self._template_path = template_path
+        self._target_path = target_path
+        self._force = force
+        self._executable = executable
+
+    def get_render_text(self, proj_path, template_dict, state, render_mods=None):
+        config = proj_path.config
+        if render_mods is not None:
+            render = {
+                k: render_mods[k] if k in render_mods else v
+                for k, v in config.render.items()
+            }
+        else:
+            render = proj_path.config.render
+
         bibtext = (
             "\\input{"
             + f"{config.render['project_data_folder']}/{config.render['bibinfo_file']}"
             + "}"
         )
-        return template.render(
+        return self._env.get_template(str(self._template_path)).render(
             user=config.user,
-            template=self.template_dict,
-            config=config.render,
+            template=template_dict,
+            config=render,
             process=config.process,
             bibliography=bibtext,
             replace=config.render["replace_text"],
             date=datetime.date.today(),
         )
 
-    def write_template(
-        self,
-        template_path: Path,
-        target_path: Path,
-        config: Config,
-        echoer: VerboseEcho,
-        force: bool = False,
-        dry_run=False,
-    ) -> None:
-        """Write template at location template_path to file at location
-        target_path. Overwrite target_path when force=True."""
-        if target_path.exists() and not force:
-            raise FileExistsError(
-                errno.EEXIST,
-                "Template write location aready exists",
-                str(target_path.resolve()),
-            )
-        # todo: same pattern as _link_helper (abstract out?)
-        if target_path.exists():
-            echoer.render(template_path, target_path, overwrite=True)
-        else:
-            echoer.render(template_path, target_path, overwrite=False)
+    def get_ato(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict
+    ) -> RuntimeClosure:
+        if self._target_path.exists() and not self._force:
+            return RuntimeClosure("Template write location already exists.", *FAIL)
+
+        config = proj_path.config
+        bibtext = (
+            "\\input{"
+            + f"{config.render['project_data_folder']}/{config.render['bibinfo_file']}"
+            + "}"
+        )
         try:
-            if not dry_run:
-                target_path.parent.mkdir(parents=True, exist_ok=True)
-                target_path.write_text(
-                    self.render_template(
-                        self.env.get_template(str(template_path)), config
-                    )
-                )
-
-        except TemplateNotFound as err:
-            raise SystemDataMissingError(template_path) from err
-
-
-class ProjectTemplate(GenericTemplate):
-    """TODO: write"""
-
-    @classmethod
-    def from_dict(cls, template_dict: Dict) -> ProjectTemplate:
-        """TODO: write"""
-        return cls(template_dict)
-
-    def write_template_with_info(
-        self,
-        proj_info: ProjectInfo,
-        template_path: Path,
-        target_path: Path,
-        force: bool = False,
-        executable: bool = False,
-    ) -> None:
-        """TODO: write"""
-        self.write_template(
-            template_path,
-            target_path,
-            proj_info.config,
-            proj_info.echoer,
-            force=force,
-            dry_run=proj_info.dry_run,
-        )
-        if not proj_info.dry_run and executable:
-            os.chmod(target_path, stat.S_IXUSR | stat.S_IWUSR | stat.S_IRUSR)
-
-    def write_tpr_files(self, proj_info: ProjectInfo, force: bool = False) -> None:
-        """Create texproject project data directory and write files."""
-        linker = PackageLinker(proj_info, force=force, silent_fail=True)
-
-        # careful: side effects are important!
-        failed = {
-            NAMES.convert_mode(mode): linker.link(
-                mode, self.template_dict[NAMES.convert_mode(mode)]
+            output = self._env.get_template(str(self._template_path)).render(
+                user=config.user,
+                template=template_dict,
+                config=config.render,
+                github=config.github,
+                process=config.process,
+                bibliography=bibtext,
+                replace=config.render["replace_text"],
+                date=datetime.date.today(),
             )
-            for mode in NAMES.modes
-        }
 
-        # update the template
-        for key, failed_names in failed.items():
-            self.template_dict[key] = [
-                name for name in self.template_dict[key] if name not in failed_names
-            ]
+            def _callable():
+                self._target_path.parent.mkdir(parents=True, exist_ok=True)
+                self._target_path.write_text(output)
+                # catch chmod failure
+                if self._executable:
+                    os.chmod(
+                        self._target_path, stat.S_IXUSR | stat.S_IWUSR | stat.S_IRUSR
+                    )
+                return RuntimeOutput(True)
 
-        self.write_template_with_info(
-            proj_info, JINJA_PATH.classinfo, proj_info.classinfo, force=True
-        )
-        self.write_template_with_info(
-            proj_info, JINJA_PATH.bibinfo, proj_info.bibinfo, force=True
-        )
+            return RuntimeClosure(
+                FORMAT_MESSAGE.render(
+                    self._template_path,
+                    self._target_path,
+                    overwrite=self._target_path.exists(),
+                ),
+                True,
+                _callable,
+            )
 
-        # todo: if something failed, still must raise an exception here
-        # that way, the return code is correct
+        except TemplateNotFound:
+            return RuntimeClosure(
+                f"Missing template file at location '{self._target_path}'", *FAIL
+            )
 
-    def write_git_files(self, proj_info: ProjectInfo, force: bool = False) -> None:
-        """TODO: write"""
-        self.write_template_with_info(
-            proj_info, JINJA_PATH.gitignore, proj_info.gitignore, force=force
-        )
-        self.write_template_with_info(
-            proj_info, JINJA_PATH.build_latex, proj_info.build_latex, force=force
-        )
-        self.write_template_with_info(
-            proj_info,
+
+class GitignoreWriter(AtomicIterable):
+    def __init__(self, force: bool = False):
+        self._force = force
+
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        yield TemplateWriter(
+            JINJA_PATH.gitignore, proj_path.gitignore, force=self._force
+        ).get_ato(proj_path, template_dict, state)
+
+
+class PrecommitWriter(AtomicIterable):
+    def __init__(self, force: bool = False):
+        self._force = force
+
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        yield TemplateWriter(
             JINJA_PATH.pre_commit,
-            proj_info.pre_commit,
+            proj_path.pre_commit,
             executable=True,
-            force=force,
+            force=self._force,
+        ).get_ato(proj_path, template_dict, state)
+
+
+def _link_helper(
+    linker, name, source_path, target_path, force, silent_fail
+) -> RuntimeClosure:
+    def _callable():
+        shutil.copyfile(str(source_path), str(target_path))
+        return RuntimeOutput(True)
+
+    message_args = (linker, name, target_path.parent)
+
+    if not (source_path.exists() or target_path.exists()):
+        return RuntimeClosure(
+            FORMAT_MESSAGE.link(*message_args, mode="fail"),
+            *FAIL,
         )
-
-    def write_arxiv_autotex(self, proj_info: ProjectInfo) -> None:
-        """TODO: write"""
-        self.write_template_with_info(
-            proj_info, JINJA_PATH.arxiv_autotex, proj_info.arxiv_autotex
+    if target_path.exists() and not force:
+        return RuntimeClosure(
+            FORMAT_MESSAGE.link(*message_args, mode="exists"),
+            *(SUCCESS if silent_fail else FAIL),
         )
-
-    def write_template_dict(self, proj_info: ProjectInfo):
-        proj_info.echoer.write_template(
-            proj_info.data_dir, overwrite=proj_info.template.exists()
+    if target_path.exists():
+        return RuntimeClosure(
+            FORMAT_MESSAGE.link(*message_args, mode="overwrite"),
+            True,
+            _callable,
         )
-
-        if not proj_info.dry_run:
-            # initialize texproject directory
-            proj_info.mk_data_dir()
-            toml_dump(proj_info.template, self.template_dict)
-
-
-class InitTemplate(ProjectTemplate):
-    """TODO: write"""
-
-    def __init__(self, template_name: str):
-        """Load the template generator from a template name."""
-        template_dict = template_linker.load_template(template_name)
-        self.template_name = template_name
-        super().__init__(template_dict)
-
-    def create_output_folder(self, proj_info: ProjectInfo) -> None:
-        """Write top-level files into the project path."""
-        proj_info.echoer.init(proj_info.dir)
-
-        self.write_template_dict(proj_info)
-        self.write_template_with_info(
-            proj_info, JINJA_PATH.template_doc(self.template_name), proj_info.main
-        )
-        self.write_template_with_info(
-            proj_info, JINJA_PATH.project_macro, proj_info.project_macro
-        )
+    return RuntimeClosure(
+        FORMAT_MESSAGE.link(*message_args, mode="new"),
+        True,
+        _callable,
+    )
 
 
-class LoadTemplate(ProjectTemplate):
-    """TODO: write"""
-
-    def __init__(self, proj_info: ProjectInfo) -> None:
-        """Load the template generator from an existing project."""
-        template_dict = toml_load_local_template(proj_info.template)
-        super().__init__(template_dict)
-
-
-class PackageLinker:
-    """TODO: write"""
-
+class _CmdNameLinker(AtomicCommand):
     def __init__(
-        self, proj_info: ProjectInfo, force: bool = False, silent_fail: bool = True
+        self,
+        linker: _FileLinker,
+        name: str,
+        force: bool = False,
+        silent_fail: bool = True,
+        target_dir: Optional[Path] = None,
     ) -> None:
-        """TODO: write"""
-        self.proj_info = proj_info
+        self.linker = linker
+        self.name = name
+        self.force = force
+        self.silent_fail = silent_fail
+        self._target_dir = target_dir
+
+    def get_ato(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict
+    ) -> RuntimeClosure:
+        ato = _link_helper(
+            self.linker,
+            self.name,
+            self.linker.file_path(self.name).resolve(),
+            (self._target_dir if self._target_dir is not None else proj_path.data_dir)
+            / NAMES.rel_data_path(self.name + self.linker.suffix, self.linker.mode),
+            force=self.force,
+            silent_fail=self.silent_fail,
+        )
+
+        # TODO: fix this, cannot modify state outside callable!
+        if not ato.success():
+            state["template_modifications"].append(
+                (self.linker.mode, "remove", self.name)
+            )
+        return ato
+
+
+class _CmdPathLinker(AtomicCommand):
+    def __init__(
+        self,
+        linker: _FileLinker,
+        source_path: Path,
+        force: bool = False,
+        silent_fail: bool = True,
+    ) -> None:
+        self.linker = linker
+        self.source_path = source_path
         self.force = force
         self.silent_fail = silent_fail
 
-    def make_link(self, linker: _FileLinker, name: str) -> bool:
-        """Helper function for linking. Returns True if the link was created, False if it failed,
-        and None if no attempt was made"""
-        return linker.link_name(
+    def get_ato(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict
+    ) -> RuntimeClosure:
+        # also check for wrong suffix
+        if self.source_path.suffix != self.linker.suffix:
+            return RuntimeClosure(
+                f"Filetype '{self.source_path.suffix}' is invalid!", *FAIL
+            )
+        name = self.source_path.name
+        ato = _link_helper(
+            self.linker,
             name,
-            self.proj_info.data_dir,
-            self.proj_info.echoer,
+            self.source_path.resolve(),
+            proj_path.data_dir
+            / NAMES.rel_data_path(self.source_path.name, self.linker.mode),
             force=self.force,
             silent_fail=self.silent_fail,
-            dry_run=self.proj_info.dry_run,
         )
 
-    def make_path_link(self, linker: _FileLinker, name: Path) -> bool:
-        """Helper function for linking. Returns True if the link was created, False if it failed,
-        and None if no attempt was made"""
-        return linker.link_path(
-            name,
-            self.proj_info.data_dir,
-            self.proj_info.echoer,
-            force=self.force,
-            silent_fail=self.silent_fail,
-            dry_run=self.proj_info.dry_run,
-        )
+        if not ato.success():
+            state["template_modifications"].append(
+                (NAMES.convert_mode(self.linker.mode), "remove", name)
+            )
 
-    def link(self, mode: Modes, name_list: Iterable[str]) -> List[str]:
-        return [
-            name for name in name_list if not self.make_link(LINKER_MAP[mode], name)
-        ]
+        return ato
 
-    def link_paths(self, mode: Modes, path_list: Iterable[Path]) -> List[bool]:
+
+class NameSequenceLinker(AtomicIterable):
+    def __init__(
+        self,
+        mode: Modes,
+        name_list: Iterable[str],
+        force: bool = False,
+        silent_fail: bool = True,
+        target_dir: Optional[Path] = None,
+    ) -> None:
         """TODO: write"""
-        return [self.make_path_link(LINKER_MAP[mode], path) for path in path_list]
+        self._mode = mode
+        self._name_list = name_list
+        self._force = force
+        self._silent_fail = silent_fail
+        self._target_dir = target_dir
+
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        yield from (
+            _CmdNameLinker(
+                LINKER_MAP[self._mode],
+                name,
+                force=self._force,
+                silent_fail=self._silent_fail,
+                target_dir=self._target_dir,
+            ).get_ato(proj_path, template_dict, state)
+            for name in self._name_list
+        )
+
+
+class PathSequenceLinker(AtomicIterable):
+    def __init__(
+        self,
+        mode: Modes,
+        path_list: Iterable[Path],
+        force: bool = False,
+        silent_fail: bool = True,
+    ) -> None:
+        """TODO: write"""
+        self._mode = mode
+        self._path_list = path_list
+        self._force = force
+        self._silent_fail = silent_fail
+
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        yield from (
+            _CmdPathLinker(
+                LINKER_MAP[self._mode],
+                path,
+                force=self._force,
+                silent_fail=self._silent_fail,
+            ).get_ato(proj_path, template_dict, state)
+            for path in self._path_list
+        )
+
+
+class TemplateDictLinker(AtomicIterable):
+    def __init__(self, force: bool = False, target_dir=None) -> None:
+        self._force = force
+        self._target_dir = target_dir
+
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        for mode in NAMES.modes:
+            yield from NameSequenceLinker(
+                mode,
+                template_dict[NAMES.convert_mode(mode)],
+                force=self._force,
+                target_dir=self._target_dir,
+            )(proj_path, template_dict, state, temp_dir)
+
+
+class InfoFileWriter(AtomicIterable):
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        yield from ApplyStateModifications()(proj_path, template_dict, state, temp_dir)
+
+        for writer in [
+            TemplateWriter(JINJA_PATH.classinfo, proj_path.classinfo, force=True),
+            TemplateWriter(JINJA_PATH.bibinfo, proj_path.bibinfo, force=True),
+        ]:
+            yield writer.get_ato(proj_path, template_dict, state)
+
+
+class _CmdWriteTemplateDict(AtomicCommand):
+    def get_ato(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict
+    ) -> RuntimeClosure:
+        def _callable():
+            proj_path.mk_data_dir()
+            toml_dump(proj_path.template, template_dict)
+            return RuntimeOutput(True)
+
+        return RuntimeClosure(
+            FORMAT_MESSAGE.template_dict(
+                proj_path.data_dir, overwrite=proj_path.template.exists()
+            ),
+            True,
+            _callable,
+        )
+
+
+class TemplateDictWriter(AtomicIterable):
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        yield _CmdWriteTemplateDict().get_ato(proj_path, template_dict, state)
+
+
+class OutputFolderCreator(AtomicIterable):
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        """Write top-level files into the project path."""
+        # proj_path.echoer.init(proj_path.dir)
+        for writer in [
+            _CmdWriteTemplateDict(),
+            TemplateWriter(JINJA_PATH.template_doc(state["template"]), proj_path.main),
+            TemplateWriter(JINJA_PATH.project_macro, proj_path.project_macro),
+        ]:
+            yield writer.get_ato(proj_path, template_dict, state)
+
+
+class GitFileWriter(AtomicIterable):
+    def __init__(self, force: bool = False) -> None:
+        self.force = force
+
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        for writer in [
+            TemplateWriter(JINJA_PATH.gitignore, proj_path.gitignore, force=self.force),
+            TemplateWriter(
+                JINJA_PATH.build_latex, proj_path.build_latex, force=self.force
+            ),
+            TemplateWriter(
+                JINJA_PATH.pre_commit,
+                proj_path.pre_commit,
+                executable=True,
+                force=self.force,
+            ),
+        ]:
+            yield writer.get_ato(proj_path, template_dict, state)
+
+
+class LatexBuildWriter(AtomicIterable):
+    def __init__(self, force: bool = False) -> None:
+        self.force = force
+
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        yield TemplateWriter(
+            JINJA_PATH.build_latex, proj_path.build_latex, force=self.force
+        ).get_ato(proj_path, template_dict, state)
+
+
+class FileEditor(AtomicIterable):
+    def __init__(self, config_file: Literal["local", "global", "template"]):
+        self._config_file = config_file
+
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        match self._config_file:
+            case "local":
+                fpath = proj_path.config.local_path
+            case "global":
+                fpath = proj_path.config.global_path
+            case "template":
+                fpath = proj_path.template
+            case _:
+                yield RuntimeClosure(f"Invalid option for configuration file!", *FAIL)
+                return
+
+        try:
+            click.edit(filename=str(fpath))
+            yield RuntimeClosure(FORMAT_MESSAGE.edit(fpath), *SUCCESS)
+        except click.UsageError:
+            yield RuntimeClosure(
+                FORMAT_MESSAGE.error("Could not open file for editing!"), *FAIL
+            )
+
+
+class UpgradeRepository(AtomicIterable):
+    def __call__(self, proj_path: ProjectPath, *args) -> Iterable[RuntimeClosure]:
+        import yaml
+        import pytomlpp
+
+        def _callable():
+            yaml_path = proj_path.data_dir / "tpr_info.yaml"
+            old_toml_path = proj_path.data_dir / "tpr_info.toml"
+            if yaml_path.exists():
+                proj_path.template.write_text(
+                    pytomlpp.dumps(yaml.safe_load(yaml_path.read_text()))
+                )
+                yaml_path.unlink()
+            if old_toml_path.exists():
+                old_toml_path.rename(proj_path.template)
+
+            # rename all the files
+            for init, trg, end in [
+                ("macro", "macros", ".sty"),
+                ("citation", "citations", ".bib"),
+                ("format", "style", ".sty"),
+            ]:
+                (proj_path.data_dir / trg).mkdir(exist_ok=True)
+                for path in proj_path.data_dir.glob(f"{init}-*{end}"):
+                    path.rename(
+                        proj_path.data_dir
+                        / trg
+                        / ("local-" + "".join(path.name.split("-")[1:]))
+                    )
+
+            # rename style directory
+            if (proj_path.data_dir / "style").exists():
+                (proj_path.data_dir / "style").rename(proj_path.data_dir / "styles")
+
+            # rename format / style key to list of styles
+            for old_name in ("format", "style"):
+                try:
+                    tpl_dict = pytomlpp.load(proj_path.template)
+                    tpl_dict["styles"] = [tpl_dict.pop(old_name)]
+                    proj_path.template.write_text(pytomlpp.dumps(tpl_dict))
+                except KeyError:
+                    pass
+            return RuntimeOutput(True)
+
+        yield RuntimeClosure(
+            FORMAT_MESSAGE.info("Upgrading repository files"),
+            True,
+            _callable,
+        )

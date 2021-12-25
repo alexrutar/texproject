@@ -1,12 +1,10 @@
 """TODO: write"""
 from __future__ import annotations
-import contextlib
 import errno
 from importlib import resources
 from pathlib import Path
 import shutil
 from typing import TYPE_CHECKING
-import uuid
 
 import pytomlpp as toml
 from xdg import XDG_DATA_HOME, XDG_CONFIG_HOME
@@ -27,20 +25,6 @@ from .term import VerboseEcho
 if TYPE_CHECKING:
     from .base import Modes
     from typing import Optional, Tuple, Generator, List, Dict
-
-# todo: do something else with this
-def verbose_unlink(proj_info: ProjectInfo, path: Path):
-    if path.exists():
-        proj_info.echoer.rm(path)
-    if not proj_info.dry_run:
-        try:
-            if path.is_file() or path.is_symlink():
-                path.unlink()
-            elif path.is_dir():
-                shutil.rmtree(path)
-        except Exception as err:
-            # todo: better error here
-            print(f"Failed to delete '{path}'. Reason: {err}")
 
 
 def toml_load(path_obj: Path, missing_ok: bool = False) -> Dict:
@@ -341,47 +325,6 @@ class ProjectPath:
             (self.data_dir / NAMES.resource_subdir(mode)).mkdir(
                 exist_ok=True, parents=True
             )
-
-    @contextlib.contextmanager
-    def temp_subpath(self) -> Generator:
-        """TODO: write"""
-        self.temp_dir.mkdir(exist_ok=True)
-        path = self.temp_dir / uuid.uuid1().hex
-        try:
-            yield path
-        finally:
-            try:
-                if path.is_file() or path.is_symlink():
-                    path.unlink()
-                elif path.is_dir():
-                    shutil.rmtree(path)
-            except Exception as err:
-                # todo: better error here
-                print(f"Failed to delete '{path}'. Reason: {err}")
-
-    def clear_temp(self) -> None:
-        """TODO: write"""
-        if self.temp_dir.exists():
-            for file_path in self.temp_dir.iterdir():
-                try:
-                    if file_path.is_file() or file_path.is_symlink():
-                        file_path.unlink()
-                    elif file_path.is_dir():
-                        shutil.rmtree(file_path)
-                except Exception as err:
-                    # todo: better error here
-                    print(f"Failed to delete '{file_path}'. Reason: {err}")
-
-
-class ProjectInfo(ProjectPath):
-    """TODO: write"""
-
-    def __init__(self, proj_dir: Path, dry_run: bool, verbose: bool):
-        """TODO: write"""
-        self.dry_run = dry_run
-        self.force = False
-        self.echoer = VerboseEcho(verbose or dry_run)
-        super().__init__(proj_dir)
 
 
 JINJA_PATH = _JinjaTemplatePath()

@@ -3,48 +3,207 @@ from __future__ import annotations
 
 # from difflib import unified_diff
 from functools import update_wrapper
+from itertools import chain
 from pathlib import Path
 import sys
+import tempfile
 from typing import TYPE_CHECKING
+from dataclasses import astuple
 
 import click
 
 from . import __version__, __repo__
 from .base import SHUTIL_ARCHIVE_FORMATS, SHUTIL_ARCHIVE_SUFFIX_MAP
-from .error import BasePathError, SubcommandError, LaTeXCompileError, assert_never
-from .export import create_archive
+from .error import (
+    BasePathError,
+    SubcommandError,
+    LaTeXCompileError,
+    assert_never,
+    AbortRunner,
+)
+from .export import ArchiveWriter
 from .filesystem import (
-    ProjectInfo,
+    ProjectPath,
     JINJA_PATH,
     NAMES,
     style_linker,
     macro_linker,
     citation_linker,
     template_linker,
+    toml_load_local_template,
 )
-from .git import GHRepo
-from .process import subproc_run, compile_tex
-from .template import LoadTemplate, InitTemplate, PackageLinker
+from .git import CreateGithubRepo, WriteGithubApiToken
+from .process import LatexCompiler, InitializeGitRepo
+from .template import (
+    OutputFolderCreator,
+    InfoFileWriter,
+    GitignoreWriter,
+    PrecommitWriter,
+    TemplateDictLinker,
+    FileEditor,
+    NameSequenceLinker,
+    PathSequenceLinker,
+    ApplyModificationSequence,
+    TemplateDictWriter,
+    GitFileWriter,
+    LatexBuildWriter,
+    UpgradeRepository,
+)
 
 if TYPE_CHECKING:
     from .base import Modes, NAMES, RepoVisibility
-    from typing import Optional, Iterable, Any, List, Literal
+    from typing import Optional, Iterable, Any, List, Literal, Dict, Final, Callable
+    from .control import AtomicIterable, RuntimeClosure
 
 
-class CatchInternalExceptions(click.Group):
-    """Catch some special errors which occur during program execution, and print them out
-    nicely.
-    """
+class CommandRunner:
+    def __init__(
+        self, proj_path: ProjectPath, template_dict: Dict, dry_run=False, verbose=True
+    ):
+        self._proj_path: Final = proj_path
+        self._template_dict: Final = template_dict
+        self._dry_run = dry_run
+        self._verbose = verbose
 
-    def __call__(self, *args, **kwargs) -> Any:
+    def atomic_outputs(
+        self,
+        command_iter: Iterable[AtomicIterable],
+        state_init: Callable[[], Dict[str, Any]] = lambda: {},
+    ) -> Iterable[RuntimeClosure]:
+        state = state_init()
+        for at_iter in command_iter:
+            with tempfile.TemporaryDirectory() as temp_dir_str:
+                temp_dir = Path(temp_dir_str)
+                yield from at_iter(
+                    self._proj_path, self._template_dict, state, temp_dir
+                )
+
+    def process_output(self, rtc: RuntimeClosure):
+        # add dry_run and verbose processing here
+        inferred_success = rtc.success()
+        if self._dry_run:
+            click.echo(rtc.message())
+            return inferred_success
+        else:
+            success, out = astuple(rtc.run())
+            if self._verbose:
+                if success:
+                    click.echo(rtc.message())
+                else:
+                    click.secho(click.unstyle(rtc.message()), fg="red", err=True)
+
+                if out is not None:
+                    click.echo(out.decode("ascii"), err=not success)
+
+            # if not dry run, both need to pass
+            return success and inferred_success
+
+    def execute(
+        self,
+        command_iter: Iterable[AtomicIterable],
+        state_init: Callable[[], Dict[str, str]] = lambda: {},
+    ):
         try:
-            return self.main(*args, **kwargs)
-        except (BasePathError, LaTeXCompileError, SubcommandError) as err:
-            click.echo(err, err=True)
+            # list is needed here to avoid generator short-circuiting:
+            # side effects are important!
+            if not all(
+                [
+                    self.process_output(rtc)
+                    for rtc in self.atomic_outputs(command_iter, state_init)
+                ]
+            ):
+                click.secho(
+                    "\nError: Runner completed, but one of the commands failed!",
+                    err=True,
+                    fg="red",
+                )
+                sys.exit(1)
+
+        except AbortRunner as e:
+            click.secho(
+                f"Runner aborted with error message '{str(e)}'. Dumping stderr: ",
+                err=True,
+                fg="red",
+            )
+            click.echo(e.stderr.decode("ascii"), err=True)
             sys.exit(1)
 
 
-@click.group(cls=CatchInternalExceptions)
+class ValidationFunction:
+    @staticmethod
+    def proj_exists(exists=bool):
+        return lambda proj_path: proj_path.validate(exists=exists)
+
+    @staticmethod
+    def git_exists(exists=bool):
+        return lambda proj_path: proj_path.validate_git(exists=exists)
+
+
+def process_atoms(
+    *validation_funcs: Callable[[ProjectPath], bool], pass_template_name=False
+):
+    """Custom decorator which passes the object after performing some state verification on it."""
+
+    def state_constructor(template: Optional[str] = None) -> Callable[[], Dict]:
+        def state_init() -> Dict:
+            dct = {
+                "linked": {NAMES.convert_mode(mode): [] for mode in NAMES.modes},
+                "template_modifications": [],
+            }
+            names = {"template": template} if template is not None else {}
+            return dct | names
+
+        return state_init
+
+    def decorator(f):
+        if pass_template_name:
+
+            @click.argument(
+                "template",
+                type=click.Choice(template_linker.list_names()),
+                metavar="TEMPLATE",
+            )
+            @click.pass_context
+            def new_func_1(ctx, template: str, *args, **kwargs):
+                for func in validation_funcs:
+                    func(ctx.obj["proj_path"])
+
+                command_iter = ctx.invoke(f, *args, **kwargs)
+                runner = CommandRunner(
+                    ctx.obj["proj_path"],
+                    template_linker.load_template(template),
+                    dry_run=ctx.obj["dry_run"],
+                    verbose=ctx.obj["verbose"],
+                )
+                runner.execute(command_iter, state_init=state_constructor(template))
+
+            return update_wrapper(new_func_1, f)
+
+        else:
+
+            @click.pass_context
+            def new_func(ctx, *args, **kwargs):
+                for func in validation_funcs:
+                    func(ctx.obj["proj_path"])
+
+                command_iter = ctx.invoke(f, *args, **kwargs)
+                runner = CommandRunner(
+                    ctx.obj["proj_path"],
+                    toml_load_local_template(ctx.obj["proj_path"].template),
+                    dry_run=ctx.obj["dry_run"],
+                    verbose=ctx.obj["verbose"],
+                )
+                runner.execute(command_iter, state_init=state_constructor())
+
+            return update_wrapper(new_func, f)
+
+    return decorator
+
+
+# TODO
+# figure out how to just stick these wrappers directly inside the process_atoms function
+# then -n and --verbose can be specified at the end, rather than right at the front
+@click.group()
 @click.version_option(prog_name="tpr (texproject)")
 @click.option(
     "-C",
@@ -70,60 +229,26 @@ def cli(ctx, proj_dir: Path, dry_run: bool, verbose: bool) -> None:
     """TexProject is a tool to help streamline the creation and distribution of files
     written in LaTeX.
     """
-    ctx.obj = ProjectInfo(proj_dir, dry_run, verbose)
-
-
-def pass_obj_with_validation(*validation_funcs):
-    """Custom decorator which passes the object after performing some state verification on it."""
-
-    def decorator(f):
-        @click.pass_context
-        def new_func(ctx, *args, **kwargs):
-            for func in validation_funcs:
-                func(ctx.obj)
-            retval = ctx.invoke(f, ctx.obj, *args, **kwargs)
-            # perform operations on the return value here
-            return retval
-
-        return update_wrapper(new_func, f)
-
-    return decorator
-
-
-def _proj_exists(exists=bool):
-    def func(proj_info: ProjectInfo):
-        proj_info.validate(exists=exists)
-
-    return func
-
-
-def _git_exists(exists=bool):
-    def func(proj_info: ProjectInfo):
-        proj_info.validate_git(exists=exists)
-
-    return func
+    ctx.obj = {
+        "proj_path": ProjectPath(proj_dir),
+        "dry_run": dry_run,
+        "verbose": verbose,
+    }
 
 
 @cli.command()
-@click.argument(
-    "template", type=click.Choice(template_linker.list_names()), metavar="TEMPLATE"
-)
-@pass_obj_with_validation(_proj_exists(False))
-def init(proj_info: ProjectInfo, template: str) -> None:
+@process_atoms(ValidationFunction.proj_exists(False), pass_template_name=True)
+def init() -> Iterable[AtomicIterable]:
     """Initialize a new project in the working directory. The project is created using
     the template with name TEMPLATE and placed in the output folder OUTPUT.
 
     The path working directory either must not exist or be an empty folder. Missing
     intermediate directories are automatically constructed.
     """
-    proj_gen = InitTemplate(template)
-
-    proj_gen.create_output_folder(proj_info)
-    proj_gen.write_tpr_files(proj_info)
-
-
-def _refresh_template(proj_info: ProjectInfo):
-    LoadTemplate(proj_info).write_tpr_files(proj_info)
+    # must link templates before writing
+    yield OutputFolderCreator()
+    yield TemplateDictLinker()
+    yield InfoFileWriter()
 
 
 @cli.command()
@@ -137,8 +262,8 @@ def _refresh_template(proj_info: ProjectInfo):
     help="Edit global configuration.",
     default=True,
 )
-@pass_obj_with_validation()
-def config(proj_info: ProjectInfo, config_file: str) -> None:
+@process_atoms()
+def config(config_file: Literal["local", "global"]) -> Iterable[AtomicIterable]:
     """Edit texproject configuration files. This opens the corresponding file in your
     $EDITOR. By default, edit the project template file: this requires the working
     directory to be texproject directory.
@@ -146,15 +271,11 @@ def config(proj_info: ProjectInfo, config_file: str) -> None:
     Note that this command does not replace existing macro files. See the `tpr import`
     command for this functionality.
     """
-    match config_file:
-        case "local":
-            click.edit(filename=str(proj_info.config.local_path))
+    yield FileEditor(config_file)
 
-        case "global":
-            click.edit(filename=str(proj_info.config.global_path))
 
-        case _:
-            assert_never(config_file)
+# def _refresh_template(proj_path: ProjectPath):
+#     LoadTemplate(proj_path).write_tpr_files(proj_path)
 
 
 def _link_option(mode: Modes):
@@ -202,9 +323,8 @@ def _path_option(mode: Modes):
     default=False,
     help="auto-generated pre-commit",
 )
-@pass_obj_with_validation(_proj_exists(True))
+@process_atoms(ValidationFunction.proj_exists(True))
 def import_(
-    proj_info: ProjectInfo,
     macros: Iterable[str],
     citations: Iterable[str],
     styles: Iterable[str],
@@ -213,7 +333,7 @@ def import_(
     style_paths: Iterable[Path],
     gitignore: bool,
     pre_commit: bool,
-) -> None:
+) -> Iterable[AtomicIterable]:
     """Import macro, citation, and format files. This command will replace existing
     files. Note that this command does not import the files into the main .tex file.
 
@@ -221,28 +341,18 @@ def import_(
     as paths to existing files. For example, this enables imports which are not installed
     in the texproject data directory.
     """
-    linker = PackageLinker(proj_info, force=True)
     for mode, names, paths in [
         ("macro", macros, macro_paths),
         ("citation", citations, citation_paths),
         ("style", styles, style_paths),
     ]:
-        linker.link(mode, names)
-        linker.link_paths(mode, paths)
+        yield NameSequenceLinker(mode, names, force=True)
+        yield PathSequenceLinker(mode, paths, force=True)
 
-    proj_gen = LoadTemplate(proj_info)
     if gitignore:
-        proj_gen.write_template_with_info(
-            proj_info, JINJA_PATH.gitignore, proj_info.gitignore, force=True
-        )
+        yield GitignoreWriter(force=True)
     if pre_commit:
-        proj_gen.write_template_with_info(
-            proj_info,
-            JINJA_PATH.pre_commit,
-            proj_info.pre_commit,
-            executable=True,
-            force=True,
-        )
+        yield PrecommitWriter(force=True)
 
 
 @cli.command()
@@ -257,28 +367,20 @@ def import_(
     help="write .log to file",
     type=click.Path(exists=False, writable=True, path_type=Path),
 )
-@pass_obj_with_validation(_proj_exists(True))
-def validate(proj_info: ProjectInfo, pdf: Path, logfile: Path) -> None:
+@process_atoms(ValidationFunction.proj_exists(True))
+def validate(pdf: Optional[Path], logfile: Optional[Path]) -> Iterable[AtomicIterable]:
     """Check for compilation errors. Compilation is performed by the 'latexmk' command.
     Save the resulting pdf with the '--output' argument, or the log file with the
     '--logfile' argument. These options, if specified, will overwrite existing files.
     """
-    with proj_info.temp_subpath() as build_dir:
-        build_dir.mkdir()
-        compile_tex(
-            proj_info, outdir=build_dir, output_map={".pdf": pdf, ".log": logfile}
-        )
-
-
-def validate_exists(ctx, _, path) -> Path:
-    """TODO: write"""
-    if not ctx.obj.force and path.exists():
-        raise click.BadParameter("file exists. Use -f / --force to overwrite.")
-    return path
+    yield LatexCompiler(
+        output_map={
+            k: v for k, v in {".pdf": pdf, ".log": logfile}.items() if v is not None
+        }
+    )
 
 
 @cli.command()
-@click.option("--force/--no-force", "-f/-F", default=False, help="overwrite files")
 @click.option(
     "--format",
     "compression",
@@ -293,15 +395,11 @@ def validate_exists(ctx, _, path) -> Path:
     show_default=True,
     help="specify what to export",
 )
-@click.argument(
-    "output",
-    type=click.Path(exists=False, writable=True, path_type=Path),
-    callback=validate_exists,
-)
-@pass_obj_with_validation(_proj_exists(True))
+@click.argument("output", type=click.Path(exists=False, writable=True, path_type=Path))
+@process_atoms(ValidationFunction.proj_exists(True))
 def archive(
-    proj_info: ProjectInfo, force: bool, compression: str, mode: str, output: Path
-) -> None:
+    compression: str, mode: Literal["archive", "build", "source"], output: Path
+) -> Iterable[AtomicIterable]:
     """Create a compressed export with name OUTPUT. If the 'arxiv' or 'build' options are
     chosen, 'latexmk' is used to compile additional required files.
 
@@ -328,8 +426,6 @@ def archive(
 
     Note that not all compression modes may be available on your system.
     """
-    proj_info.force = force
-
     if compression is None:
         try:
             compression = SHUTIL_ARCHIVE_SUFFIX_MAP[output.suffix]
@@ -337,7 +433,7 @@ def archive(
         except KeyError:
             compression = "tar"
 
-    create_archive(proj_info, compression, output, fmt=mode)
+    yield ArchiveWriter(compression, output, fmt=mode)
 
 
 @cli.group()
@@ -350,43 +446,41 @@ def template() -> None:
 @_link_option("citation")
 @_link_option("style")
 @click.option("--index", "index", help="position to insert", default=0, type=int)
-@pass_obj_with_validation(_proj_exists(True))
+@process_atoms(ValidationFunction.proj_exists(True))
 def add(
-    proj_info: ProjectInfo,
     macros: List[str],
     citations: List[str],
     styles: List[str],
     index: int,
-) -> None:
-    """Add entries to the template dictionary."""
-    proj_gen = LoadTemplate(proj_info)
+) -> Iterable[AtomicIterable]:
+    """Add entries to the template dictionary. The --index option allows you to specify
+    the index to insert the citation (--index 0 means to insert at the beginning).
+    """
     for mode, names in [("macro", macros), ("citation", citations), ("style", styles)]:
-        for name in names:
-            proj_gen.add(mode, name, index)
-    proj_gen.write_template_dict(proj_info)
+        yield ApplyModificationSequence((mode, "add", name, index) for name in names)
+
+    yield TemplateDictWriter()
 
 
 @template.command()
 @_link_option("macro")
 @_link_option("citation")
 @_link_option("style")
-@pass_obj_with_validation(_proj_exists(True))
+@process_atoms(ValidationFunction.proj_exists(True))
 def remove(
-    proj_info: ProjectInfo, macros: List[str], citations: List[str], styles: List[str]
-) -> None:
+    macros: List[str], citations: List[str], styles: List[str]
+) -> Iterable[AtomicIterable]:
     """Remove entries from the template dictionary."""
-    proj_gen = LoadTemplate(proj_info)
     for mode, names in [("macro", macros), ("citation", citations), ("style", styles)]:
-        for name in names:
-            proj_gen.remove(mode, name)
-    proj_gen.write_template_dict(proj_info)
+        yield ApplyModificationSequence((mode, "remove", name) for name in names)
+
+    yield TemplateDictWriter()
 
 
 @template.command()
-@pass_obj_with_validation(_proj_exists(True))
-def edit(proj_info: ProjectInfo):
-    click.edit(filename=str(proj_info.template))
-    _refresh_template(proj_info)
+@process_atoms(ValidationFunction.proj_exists(True))
+def edit():
+    yield FileEditor("template")
 
 
 @cli.group()
@@ -431,15 +525,16 @@ def git() -> None:
     help="Create issues page",
     default=False,
 )
-@pass_obj_with_validation(_proj_exists(True), _git_exists(False))
+@process_atoms(
+    ValidationFunction.proj_exists(True), ValidationFunction.git_exists(False)
+)
 def git_init(
-    proj_info: ProjectInfo,
     repo_name: str,
     repo_desc: str,
     vis: RepoVisibility,
     wiki: bool,
     issues: bool,
-) -> None:
+) -> Iterable[AtomicIterable]:
     """Initialize git and a corresponding GitHub repository. If called with no options,
     this command will interactively prompt you in order to initialize the repo correctly.
     This command also creates a GitHub action with automatically compiles and releases
@@ -457,25 +552,20 @@ def git_init(
     Otherwise, the token will default to the empty string. The access token is not
     required for the build action functionality.
     """
-    proj_gen = LoadTemplate(proj_info)
-    proj_gen.write_git_files(proj_info)
+    yield GitFileWriter()
+    yield InitializeGitRepo()
+    yield CreateGithubRepo(repo_name, repo_desc, vis, wiki, issues)
+    yield WriteGithubApiToken(repo_name)
 
-    # initialize repo
-    subproc_run(proj_info, ["git", "init"])
 
-    # add and commit all files
-    subproc_run(proj_info, ["git", "add", "-A"])
-    subproc_run(
-        proj_info, ["git", "commit", "-m", "Initialize new texproject repository."]
-    )
-
-    # initialize the remote repository
-    remote_repo = GHRepo(proj_info, repo_name)
-    remote_repo.create(repo_desc, vis, wiki, issues)
-
-    # only run if archive is set
-    if "archive" in proj_info.config.github.keys():
-        remote_repo.write_api_token()
+@git.command("init-files")
+@click.option("--force/--no-force", "-f/-F", default=False, help="overwrite files")
+@process_atoms(
+    ValidationFunction.proj_exists(True), ValidationFunction.git_exists(False)
+)
+def init_files(force: bool) -> Iterable[AtomicIterable]:
+    """Create the git repository files. This does not create a local or remote git repository."""
+    yield GitFileWriter(force=force)
 
 
 @git.command("init-archive")
@@ -486,29 +576,11 @@ def git_init(
     help="Name of the repository",
     type=str,
 )
-@pass_obj_with_validation(_proj_exists(True))
-def init_archive(proj_info: ProjectInfo, repo_name: str) -> None:
+@process_atoms(ValidationFunction.proj_exists(True))
+def init_archive(repo_name: str) -> Iterable[AtomicIterable]:
     """Set the GitHub secret and archive repository."""
-    proj_gen = LoadTemplate(proj_info)
-    proj_gen.write_template_with_info(
-        proj_info, JINJA_PATH.build_latex, proj_info.build_latex, force=True
-    )
-    remote_repo = GHRepo(proj_info, repo_name)
-    remote_repo.write_api_token()
-
-
-@cli.command("list")
-@click.argument("res_class", type=click.Choice(NAMES.modes + ("template",)))
-def list_(res_class: Modes | Literal["template"]) -> None:
-    """Retrieve program and template information."""
-    linker_map = {
-        "citation": citation_linker,
-        "macro": macro_linker,
-        "style": style_linker,
-        "template": template_linker,
-    }
-
-    click.echo("\n".join(linker_map[res_class].list_names()))
+    yield LatexBuildWriter(force=True)
+    yield WriteGithubApiToken(repo_name)
 
 
 @cli.group()
@@ -517,87 +589,38 @@ def util() -> None:
 
 
 @util.command("upgrade")
-@pass_obj_with_validation()
-def upgrade(proj_info: ProjectInfo) -> None:
+@process_atoms(ValidationFunction.proj_exists(True))
+def upgrade() -> Iterable[AtomicIterable]:
     """Upgrade project data structure from previous versions."""
-    proj_info.validate(exists=True)
-    import yaml
-    import pytomlpp
-
-    # migrate from previous versions of local template file
-    yaml_path = proj_info.data_dir / "tpr_info.yaml"
-    old_toml_path = proj_info.data_dir / "tpr_info.toml"
-    if yaml_path.exists():
-        proj_info.template.write_text(
-            pytomlpp.dumps(yaml.safe_load(yaml_path.read_text()))
-        )
-        yaml_path.unlink()
-    if old_toml_path.exists():
-        old_toml_path.rename(proj_info.template)
-
-    # rename all the files
-    for init, trg, end in [
-        ("macro", "macros", ".sty"),
-        ("citation", "citations", ".bib"),
-        ("format", "style", ".sty"),
-    ]:
-        (proj_info.data_dir / trg).mkdir(exist_ok=True)
-        for path in proj_info.data_dir.glob(f"{init}-*{end}"):
-            path.rename(
-                proj_info.data_dir
-                / trg
-                / ("local-" + "".join(path.name.split("-")[1:]))
-            )
-
-    # rename style directory
-    if (proj_info.data_dir / "style").exists():
-        (proj_info.data_dir / "style").rename(proj_info.data_dir / "styles")
-
-    # rename format / style key to list of styles
-    for old_name in ("format", "style"):
-        try:
-            tpl_dict = pytomlpp.load(proj_info.template)
-            tpl_dict["styles"] = [tpl_dict.pop(old_name)]
-            proj_info.template.write_text(pytomlpp.dumps(tpl_dict))
-        except KeyError:
-            pass
-
-    # refresh the template
-    _refresh_template(proj_info)
+    yield UpgradeRepository()
 
 
 @util.command("refresh")
 @click.option("--force/--no-force", "-f/-F", default=False, help="overwrite files")
-@pass_obj_with_validation(_proj_exists(True))
-def refresh(proj_info: ProjectInfo, force: bool) -> None:
+@process_atoms(ValidationFunction.proj_exists(True))
+def refresh(force: bool) -> Iterable[AtomicIterable]:
     """"""
-    proj_gen = LoadTemplate(proj_info)
-    proj_gen.write_tpr_files(proj_info, force=force)
+    yield TemplateDictLinker(force=force)
+    yield InfoFileWriter()
 
 
 @util.command()
-@click.option(
-    "--remove-unneeded/--keep-unneeded",
-    "rm_unneeded",
-    default=False,
-    help="remove packages that are not imported into the file",
-)
-@pass_obj_with_validation(_proj_exists(True))
-def clean(proj_info: ProjectInfo, rm_unneeded: bool) -> None:
+@process_atoms(ValidationFunction.proj_exists(True))
+def clean() -> None:
     """Clean the project directory.
 
     Currently not fully implemented.
     """
-    proj_info.clear_temp()
+    # todo: write this, along with helper functions, to delete all unused macro files (anything not linked by the template_
+    raise NotImplementedError
 
 
 @util.command()
 @_link_option("macro")
 @_link_option("citation")
 @_link_option("style")
-@pass_obj_with_validation(_proj_exists(True))
+@process_atoms(ValidationFunction.proj_exists(True))
 def diff(
-    proj_info: ProjectInfo,
     macros: List[str],
     citations: List[str],
     styles: Optional[str],
@@ -614,3 +637,17 @@ def show_config():
     from importlib import resources
 
     click.echo(resources.read_text(defaults, "config.toml"), nl=False)
+
+
+@cli.command("list")
+@click.argument("res_class", type=click.Choice(NAMES.modes + ("template",)))
+def list_(res_class: Modes | Literal["template"]) -> None:
+    """Retrieve program and template information."""
+    linker_map = {
+        "citation": citation_linker,
+        "macro": macro_linker,
+        "style": style_linker,
+        "template": template_linker,
+    }
+
+    click.echo("\n".join(linker_map[res_class].list_names()))
