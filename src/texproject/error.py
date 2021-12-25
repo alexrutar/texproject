@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from typing import Optional, NoReturn
-    from subprocess import CalledProcessError
     from pathlib import Path
 
 # def assert_never(value: NoReturn) -> NoReturn:
@@ -22,25 +21,6 @@ class AbortRunner(Exception):
 
 class ValidationError(AbortRunner):
     def __init__(self, message: str):
-        super().__init__(message)
-
-
-class SubcommandError(Exception):
-    """TODO: write"""
-
-    def __init__(self, proc_error: CalledProcessError):
-        self.message = f"Subcommand returned exit code {proc_error.returncode}."
-        self.cmd = proc_error.cmd
-        self.stdout = proc_error.stdout.decode("ascii")
-        self.stderr = proc_error.stderr.decode("ascii")
-        super().__init__(self.message)
-
-
-class LaTeXCompileError(Exception):
-    """TODO: write"""
-
-    def __init__(self, message: str = "Project compilation failed!"):
-        self.message = message
         super().__init__(message)
 
 

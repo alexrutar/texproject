@@ -17,7 +17,6 @@ from .error import (
     TemplateDataMissingError,
     ValidationError,
 )
-from .term import VerboseEcho
 
 if TYPE_CHECKING:
     from .base import Modes
@@ -355,98 +354,6 @@ class _FileLinker(_BaseLinker):
             DATA_PATH.resource_dir / NAMES.resource_subdir(mode), suffix, user_str
         )
         self.mode = mode  # type: Modes
-
-    def link_path(
-        self,
-        path: Path,
-        rel_path: Path,
-        echoer: VerboseEcho,
-        force: bool = False,
-        silent_fail: bool = True,
-        dry_run=False,
-    ) -> bool:
-        source_path = path.resolve()
-        if source_path.suffix != self.suffix:
-            raise BasePathError(
-                source_path, message=f"Filetype '{source_path.suffix}' is invalid!"
-            )
-        target_path = rel_path / NAMES.rel_data_path(source_path.name, self.mode)
-
-        return self._link_helper(
-            source_path,
-            target_path,
-            rel_path,
-            str(path),
-            echoer,
-            force=force,
-            silent_fail=silent_fail,
-            dry_run=dry_run,
-        )
-
-    def link_name(
-        self,
-        name: str,
-        rel_path: Path,
-        echoer: VerboseEcho,
-        force: bool = False,
-        silent_fail: bool = True,
-        dry_run=False,
-    ) -> bool:
-        """Return True if the link succeeds (either bc exists, or copied in), and False otherwise"""
-        source_path = self.file_path(name).resolve()
-        target_path = rel_path / NAMES.rel_data_path(name + self.suffix, self.mode)
-
-        return self._link_helper(
-            source_path,
-            target_path,
-            rel_path,
-            name,
-            echoer,
-            force=force,
-            silent_fail=silent_fail,
-            dry_run=dry_run,
-        )
-
-    def _link_helper(
-        self,
-        source_path: Path,
-        target_path: Path,
-        rel_path: Path,
-        echo_name: str,
-        echoer: VerboseEcho,
-        force: bool = False,
-        silent_fail: bool = True,
-        dry_run=False,
-    ) -> bool:
-
-        if not (source_path.exists() or target_path.exists()):
-            echoer.link(self, echo_name, rel_path, mode="fail")
-            return False
-            # raise TemplateDataMissingError(
-            #         source_path,
-            #         user_str=self.user_str,
-            #         name=name)
-
-        if target_path.exists() and not force:
-            echoer.link(self, echo_name, rel_path, mode="exists")
-            if silent_fail:
-                return True
-            raise FileExistsError(
-                errno.EEXIST, "Link target already exists", str(target_path.resolve())
-            )
-
-        # only print the message if the target path doesn't exist, or it if does and
-        # forced replace
-        # todo: same pattern as write_template (abstract out?)
-        if target_path.exists():
-            echoer.link(self, echo_name, rel_path, mode="overwrite")
-        else:
-            echoer.link(self, echo_name, rel_path, mode="new")
-
-        if not dry_run:
-            shutil.copyfile(str(source_path), str(target_path.resolve()))
-            return True
-        return False
 
 
 def _load_default_template() -> Dict:
