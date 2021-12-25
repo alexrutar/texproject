@@ -1,9 +1,6 @@
 """TODO: write"""
 from __future__ import annotations
-import errno
 from importlib import resources
-from pathlib import Path
-import shutil
 from typing import TYPE_CHECKING
 
 import pytomlpp as toml
@@ -12,7 +9,6 @@ from xdg import XDG_DATA_HOME, XDG_CONFIG_HOME
 from . import defaults
 from .base import NAMES, constant
 from .error import (
-    BasePathError,
     ProjectDataMissingError,
     TemplateDataMissingError,
     ValidationError,
@@ -21,6 +17,7 @@ from .error import (
 if TYPE_CHECKING:
     from .base import Modes
     from typing import Optional, Tuple, List, Dict
+    from pathlib import Path
 
 
 def toml_load(path_obj: Path, missing_ok: bool = False) -> Dict:
