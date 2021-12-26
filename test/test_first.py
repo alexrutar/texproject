@@ -3,10 +3,11 @@ from pathlib import Path
 from texproject.command import cli
 from texproject.filesystem import template_linker
 import pytest
+import shlex
 
 
 def _verbose_invoke(runner, args):
-    print(f"Calling with {args}")
+    print(shlex.join(["tpr"] + args))
     return runner.invoke(cli, args)
 
 
@@ -45,6 +46,8 @@ def test_archive(fs_runner):
             Path("000README.XXX"),
         ]:
             assert path in path_list
+
+        assert Path("texproject/macros/local-typesetting.sty") not in path_list
 
 
 def test_import(fs_runner):
@@ -114,4 +117,11 @@ def test_template(fs_runner):
         ["util", "refresh"],
     )
     assert len(Path(".texproject/citations/local-example.bib").read_text()) > 0
+    assert not Path(".texproject/macros/local-tikz.sty").exists()
+
+
+def test_clean(fs_runner):
+    _run_cmd_seq(fs_runner, ["init", "preprint"], ["import", "--macro", "tikz"])
+    assert Path(".texproject/macros/local-tikz.sty").exists()
+    _run_cmd_seq(fs_runner, ["util", "clean"])
     assert not Path(".texproject/macros/local-tikz.sty").exists()

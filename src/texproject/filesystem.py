@@ -3,6 +3,7 @@ from __future__ import annotations
 from importlib import resources
 from typing import TYPE_CHECKING
 
+from pathlib import Path
 import pytomlpp as toml
 from xdg import XDG_DATA_HOME, XDG_CONFIG_HOME
 
@@ -16,8 +17,7 @@ from .error import (
 
 if TYPE_CHECKING:
     from .base import Modes
-    from typing import Optional, Tuple, List, Dict
-    from pathlib import Path
+    from typing import Optional, Tuple, List, Dict, Iterable
 
 
 def toml_load(path_obj: Path, missing_ok: bool = False) -> Dict:

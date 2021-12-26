@@ -4,7 +4,7 @@ from pathlib import Path
 import shutil
 
 if TYPE_CHECKING:
-    from typing import Literal, TypeVar, Tuple
+    from typing import Literal, TypeVar, Tuple, Iterable
 
     # todo: rename to "Mode" or "LinkMode"
     Modes = TypeVar("Modes", Literal["citation"], Literal["style"], Literal["macro"])
@@ -81,6 +81,19 @@ class _Naming:
     @constant
     def modes(self) -> tuple[str, str, str]:
         return ("citation", "style", "macro")
+
+    def get_name(self, template_file_path: Path):
+        fn = template_file_path.stem
+        if fn.startswith("local-"):
+            return "-".join(fn.split("-")[1:])
+        else:
+            raise Exception("Invalid template file path!")
+
+    def existing_template_files(
+        self, working_dir: Path, mode: Modes
+    ) -> Iterable[Tuple[Path, str]]:
+        for path in (working_dir / NAMES.resource_subdir(mode)).glob("local-*"):
+            yield (path, NAMES.get_name(path))
 
     def rel_data_path(self, name: str, mode: Modes) -> Path:
         # prepend local- to minimize name collisions with existing packages

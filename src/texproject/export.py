@@ -5,11 +5,12 @@ from typing import TYPE_CHECKING
 from .base import NAMES
 from .filesystem import ProjectPath, JINJA_PATH
 from .template import (
-    NameSequenceLinker,
-    InfoFileWriter,
+    _CmdRemovePath,
+    _CmdRenamePath,
     TemplateWriter,
     _CmdApplyModification,
     TemplateDictLinker,
+    CleanRepository,
 )
 from .term import FORMAT_MESSAGE
 from .process import _CmdCompileLatex, _CmdCopyOutput
@@ -139,21 +140,13 @@ class ModifyArxiv(AtomicIterable):
             proj_path.config.render["default_tex_name"] + ".tex"
         )
 
-        def _rename_callable():
-            (self._working_dir / proj_path.data_dir.name).rename(new_data_dir)
-            (
-                new_data_dir / (proj_path.config.render["classinfo_file"] + ".tex")
-            ).unlink()
-            (new_data_dir / (proj_path.config.render["bibinfo_file"] + ".tex")).unlink()
-            return RuntimeOutput(True)
-
-        yield RuntimeClosure(
-            FORMAT_MESSAGE.info(
-                f"Rename file {self._working_dir / proj_path.data_dir.name} to {new_data_dir}."
-            ),
-            True,
-            _rename_callable,
-        )
+        yield _CmdRenamePath(
+            self._working_dir / proj_path.data_dir.name, new_data_dir
+        ).get_ato()
+        for st in ("classinfo_file", "bibinfo_file"):
+            yield _CmdRemovePath(
+                new_data_dir / (proj_path.config.render[st] + ".tex")
+            ).get_ato()
 
         # perform substitutions that arxiv does not like, respecting existing files
         yield _CmdApplyModification(
@@ -195,6 +188,14 @@ class ModifyArxiv(AtomicIterable):
                 texfile.write(new_contents)
             return RuntimeOutput(True)
 
+        # todo: during dry run, temp_dir may not exist! in this situation, nothing will print...
+        # todo: think about what sort of controls are required when interacting with temp
+        # directories, or if it is fine for stuff to just fail. For example, when some commands
+        # depend on modifications done by other commands / filesystem state, (e.g. cleaning here)
+        # stuff will break very subtly
+        yield from CleanRepository(new_data_dir)(
+            proj_path, template_dict, state, temp_dir
+        )
         yield RuntimeClosure(
             FORMAT_MESSAGE.info("Modifying main tex file."),
             True,

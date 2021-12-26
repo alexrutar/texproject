@@ -83,6 +83,12 @@ class _MessageFormatter:
     def copy(self, source: Path, target: Path):
         return self._apply_style(f"Copying '{source}' to '{target}'", "file", "info")
 
+    def rename(self, source: Path, target: Path):
+        return self._apply_style(f"Rename '{source}' to '{target}'", "file", "info")
+
+    def remove(self, target: Path):
+        return self._apply_style(f"Removing file '{target}'", "file", "info")
+
     def edit(self, file_path: Path):
         return self._apply_style(f"Editing file at '{file_path}'", "edit", "ok")
 

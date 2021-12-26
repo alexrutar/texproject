@@ -40,6 +40,7 @@ from .template import (
     GitFileWriter,
     LatexBuildWriter,
     UpgradeRepository,
+    CleanRepository,
 )
 
 if TYPE_CHECKING:
@@ -610,11 +611,11 @@ def refresh(force: bool) -> Iterable[AtomicIterable]:
 
 @util.command()
 @process_atoms(ValidationFunction.proj_exists(True))
-def clean() -> None:
+def clean() -> Iterable[AtomicIterable]:
     """Clean the project directory. This deletes any template files that are not
     currently loaded in the template dictionary.
     """
-    raise NotImplementedError
+    yield CleanRepository()
 
 
 @util.command()
@@ -626,7 +627,7 @@ def diff(
     macros: List[str],
     citations: List[str],
     styles: Optional[str],
-) -> None:
+) -> Iterable[AtomicIterable]:
     """Display changes in local template files."""
     raise NotImplementedError
 

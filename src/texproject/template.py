@@ -532,8 +532,53 @@ class FileEditor(AtomicIterable):
             )
 
 
+class _CmdRemovePath(AtomicCommand):
+    def __init__(self, target: Path):
+        self._target = target
+
+    def get_ato(self, *_):
+        def _callable():
+            self._target.unlink()
+            return RuntimeOutput(True)
+
+        return RuntimeClosure(FORMAT_MESSAGE.remove(self._target), True, _callable)
+
+
+class _CmdRenamePath(AtomicCommand):
+    def __init__(self, source: Path, target: Path):
+        self._source = source
+        self._target = target
+
+    def get_ato(self, *_):
+        def _callable():
+            self._source.rename(self._target)
+            return RuntimeOutput(True)
+
+        return RuntimeClosure(
+            FORMAT_MESSAGE.rename(self._source, self._target), True, _callable
+        )
+
+
+class CleanRepository(AtomicIterable):
+    def __init__(self, working_dir=None):
+        self._working_dir = working_dir
+
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, *_
+    ) -> Iterable[RuntimeClosure]:
+        if self._working_dir is None:
+            dir = proj_path.data_dir
+        else:
+            dir = self._working_dir
+
+        for mode in NAMES.modes:
+            for path, name in NAMES.existing_template_files(dir, mode):
+                if name not in template_dict[NAMES.convert_mode(mode)]:
+                    yield _CmdRemovePath(path).get_ato()
+
+
 class UpgradeRepository(AtomicIterable):
-    def __call__(self, proj_path: ProjectPath, *args) -> Iterable[RuntimeClosure]:
+    def __call__(self, proj_path: ProjectPath, *_) -> Iterable[RuntimeClosure]:
         import yaml
         import pytomlpp
 
