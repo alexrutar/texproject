@@ -141,20 +141,21 @@ class TemplateWriter(AtomicCommand):
                 for k, v in config.render.items()
             }
         else:
-            render = proj_path.config.render
+            render = config.render
 
         bibtext = (
             "\\input{"
-            + f"{config.render['project_data_folder']}/{config.render['bibinfo_file']}"
+            + f"{render['project_data_folder']}/{render['bibinfo_file']}"
             + "}"
         )
         return self._env.get_template(str(self._template_path)).render(
             user=config.user,
             template=template_dict,
             config=render,
+            github=config.github,
             process=config.process,
             bibliography=bibtext,
-            replace=config.render["replace_text"],
+            replace=render["replace_text"],
             date=datetime.date.today(),
         )
 
@@ -168,24 +169,8 @@ class TemplateWriter(AtomicCommand):
                 ),
                 *SUCCESS,
             )
-
-        config = proj_path.config
-        bibtext = (
-            "\\input{"
-            + f"{config.render['project_data_folder']}/{config.render['bibinfo_file']}"
-            + "}"
-        )
         try:
-            output = self._env.get_template(str(self._template_path)).render(
-                user=config.user,
-                template=template_dict,
-                config=config.render,
-                github=config.github,
-                process=config.process,
-                bibliography=bibtext,
-                replace=config.render["replace_text"],
-                date=datetime.date.today(),
-            )
+            output = self.get_render_text(proj_path, template_dict, state)
 
             def _callable():
                 self._target_path.parent.mkdir(parents=True, exist_ok=True)
