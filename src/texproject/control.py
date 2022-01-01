@@ -18,47 +18,7 @@ from .filesystem import ProjectPath
 import click
 from itertools import chain
 from dataclasses import dataclass
-
-
-# some initialization functions for the template
-# might need to read the correct setting in the decorator
-
-# toml_load_local_template is in filesystem
-
-# class InitTemplate(ProjectTemplate):
-#     """TODO: write"""
-
-#     def __init__(self, template_name: str):
-#         """Load the template generator from a template name."""
-#         template_dict = template_linker.load_template(template_name)
-#         self.template_name = template_name
-#         super().__init__(template_dict)
-
-
-# class LoadTemplate(ProjectTemplate):
-#     """TODO: write"""
-
-#     def __init__(self, proj_path: ProjectPath) -> None:
-#         """Load the template generator from an existing project."""
-#         template_dict = toml_load_local_template(proj_path.template)
-#         super().__init__(template_dict)
-
-# template_dict should be immutable
-
-# class RuntimeOutput:
-#     def __init__(self, exit_status: bool, output: Optional[bytes] = None):
-#         self._exit_status = exit_status
-#         self._output = output
-
-#     def message(self):
-#         if self._output is not None:
-#             return self._output.decode('ascii')
-
-#     def success(self):
-#         return self._exit_status
-
-#     def __iter__(self):
-#         return (self.success(), self.message())
+from .error import AbortRunner
 
 
 @dataclass
@@ -74,9 +34,7 @@ class RuntimeOutput:
 FAIL: Final = (False, lambda: RuntimeOutput(False))
 SUCCESS: Final = (True, lambda: RuntimeOutput(True))
 
-# todo: rename AtomicOutput -> RuntimeClosure
-# todo: change all callable to RuntimeOutput
-# todo: add some convenience constructors
+
 class RuntimeClosure:
     """RuntimeClosure is the return value of AtomicCommand: the idea is that AtomicCommand
     does some pre-processing to try to work out what has happened (and return a verbose message,

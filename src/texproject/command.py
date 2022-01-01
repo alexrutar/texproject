@@ -13,7 +13,7 @@ import click
 
 from . import __version__, __repo__
 from .base import SHUTIL_ARCHIVE_FORMATS, SHUTIL_ARCHIVE_SUFFIX_MAP
-from .error import AbortRunner, ValidationError
+from .error import AbortRunner
 from .export import ArchiveWriter
 from .filesystem import (
     ProjectPath,
@@ -24,8 +24,8 @@ from .filesystem import (
     template_linker,
     toml_load_local_template,
 )
-from .git import CreateGithubRepo, WriteGithubApiToken
-from .process import LatexCompiler, InitializeGitRepo
+from .git import CreateGithubRepo, WriteGithubApiToken, InitializeGitRepo
+from .process import LatexCompiler
 from .template import (
     OutputFolderCreator,
     InfoFileWriter,
@@ -51,10 +51,14 @@ if TYPE_CHECKING:
 
 class CommandRunner:
     def __init__(
-        self, proj_path: ProjectPath, template_dict: Dict, dry_run=False, verbose=True
+        self,
+        proj_path: ProjectPath,
+        template_dict: Optional[Dict],
+        dry_run=False,
+        verbose=True,
     ):
         self._proj_path: Final = proj_path
-        self._template_dict: Final = template_dict
+        self._template_dict: Final = template_dict if template_dict is not None else {}
         self._dry_run = dry_run
         self._verbose = verbose
 
@@ -122,19 +126,8 @@ class CommandRunner:
             sys.exit(1)
 
 
-class ValidationFunction:
-    @staticmethod
-    def proj_exists(exists=bool):
-        return lambda proj_path: proj_path.validate(exists=exists)
-
-    @staticmethod
-    def git_exists(exists=bool):
-        return lambda proj_path: proj_path.validate_git(exists=exists)
-
-
-def process_atoms(
-    *validation_funcs: Callable[[ProjectPath], bool], pass_template_name=False
-):
+def process_atoms(load_template: Optional[bool] = True):
+    # *validation_funcs: Callable[[ProjectPath], bool], pass_template_name=False
     """Custom decorator which passes the object after performing some state verification on it."""
 
     def state_constructor(template: Optional[str] = None) -> Callable[[], Dict]:
@@ -149,7 +142,22 @@ def process_atoms(
         return state_init
 
     def decorator(f):
-        if pass_template_name:
+        if load_template is None:
+
+            @click.pass_context
+            def new_func_0(ctx, *args, **kwargs):
+                command_iter = ctx.invoke(f, *args, **kwargs)
+                runner = CommandRunner(
+                    ctx.obj["proj_path"],
+                    None,
+                    dry_run=ctx.obj["dry_run"],
+                    verbose=ctx.obj["verbose"],
+                )
+                runner.execute(command_iter, state_init=state_constructor())
+
+            return update_wrapper(new_func_0, f)
+
+        elif not load_template:
 
             @click.argument(
                 "template",
@@ -158,15 +166,6 @@ def process_atoms(
             )
             @click.pass_context
             def new_func_1(ctx, template: str, *args, **kwargs):
-                try:
-                    for func in validation_funcs:
-                        func(ctx.obj["proj_path"])
-                except ValidationError as e:
-                    click.secho(
-                        f"Error validating working directory: {e}", fg="red", err=True
-                    )
-                    sys.exit(1)
-
                 command_iter = ctx.invoke(f, *args, **kwargs)
                 runner = CommandRunner(
                     ctx.obj["proj_path"],
@@ -182,15 +181,6 @@ def process_atoms(
 
             @click.pass_context
             def new_func(ctx, *args, **kwargs):
-                try:
-                    for func in validation_funcs:
-                        func(ctx.obj["proj_path"])
-                except ValidationError as e:
-                    click.secho(
-                        f"Error validating working directory: {e}", fg="red", err=True
-                    )
-                    sys.exit(1)
-
                 command_iter = ctx.invoke(f, *args, **kwargs)
                 runner = CommandRunner(
                     ctx.obj["proj_path"],
@@ -242,7 +232,7 @@ def cli(ctx, proj_dir: Path, dry_run: bool, verbose: bool) -> None:
 
 
 @cli.command()
-@process_atoms(ValidationFunction.proj_exists(False), pass_template_name=True)
+@process_atoms(load_template=False)
 def init() -> Iterable[AtomicIterable]:
     """Initialize a new project in the working directory. The project is created using
     the template with name TEMPLATE and placed in the output folder OUTPUT.
@@ -267,7 +257,7 @@ def init() -> Iterable[AtomicIterable]:
     help="Edit global configuration.",
     default=True,
 )
-@process_atoms()
+@process_atoms(load_template=None)
 def config(config_file: Literal["local", "global"]) -> Iterable[AtomicIterable]:
     """Edit texproject configuration files. This opens the corresponding file in your
     $EDITOR. By default, edit the project template file: this requires the working
@@ -324,7 +314,7 @@ def _path_option(mode: Modes):
     default=False,
     help="auto-generated pre-commit",
 )
-@process_atoms(ValidationFunction.proj_exists(True))
+@process_atoms()
 def import_(
     macros: Iterable[str],
     citations: Iterable[str],
@@ -368,7 +358,7 @@ def import_(
     help="write .log to file",
     type=click.Path(exists=False, writable=True, path_type=Path),
 )
-@process_atoms(ValidationFunction.proj_exists(True))
+@process_atoms()
 def validate(pdf: Optional[Path], logfile: Optional[Path]) -> Iterable[AtomicIterable]:
     """Check for compilation errors. Compilation is performed by the 'latexmk' command.
     Save the resulting pdf with the '--output' argument, or the log file with the
@@ -397,7 +387,7 @@ def validate(pdf: Optional[Path], logfile: Optional[Path]) -> Iterable[AtomicIte
     help="specify what to export",
 )
 @click.argument("output", type=click.Path(exists=False, writable=True, path_type=Path))
-@process_atoms(ValidationFunction.proj_exists(True))
+@process_atoms()
 def archive(
     compression: str, mode: Literal["archive", "build", "source"], output: Path
 ) -> Iterable[AtomicIterable]:
@@ -447,7 +437,7 @@ def template() -> None:
 @_link_option("citation")
 @_link_option("style")
 @click.option("--index", "index", help="position to insert", default=0, type=int)
-@process_atoms(ValidationFunction.proj_exists(True))
+@process_atoms()
 def add(
     macros: List[str],
     citations: List[str],
@@ -467,7 +457,7 @@ def add(
 @_link_option("macro")
 @_link_option("citation")
 @_link_option("style")
-@process_atoms(ValidationFunction.proj_exists(True))
+@process_atoms()
 def remove(
     macros: List[str], citations: List[str], styles: List[str]
 ) -> Iterable[AtomicIterable]:
@@ -479,7 +469,7 @@ def remove(
 
 
 @template.command()
-@process_atoms(ValidationFunction.proj_exists(True))
+@process_atoms()
 def edit():
     yield FileEditor("template")
 
@@ -526,9 +516,7 @@ def git() -> None:
     help="Create issues page",
     default=False,
 )
-@process_atoms(
-    ValidationFunction.proj_exists(True), ValidationFunction.git_exists(False)
-)
+@process_atoms(load_template=None)
 def git_init(
     repo_name: str,
     repo_desc: str,
@@ -561,9 +549,7 @@ def git_init(
 
 @git.command("init-files")
 @click.option("--force/--no-force", "-f/-F", default=False, help="overwrite files")
-@process_atoms(
-    ValidationFunction.proj_exists(True), ValidationFunction.git_exists(False)
-)
+@process_atoms()
 def init_files(force: bool) -> Iterable[AtomicIterable]:
     """Create the git repository files. This does not create a local or remote git
     repository.
@@ -579,7 +565,7 @@ def init_files(force: bool) -> Iterable[AtomicIterable]:
     help="name of the repository",
     type=str,
 )
-@process_atoms(ValidationFunction.proj_exists(True))
+@process_atoms()
 def init_archive(repo_name: str) -> Iterable[AtomicIterable]:
     """Set the GitHub secret and archive repository."""
     yield LatexBuildWriter(force=True)
@@ -592,7 +578,7 @@ def util() -> None:
 
 
 @util.command("upgrade")
-@process_atoms(ValidationFunction.proj_exists(True))
+@process_atoms(load_template=None)
 def upgrade() -> Iterable[AtomicIterable]:
     """Upgrade project data structure from previous versions."""
     yield UpgradeRepository()
@@ -600,7 +586,7 @@ def upgrade() -> Iterable[AtomicIterable]:
 
 @util.command("refresh")
 @click.option("--force/--no-force", "-f/-F", default=False, help="overwrite files")
-@process_atoms(ValidationFunction.proj_exists(True))
+@process_atoms()
 def refresh(force: bool) -> Iterable[AtomicIterable]:
     """Reload template files. If --force is specified, overwrite local template files
     with new versions from the template repository, if possible.
@@ -610,7 +596,7 @@ def refresh(force: bool) -> Iterable[AtomicIterable]:
 
 
 @util.command()
-@process_atoms(ValidationFunction.proj_exists(True))
+@process_atoms()
 def clean() -> Iterable[AtomicIterable]:
     """Clean the project directory. This deletes any template files that are not
     currently loaded in the template dictionary.
@@ -622,7 +608,7 @@ def clean() -> Iterable[AtomicIterable]:
 @_link_option("macro")
 @_link_option("citation")
 @_link_option("style")
-@process_atoms(ValidationFunction.proj_exists(True))
+@process_atoms()
 def diff(
     macros: List[str],
     citations: List[str],

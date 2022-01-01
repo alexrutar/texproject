@@ -19,11 +19,6 @@ class AbortRunner(Exception):
         super().__init__(message)
 
 
-class ValidationError(AbortRunner):
-    def __init__(self, message: str):
-        super().__init__(message)
-
-
 class BasePathError(Exception):
     """TODO: write"""
 

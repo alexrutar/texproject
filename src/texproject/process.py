@@ -56,20 +56,6 @@ class RunCommand(AtomicIterable):
         yield _CmdRunCommand(self._command).get_ato(proj_path, template_dict, state)
 
 
-class InitializeGitRepo(AtomicIterable):
-    def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
-    ) -> Iterable[RuntimeClosure]:
-        for writer in [
-            _CmdRunCommand(["git", "init"]),
-            _CmdRunCommand(["git", "add", "-A"]),
-            _CmdRunCommand(
-                ["git", "commit", "-m", "Initialize new texproject repository."]
-            ),
-        ]:
-            yield writer.get_ato(proj_path, template_dict, state)
-
-
 class _CmdCompileLatex(AtomicCommand):
     def __init__(self, build_dir: Path, tex_dir=None, check: bool = False):
         self._build_dir = build_dir

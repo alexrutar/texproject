@@ -162,7 +162,12 @@ class TemplateWriter(AtomicCommand):
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict
     ) -> RuntimeClosure:
         if self._target_path.exists() and not self._force:
-            return RuntimeClosure("Template write location already exists.", *FAIL)
+            return RuntimeClosure(
+                FORMAT_MESSAGE.info(
+                    f"Using existing rendered template at '{self._target_path}'."
+                ),
+                *SUCCESS,
+            )
 
         config = proj_path.config
         bibtext = (
@@ -235,9 +240,7 @@ class PrecommitWriter(AtomicIterable):
         ).get_ato(proj_path, template_dict, state)
 
 
-def _link_helper(
-    linker, name, source_path, target_path, force, silent_fail
-) -> RuntimeClosure:
+def _link_helper(linker, name, source_path, target_path, force) -> RuntimeClosure:
     def _callable():
         shutil.copyfile(str(source_path), str(target_path))
         return RuntimeOutput(True)
@@ -251,8 +254,7 @@ def _link_helper(
         )
     if target_path.exists() and not force:
         return RuntimeClosure(
-            FORMAT_MESSAGE.link(*message_args, mode="exists"),
-            *(SUCCESS if silent_fail else FAIL),
+            FORMAT_MESSAGE.link(*message_args, mode="exists"), *SUCCESS
         )
     if target_path.exists():
         return RuntimeClosure(
@@ -273,13 +275,11 @@ class _CmdNameLinker(AtomicCommand):
         linker: _FileLinker,
         name: str,
         force: bool = False,
-        silent_fail: bool = True,
         target_dir: Optional[Path] = None,
     ) -> None:
         self.linker = linker
         self.name = name
         self.force = force
-        self.silent_fail = silent_fail
         self._target_dir = target_dir
 
     def get_ato(
@@ -292,7 +292,6 @@ class _CmdNameLinker(AtomicCommand):
             (self._target_dir if self._target_dir is not None else proj_path.data_dir)
             / NAMES.rel_data_path(self.name + self.linker.suffix, self.linker.mode),
             force=self.force,
-            silent_fail=self.silent_fail,
         )
 
         # TODO: fix this, cannot modify state outside callable!
@@ -309,12 +308,10 @@ class _CmdPathLinker(AtomicCommand):
         linker: _FileLinker,
         source_path: Path,
         force: bool = False,
-        silent_fail: bool = True,
     ) -> None:
         self.linker = linker
         self.source_path = source_path
         self.force = force
-        self.silent_fail = silent_fail
 
     def get_ato(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict
@@ -332,7 +329,6 @@ class _CmdPathLinker(AtomicCommand):
             proj_path.data_dir
             / NAMES.rel_data_path(self.source_path.name, self.linker.mode),
             force=self.force,
-            silent_fail=self.silent_fail,
         )
 
         if not ato.success():
@@ -349,14 +345,12 @@ class NameSequenceLinker(AtomicIterable):
         mode: Modes,
         name_list: Iterable[str],
         force: bool = False,
-        silent_fail: bool = True,
         target_dir: Optional[Path] = None,
     ) -> None:
         """TODO: write"""
         self._mode = mode
         self._name_list = name_list
         self._force = force
-        self._silent_fail = silent_fail
         self._target_dir = target_dir
 
     def __call__(
@@ -367,7 +361,6 @@ class NameSequenceLinker(AtomicIterable):
                 LINKER_MAP[self._mode],
                 name,
                 force=self._force,
-                silent_fail=self._silent_fail,
                 target_dir=self._target_dir,
             ).get_ato(proj_path, template_dict, state)
             for name in self._name_list
@@ -380,13 +373,11 @@ class PathSequenceLinker(AtomicIterable):
         mode: Modes,
         path_list: Iterable[Path],
         force: bool = False,
-        silent_fail: bool = True,
     ) -> None:
         """TODO: write"""
         self._mode = mode
         self._path_list = path_list
         self._force = force
-        self._silent_fail = silent_fail
 
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
@@ -396,7 +387,6 @@ class PathSequenceLinker(AtomicIterable):
                 LINKER_MAP[self._mode],
                 path,
                 force=self._force,
-                silent_fail=self._silent_fail,
             ).get_ato(proj_path, template_dict, state)
             for path in self._path_list
         )

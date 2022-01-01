@@ -12,12 +12,11 @@ from .base import NAMES, constant
 from .error import (
     ProjectDataMissingError,
     TemplateDataMissingError,
-    ValidationError,
 )
 
 if TYPE_CHECKING:
     from .base import Modes
-    from typing import Optional, Tuple, List, Dict, Iterable
+    from typing import Optional, List, Dict
 
 
 def toml_load(path_obj: Path, missing_ok: bool = False) -> Dict:
@@ -64,7 +63,7 @@ class Config:
         """TODO: write"""
         self.working_dir = working_dir
         self._dct = _merge(
-            toml.loads(resources.read_text(defaults, "config.toml")),
+            DefaultLoader.config(),
             toml_load(self.global_path, missing_ok=True),
             toml_load(self.local_path, missing_ok=True),
         )
@@ -197,26 +196,6 @@ class ProjectPath:
         self.config = Config(working_dir)
         self.name = self.dir.name
 
-    def validate(self, exists=True) -> None:
-        """TODO: write"""
-        if not exists and any(path.exists() for path in self.rootfiles):
-            raise ValidationError(
-                f"conflicting project files already exist in the working directory."
-            )
-        if exists and any(not path.exists() for path in self.minimal_files):
-            raise ValidationError(f"the working directory is not a valid project.")
-
-    def validate_git(self, exists=True) -> None:
-        """TODO: write"""
-        if not exists and any(path.exists() for path in self.gitfiles):
-            raise ValidationError(
-                f"conflicting git files already exist in the working directory."
-            )
-        if exists and any(not path.exists() for path in self.minimal_gitfiles):
-            raise ValidationError(
-                f"the working directory is not a valid git repository."
-            )
-
     @relative("data")
     def template(self) -> str:
         """TODO: write"""
@@ -287,26 +266,6 @@ class ProjectPath:
         """TODO: write"""
         return "pre-commit"
 
-    @constant
-    def gitfiles(self) -> Tuple[Path, Path, Path]:
-        """TODO: write"""
-        return (self.pre_commit, self.github_home, self.gitignore)
-
-    @constant
-    def minimal_gitfiles(self) -> Tuple[Path]:
-        """TODO: write"""
-        return (self.git_home,)
-
-    @constant
-    def rootfiles(self) -> Tuple[Path, Path, Path]:
-        """TODO: write"""
-        return (self.main, self.project_macro, self.data_dir)
-
-    @constant
-    def minimal_files(self) -> Tuple[Path, Path]:
-        """TODO: write"""
-        return (self.main, self.data_dir)
-
     def mk_data_dir(self):
         for mode in NAMES.modes:
             (self.data_dir / NAMES.resource_subdir(mode)).mkdir(
@@ -353,9 +312,14 @@ class _FileLinker(_BaseLinker):
         self.mode = mode  # type: Modes
 
 
-def _load_default_template() -> Dict:
-    """TODO: write"""
-    return toml.loads(resources.read_text(defaults, "template.toml"))
+class DefaultLoader:
+    @staticmethod
+    def template() -> Dict:
+        return toml.loads(resources.read_text(defaults, "template.toml"))
+
+    @staticmethod
+    def config() -> Dict:
+        return toml.loads(resources.read_text(defaults, "config.toml"))
 
 
 def toml_load_local_template(path: Path) -> Dict:
@@ -366,7 +330,7 @@ def toml_load_local_template(path: Path) -> Dict:
         raise ProjectDataMissingError(
             path, message="The local template file is missing."
         ) from err
-    return _merge(_load_default_template(), template)
+    return _merge(DefaultLoader.template(), template)
 
 
 def toml_load_system_template(path: Path, user_str: str, name: Optional[str] = None):
@@ -375,7 +339,7 @@ def toml_load_system_template(path: Path, user_str: str, name: Optional[str] = N
         template = toml_load(path)
     except FileNotFoundError as err:
         raise TemplateDataMissingError(path, user_str=user_str, name=name) from err
-    return _merge(_load_default_template(), template)
+    return _merge(DefaultLoader.template(), template)
 
 
 class _TemplateLinker(_BaseLinker):
