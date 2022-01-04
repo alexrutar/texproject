@@ -4,7 +4,7 @@ from pathlib import Path
 import shutil
 
 if TYPE_CHECKING:
-    from typing import Literal, TypeVar, Tuple, Iterable
+    from typing import Literal, TypeVar, Tuple, Iterable, Final
 
     # todo: rename to "Mode" or "LinkMode"
     Modes = TypeVar("Modes", Literal["citation"], Literal["style"], Literal["macro"])
@@ -38,8 +38,8 @@ _suffix_map_helper = {
     ".tar.xz": "xztar",
     ".zip": "zip",
 }
-SHUTIL_ARCHIVE_FORMATS = [ar[0] for ar in shutil.get_archive_formats()]
-SHUTIL_ARCHIVE_SUFFIX_MAP = {
+SHUTIL_ARCHIVE_FORMATS: Final = [ar[0] for ar in shutil.get_archive_formats()]
+SHUTIL_ARCHIVE_SUFFIX_MAP: Final = {
     k: v for k, v in _suffix_map_helper.items() if v in SHUTIL_ARCHIVE_FORMATS
 }
 
@@ -105,4 +105,4 @@ class _Naming:
         return "-"
 
 
-NAMES = _Naming()
+NAMES: Final = _Naming()
