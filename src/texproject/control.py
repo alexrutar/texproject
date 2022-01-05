@@ -140,17 +140,8 @@ class RuntimeClosure:
         return ret
 
 
-# also include a "general information string", indicating what the sequence is doing
-# todo: delete this thing!
-class AtomicCommand:
-    def get_ato(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict
-    ) -> RuntimeClosure:
-        raise NotImplementedError("Atomic command must have a registed callable!")
-
-
 class AtomicIterable:
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
-        raise NotImplementedError("Atomic command must have a registed callable!")
+        raise NotImplementedError("Atomic iterable must have a registed callable!")

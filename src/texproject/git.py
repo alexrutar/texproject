@@ -6,7 +6,7 @@ import keyring
 
 from .control import AtomicIterable, RuntimeClosure, SUCCESS, FAIL
 from .term import Secret, FORMAT_MESSAGE
-from .process import _CmdRunCommand
+from .process import run_command
 import subprocess
 
 if TYPE_CHECKING:
@@ -56,14 +56,12 @@ class InitializeGitRepo(AtomicIterable):
                 FORMAT_MESSAGE.info("Using existing git repository"), *SUCCESS
             )
         else:
-            for writer in [
-                _CmdRunCommand(["git", "init"]),
-                _CmdRunCommand(["git", "add", "-A"]),
-                _CmdRunCommand(
-                    ["git", "commit", "-m", "Initialize new texproject repository."]
-                ),
+            for command in [
+                ["git", "init"],
+                ["git", "add", "-A"],
+                ["git", "commit", "-m", "Initialize new texproject repository."],
             ]:
-                yield writer.get_ato(proj_path, template_dict, state)
+                run_command(proj_path, command)
 
 
 class CreateGithubRepo(AtomicIterable):
@@ -115,7 +113,7 @@ class CreateGithubRepo(AtomicIterable):
             if not self._issues:
                 gh_command.append("--disable-issues")
 
-            yield _CmdRunCommand(gh_command).get_ato(proj_path, template_dict, state)
+            yield run_command(proj_path, gh_command)
 
 
 class WriteGithubApiToken(AtomicIterable):
@@ -136,7 +134,8 @@ class WriteGithubApiToken(AtomicIterable):
             token = None
 
         if token is not None:
-            yield _CmdRunCommand(
+            yield run_command(
+                proj_path,
                 [
                     "gh",
                     "secret",
@@ -146,5 +145,5 @@ class WriteGithubApiToken(AtomicIterable):
                     token,
                     "-r",
                     self._repo_name,
-                ]
-            ).get_ato(proj_path, template_dict, state)
+                ],
+            )

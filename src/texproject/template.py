@@ -14,7 +14,6 @@ from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 from .base import NAMES
 from .term import FORMAT_MESSAGE
 from .control import (
-    AtomicCommand,
     RuntimeClosure,
     AtomicIterable,
     FAIL,
@@ -55,35 +54,31 @@ def _apply_modification(mod: ModCommand, template_dict: Dict):
             ]
 
 
-class _CmdApplyModification(AtomicCommand):
-    def __init__(self, mod: ModCommand):
-        self._mod = mod  # type: ModCommand
+def apply_template_dict_modification(
+    template_dict: Dict, mod: ModCommand
+) -> RuntimeClosure:
+    def _callable():
+        try:
+            _apply_modification(mod, template_dict)
+            return RuntimeOutput(True)
+        except ValueError:
+            # TODO: better error here!
+            return RuntimeOutput(False)
 
-    def get_ato(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict
-    ) -> RuntimeClosure:
-        def _callable():
-            try:
-                _apply_modification(self._mod, template_dict)
-                return RuntimeOutput(True)
-            except ValueError:
-                # TODO: better error here!
-                return RuntimeOutput(False)
+    match mod:
+        case mode, "remove", name:
+            msg = f"Remove {mode} '{name}' from template dict."
+        case mode, "add", name, index:
+            msg = f"Add {mode} '{name}' to template dict in position {index}."
+        case (mode, "update", name, new_name):
+            msg = f"Update {mode} {name} to {new_name}"
+        case _:
+            # todo: fix this
+            msg = "Something bad happened"
 
-        match self._mod:
-            case mode, "remove", name:
-                msg = f"Remove {mode} '{name}' from template dict."
-            case mode, "add", name, index:
-                msg = f"Add {mode} '{name}' to template dict in position {index}."
-            case (mode, "update", name, new_name):
-                msg = f"Update {mode} {name} to {new_name}"
-            case _:
-                # todo: fix this
-                msg = "Something bad happened"
-
-        # todo: return error here if trying to remove a macro that does not exist, or something
-        # or some sort of issue with inserting
-        return RuntimeClosure(FORMAT_MESSAGE.info(msg), True, _callable)
+    # todo: return error here if trying to remove a macro that does not exist, or something
+    # or some sort of issue with inserting
+    return RuntimeClosure(FORMAT_MESSAGE.info(msg), True, _callable)
 
 
 class ApplyModificationSequence(AtomicIterable):
@@ -94,7 +89,7 @@ class ApplyModificationSequence(AtomicIterable):
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
         for mod in self._mods:
-            yield _CmdApplyModification(mod).get_ato(proj_path, template_dict, state)
+            yield apply_template_dict_modification(template_dict, mod)
 
 
 class ApplyStateModifications(AtomicIterable):
@@ -102,13 +97,13 @@ class ApplyStateModifications(AtomicIterable):
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
         for mod in state["template_modifications"]:
-            yield _CmdApplyModification(mod).get_ato(proj_path, template_dict, state)
+            yield apply_template_dict_modification(template_dict, mod)
 
         # TODO: fix this, should not modify global state outside callable
         state["template_modifications"] = []
 
 
-class TemplateWriter(AtomicCommand):
+class JinjaTemplate:
     _env = Environment(
         loader=FileSystemLoader(searchpath=DATA_PATH.data_dir),
         block_start_string="<*",
@@ -124,16 +119,14 @@ class TemplateWriter(AtomicCommand):
     def __init__(
         self,
         template_path: Path,
-        target_path: Path,
         force: bool = False,
         executable: bool = False,
     ):
         self._template_path = template_path
-        self._target_path = target_path
         self._force = force
         self._executable = executable
 
-    def get_render_text(self, proj_path, template_dict, state, render_mods=None):
+    def get_text(self, proj_path, template_dict, render_mods=None):
         config = proj_path.config
         if render_mods is not None:
             render = {
@@ -159,34 +152,36 @@ class TemplateWriter(AtomicCommand):
             date=datetime.date.today(),
         )
 
-    def get_ato(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict
+    def write(
+        self,
+        proj_path: ProjectPath,
+        template_dict: Dict,
+        state: Dict,
+        target_path: Path,
     ) -> RuntimeClosure:
-        if self._target_path.exists() and not self._force:
+        if target_path.exists() and not self._force:
             return RuntimeClosure(
                 FORMAT_MESSAGE.info(
-                    f"Using existing rendered template at '{self._target_path}'."
+                    f"Using existing rendered template at '{target_path}'."
                 ),
                 *SUCCESS,
             )
         try:
-            output = self.get_render_text(proj_path, template_dict, state)
+            output = self.get_text(proj_path, template_dict, state)
 
             def _callable():
-                self._target_path.parent.mkdir(parents=True, exist_ok=True)
-                self._target_path.write_text(output)
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                target_path.write_text(output)
                 # catch chmod failure
                 if self._executable:
-                    os.chmod(
-                        self._target_path, stat.S_IXUSR | stat.S_IWUSR | stat.S_IRUSR
-                    )
+                    os.chmod(target_path, stat.S_IXUSR | stat.S_IWUSR | stat.S_IRUSR)
                 return RuntimeOutput(True)
 
             return RuntimeClosure(
                 FORMAT_MESSAGE.render(
                     self._template_path,
-                    self._target_path,
-                    overwrite=self._target_path.exists(),
+                    target_path,
+                    overwrite=target_path.exists(),
                 ),
                 True,
                 _callable,
@@ -194,7 +189,7 @@ class TemplateWriter(AtomicCommand):
 
         except TemplateNotFound:
             return RuntimeClosure(
-                f"Missing template file at location '{self._target_path}'", *FAIL
+                f"Missing template file at location '{target_path}'", *FAIL
             )
 
 
@@ -205,9 +200,9 @@ class GitignoreWriter(AtomicIterable):
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
-        yield TemplateWriter(
-            JINJA_PATH.gitignore, proj_path.gitignore, force=self._force
-        ).get_ato(proj_path, template_dict, state)
+        yield JinjaTemplate(JINJA_PATH.gitignore, force=self._force).write(
+            proj_path, template_dict, state, proj_path.gitignore
+        )
 
 
 class PrecommitWriter(AtomicIterable):
@@ -217,25 +212,29 @@ class PrecommitWriter(AtomicIterable):
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
-        yield TemplateWriter(
+        yield JinjaTemplate(
             JINJA_PATH.pre_commit,
-            proj_path.pre_commit,
             executable=True,
             force=self._force,
-        ).get_ato(proj_path, template_dict, state)
+        ).write(proj_path, template_dict, state, proj_path.pre_commit)
 
 
-def _link_helper(linker, name, source_path, target_path, force) -> RuntimeClosure:
+def _link_helper(
+    linker, name, source_path, target_path, force, state
+) -> RuntimeClosure:
     def _callable():
         shutil.copyfile(str(source_path), str(target_path))
         return RuntimeOutput(True)
+
+    def _fail_callable():
+        state["template_modifications"].append((linker.mode, "remove", name))
+        return RuntimeOutput(False)
 
     message_args = (linker, name, target_path.parent)
 
     if not (source_path.exists() or target_path.exists()):
         return RuntimeClosure(
-            FORMAT_MESSAGE.link(*message_args, mode="fail"),
-            *FAIL,
+            FORMAT_MESSAGE.link(*message_args, mode="fail"), False, _fail_callable
         )
     if target_path.exists() and not force:
         return RuntimeClosure(
@@ -254,74 +253,43 @@ def _link_helper(linker, name, source_path, target_path, force) -> RuntimeClosur
     )
 
 
-class _CmdNameLinker(AtomicCommand):
-    def __init__(
-        self,
-        linker: _FileLinker,
-        name: str,
-        force: bool = False,
-        target_dir: Optional[Path] = None,
-    ) -> None:
-        self.linker = linker
-        self.name = name
-        self.force = force
-        self._target_dir = target_dir
-
-    def get_ato(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict
-    ) -> RuntimeClosure:
-        ato = _link_helper(
-            self.linker,
-            self.name,
-            self.linker.file_path(self.name).resolve(),
-            (self._target_dir if self._target_dir is not None else proj_path.data_dir)
-            / NAMES.rel_data_path(self.name + self.linker.suffix, self.linker.mode),
-            force=self.force,
-        )
-
-        # TODO: fix this, cannot modify state outside callable!
-        if not ato.success():
-            state["template_modifications"].append(
-                (self.linker.mode, "remove", self.name)
-            )
-        return ato
+def link_name(
+    proj_path: ProjectPath,
+    state: Dict,
+    linker: _FileLinker,
+    name: str,
+    force: bool = False,
+    target_dir: Optional[Path] = None,
+) -> RuntimeClosure:
+    return _link_helper(
+        linker,
+        name,
+        linker.file_path(name).resolve(),
+        (target_dir if target_dir is not None else proj_path.data_dir)
+        / NAMES.rel_data_path(name + linker.suffix, linker.mode),
+        force,
+        state,
+    )
 
 
-class _CmdPathLinker(AtomicCommand):
-    def __init__(
-        self,
-        linker: _FileLinker,
-        source_path: Path,
-        force: bool = False,
-    ) -> None:
-        self.linker = linker
-        self.source_path = source_path
-        self.force = force
-
-    def get_ato(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict
-    ) -> RuntimeClosure:
-        # also check for wrong suffix
-        if self.source_path.suffix != self.linker.suffix:
-            return RuntimeClosure(
-                f"Filetype '{self.source_path.suffix}' is invalid!", *FAIL
-            )
-        name = self.source_path.name
-        ato = _link_helper(
-            self.linker,
-            name,
-            self.source_path.resolve(),
-            proj_path.data_dir
-            / NAMES.rel_data_path(self.source_path.name, self.linker.mode),
-            force=self.force,
-        )
-
-        if not ato.success():
-            state["template_modifications"].append(
-                (NAMES.convert_mode(self.linker.mode), "remove", name)
-            )
-
-        return ato
+def link_path(
+    proj_path: ProjectPath,
+    state: Dict,
+    linker: _FileLinker,
+    source_path: Path,
+    force: bool = False,
+) -> RuntimeClosure:
+    # also check for wrong suffix
+    if source_path.suffix != linker.suffix:
+        return RuntimeClosure(f"Filetype '{source_path.suffix}' is invalid!", *FAIL)
+    return _link_helper(
+        linker,
+        source_path.name,
+        source_path.resolve(),
+        proj_path.data_dir / NAMES.rel_data_path(source_path.name, linker.mode),
+        force,
+        state,
+    )
 
 
 class NameSequenceLinker(AtomicIterable):
@@ -342,12 +310,14 @@ class NameSequenceLinker(AtomicIterable):
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
         yield from (
-            _CmdNameLinker(
+            link_name(
+                proj_path,
+                state,
                 LINKER_MAP[self._mode],
                 name,
                 force=self._force,
                 target_dir=self._target_dir,
-            ).get_ato(proj_path, template_dict, state)
+            )
             for name in self._name_list
         )
 
@@ -368,11 +338,7 @@ class PathSequenceLinker(AtomicIterable):
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
         yield from (
-            _CmdPathLinker(
-                LINKER_MAP[self._mode],
-                path,
-                force=self._force,
-            ).get_ato(proj_path, template_dict, state)
+            link_path(proj_path, state, LINKER_MAP[self._mode], path, force=self._force)
             for path in self._path_list
         )
 
@@ -400,36 +366,35 @@ class InfoFileWriter(AtomicIterable):
     ) -> Iterable[RuntimeClosure]:
         yield from ApplyStateModifications()(proj_path, template_dict, state, temp_dir)
 
-        for writer in [
-            TemplateWriter(JINJA_PATH.classinfo, proj_path.classinfo, force=True),
-            TemplateWriter(JINJA_PATH.bibinfo, proj_path.bibinfo, force=True),
+        for source, target in [
+            (JINJA_PATH.classinfo, proj_path.classinfo),
+            (JINJA_PATH.bibinfo, proj_path.bibinfo),
         ]:
-            yield writer.get_ato(proj_path, template_dict, state)
+            yield JinjaTemplate(source, force=True).write(
+                proj_path, template_dict, state, target
+            )
 
 
-class _CmdWriteTemplateDict(AtomicCommand):
-    def get_ato(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict
-    ) -> RuntimeClosure:
-        def _callable():
-            proj_path.mk_data_dir()
-            toml_dump(proj_path.template, template_dict)
-            return RuntimeOutput(True)
+def write_template_dict(proj_path: ProjectPath, template_dict: Dict) -> RuntimeClosure:
+    def _callable():
+        proj_path.mk_data_dir()
+        toml_dump(proj_path.template, template_dict)
+        return RuntimeOutput(True)
 
-        return RuntimeClosure(
-            FORMAT_MESSAGE.template_dict(
-                proj_path.data_dir, overwrite=proj_path.template.exists()
-            ),
-            True,
-            _callable,
-        )
+    return RuntimeClosure(
+        FORMAT_MESSAGE.template_dict(
+            proj_path.data_dir, overwrite=proj_path.template.exists()
+        ),
+        True,
+        _callable,
+    )
 
 
 class TemplateDictWriter(AtomicIterable):
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
-        yield _CmdWriteTemplateDict().get_ato(proj_path, template_dict, state)
+        yield write_template_dict(proj_path, template_dict)
 
 
 class OutputFolderCreator(AtomicIterable):
@@ -437,13 +402,12 @@ class OutputFolderCreator(AtomicIterable):
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
         """Write top-level files into the project path."""
-        # proj_path.echoer.init(proj_path.dir)
-        for writer in [
-            _CmdWriteTemplateDict(),
-            TemplateWriter(JINJA_PATH.template_doc(state["template"]), proj_path.main),
-            TemplateWriter(JINJA_PATH.project_macro, proj_path.project_macro),
+        yield write_template_dict(proj_path, template_dict)
+        for source, target in [
+            (JINJA_PATH.template_doc(state["template"]), proj_path.main),
+            (JINJA_PATH.project_macro, proj_path.project_macro),
         ]:
-            yield writer.get_ato(proj_path, template_dict, state)
+            yield JinjaTemplate(source).write(proj_path, template_dict, state, target)
 
 
 class GitFileWriter(AtomicIterable):
@@ -453,19 +417,25 @@ class GitFileWriter(AtomicIterable):
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
-        for writer in [
-            TemplateWriter(JINJA_PATH.gitignore, proj_path.gitignore, force=self.force),
-            TemplateWriter(
-                JINJA_PATH.build_latex, proj_path.build_latex, force=self.force
+        for template, target in [
+            (
+                JinjaTemplate(JINJA_PATH.gitignore, force=self.force),
+                proj_path.gitignore,
             ),
-            TemplateWriter(
-                JINJA_PATH.pre_commit,
+            (
+                JinjaTemplate(JINJA_PATH.build_latex, force=self.force),
+                proj_path.build_latex,
+            ),
+            (
+                JinjaTemplate(
+                    JINJA_PATH.pre_commit,
+                    executable=True,
+                    force=self.force,
+                ),
                 proj_path.pre_commit,
-                executable=True,
-                force=self.force,
             ),
         ]:
-            yield writer.get_ato(proj_path, template_dict, state)
+            yield template.write(proj_path, template_dict, state, target)
 
 
 class LatexBuildWriter(AtomicIterable):
@@ -475,9 +445,9 @@ class LatexBuildWriter(AtomicIterable):
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
-        yield TemplateWriter(
-            JINJA_PATH.build_latex, proj_path.build_latex, force=self.force
-        ).get_ato(proj_path, template_dict, state)
+        yield JinjaTemplate(JINJA_PATH.build_latex, force=self.force).write(
+            proj_path, template_dict, state, proj_path.build_latex
+        )
 
 
 class FileEditor(AtomicIterable):
@@ -507,31 +477,49 @@ class FileEditor(AtomicIterable):
             )
 
 
-class _CmdRemovePath(AtomicCommand):
-    def __init__(self, target: Path):
-        self._target = target
+def remove_path(target: Path) -> RuntimeClosure:
+    def _callable():
+        target.unlink()
+        return RuntimeOutput(True)
 
-    def get_ato(self, *_):
-        def _callable():
-            self._target.unlink()
-            return RuntimeOutput(True)
-
-        return RuntimeClosure(FORMAT_MESSAGE.remove(self._target), True, _callable)
+    return RuntimeClosure(FORMAT_MESSAGE.remove(target), True, _callable)
 
 
-class _CmdRenamePath(AtomicCommand):
-    def __init__(self, source: Path, target: Path):
-        self._source = source
-        self._target = target
+def rename_path(source: Path, target: Path) -> RuntimeClosure:
+    def _callable():
+        source.rename(target)
+        return RuntimeOutput(True)
 
-    def get_ato(self, *_):
-        def _callable():
-            self._source.rename(self._target)
-            return RuntimeOutput(True)
+    return RuntimeClosure(FORMAT_MESSAGE.rename(source, target), True, _callable)
 
-        return RuntimeClosure(
-            FORMAT_MESSAGE.rename(self._source, self._target), True, _callable
+
+def copy_directory(
+    proj_path: ProjectPath, source: Path, target: Path
+) -> RuntimeClosure:
+    def _callable():
+        shutil.copytree(
+            source,
+            target,
+            copy_function=shutil.copy,
+            ignore=shutil.ignore_patterns(*proj_path.config.process["ignore_patterns"]),
         )
+        return RuntimeOutput(True)
+
+    return RuntimeClosure(FORMAT_MESSAGE.copy(source, target), True, _callable)
+
+
+def make_archive(source_dir, target_file, compression) -> RuntimeClosure:
+    def _callable():
+        shutil.make_archive(str(target_file), compression, source_dir)
+        return RuntimeOutput(True)
+
+    return RuntimeClosure(
+        FORMAT_MESSAGE.info(
+            f"Create compressed archive '{target_file}' with compression '{compression}'."
+        ),
+        True,
+        _callable,
+    )
 
 
 class CleanRepository(AtomicIterable):
@@ -549,7 +537,7 @@ class CleanRepository(AtomicIterable):
         for mode in NAMES.modes:
             for path, name in NAMES.existing_template_files(dir, mode):
                 if name not in template_dict[NAMES.convert_mode(mode)]:
-                    yield _CmdRemovePath(path).get_ato()
+                    yield remove_path(path)
 
 
 class UpgradeRepository(AtomicIterable):

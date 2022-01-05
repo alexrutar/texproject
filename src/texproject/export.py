@@ -1,76 +1,26 @@
 from __future__ import annotations
-import shutil
 from typing import TYPE_CHECKING
 
-from .base import NAMES
 from .filesystem import ProjectPath, JINJA_PATH
 from .template import (
-    _CmdRemovePath,
-    _CmdRenamePath,
-    TemplateWriter,
-    _CmdApplyModification,
+    remove_path,
+    rename_path,
+    JinjaTemplate,
+    apply_template_dict_modification,
     TemplateDictLinker,
     CleanRepository,
+    copy_directory,
+    make_archive,
 )
 from .term import FORMAT_MESSAGE
-from .process import _CmdCompileLatex, _CmdCopyOutput
-from .control import AtomicCommand, RuntimeClosure, AtomicIterable, RuntimeOutput
+from .process import compile_latex, copy_output
+from .control import RuntimeClosure, AtomicIterable, RuntimeOutput
 
 # from .template import LoadTemplate
 
 if TYPE_CHECKING:
     from pathlib import Path
     from typing import Literal, Iterable, Dict
-
-
-class _CmdCopyDirectory(AtomicCommand):
-    def __init__(self, source_dir: Path, target_dir: Path):
-        self._source = source_dir
-        self._target = target_dir
-
-    def get_ato(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict
-    ) -> RuntimeClosure:
-        def _callable():
-            shutil.copytree(
-                self._source,
-                self._target,
-                copy_function=shutil.copy,
-                ignore=shutil.ignore_patterns(
-                    *proj_path.config.process["ignore_patterns"]
-                ),
-            )
-            return RuntimeOutput(True)
-
-        return RuntimeClosure(
-            FORMAT_MESSAGE.copy(self._source, self._target), True, _callable
-        )
-
-
-class _CmdMakeArchive(AtomicCommand):
-    def __init__(self, source_dir, output_file, compression):
-        self._source_dir = source_dir
-        self._target_file = output_file
-        self._compression = compression
-
-    def get_ato(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict
-    ) -> RuntimeClosure:
-        def _callable():
-            shutil.make_archive(
-                str(self._target_file), self._compression, self._source_dir
-            )
-            return RuntimeOutput(True)
-
-        # todo: format if overwriting
-        # todo: add the file extension to the name
-        return RuntimeClosure(
-            FORMAT_MESSAGE.info(
-                f"Create compressed archive '{self._target_file}' with compression '{self._compression}'."
-            ),
-            True,
-            _callable,
-        )
 
 
 class ArchiveWriter(AtomicIterable):
@@ -91,9 +41,7 @@ class ArchiveWriter(AtomicIterable):
         build_dir = temp_dir / "latex_compile"
         build_dir.mkdir()
 
-        yield _CmdCopyDirectory(proj_path.dir, archive_dir).get_ato(
-            proj_path, template_dict, state
-        )
+        yield copy_directory(proj_path, proj_path.dir, archive_dir)
 
         # compile the tex files to get .bbl / .pdf
         if self._fmt in ("arxiv", "build"):
@@ -111,16 +59,10 @@ class ArchiveWriter(AtomicIterable):
                     ".pdf": archive_dir
                     / (proj_path.config.render["default_tex_name"] + ".pdf")
                 }
-            yield _CmdCompileLatex(build_dir, archive_dir, check=True).get_ato(
-                proj_path, template_dict, state
-            )
-            yield _CmdCopyOutput(build_dir, output_map).get_ato(
-                proj_path, template_dict, state
-            )
+            yield compile_latex(proj_path, build_dir, archive_dir, check=True)
+            yield copy_output(proj_path, build_dir, output_map)
 
-        yield _CmdMakeArchive(
-            archive_dir, self._output_file, self._compression
-        ).get_ato(proj_path, template_dict, state)
+        yield make_archive(archive_dir, self._output_file, self._compression)
 
 
 class ModifyArxiv(AtomicIterable):
@@ -140,18 +82,14 @@ class ModifyArxiv(AtomicIterable):
             proj_path.config.render["default_tex_name"] + ".tex"
         )
 
-        yield _CmdRenamePath(
-            self._working_dir / proj_path.data_dir.name, new_data_dir
-        ).get_ato()
+        yield rename_path(self._working_dir / proj_path.data_dir.name, new_data_dir)
         for st in ("classinfo_file", "bibinfo_file"):
-            yield _CmdRemovePath(
-                new_data_dir / (proj_path.config.render[st] + ".tex")
-            ).get_ato()
+            yield remove_path(new_data_dir / (proj_path.config.render[st] + ".tex"))
 
         # perform substitutions that arxiv does not like, respecting existing files
-        yield _CmdApplyModification(
-            ("macro", "update", "typesetting", "arxiv-typesetting")
-        ).get_ato(proj_path, template_dict, state)
+        yield apply_template_dict_modification(
+            template_dict, ("macro", "update", "typesetting", "arxiv-typesetting")
+        )
         yield from TemplateDictLinker(target_dir=new_data_dir)(
             proj_path, template_dict, state, temp_dir
         )
@@ -163,23 +101,21 @@ class ModifyArxiv(AtomicIterable):
             with open(main_tex_path, "r", encoding="utf-8") as texfile:
                 new_contents = texfile.read()
 
-                # TODO: write new TemplateWriter function to only get output
                 for end, writer in [
                     (
                         proj_path.config.render["classinfo_file"],
-                        TemplateWriter(JINJA_PATH.classinfo, None),
+                        JinjaTemplate(JINJA_PATH.classinfo),
                     ),
                     (
                         proj_path.config.render["bibinfo_file"],
-                        TemplateWriter(JINJA_PATH.bibinfo, None),
+                        JinjaTemplate(JINJA_PATH.bibinfo),
                     ),
                 ]:
                     new_contents = new_contents.replace(
                         r"\input{" + proj_path.data_dir.name + "/" + end + r"}" + "\n",
-                        writer.get_render_text(
+                        writer.get_text(
                             proj_path,
                             template_dict,
-                            state,
                             render_mods={"project_data_folder": new_data_dir_name},
                         ),
                     )
@@ -201,6 +137,6 @@ class ModifyArxiv(AtomicIterable):
             True,
             _callable,
         )
-        yield TemplateWriter(
-            JINJA_PATH.arxiv_autotex, self._working_dir / "000README.XXX"
-        ).get_ato(proj_path, template_dict, state)
+        yield JinjaTemplate(JINJA_PATH.arxiv_autotex).write(
+            proj_path, template_dict, state, self._working_dir / "000README.XXX"
+        )
