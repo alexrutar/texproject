@@ -110,52 +110,47 @@ class _JinjaTemplatePath:
 
     def template_doc(self, name: str) -> Path:
         """TODO: write"""
-        return Path("templates", name, NAMES.template_doc)
+        return Path(name, NAMES.template_doc)
 
     @constant
-    def _template_resource_dir(self) -> Path:
+    def project_macro(self) -> str:
         """TODO: write"""
-        return Path("resources", "other")
+        return "project_macro_file.tex"
 
     @constant
-    def project_macro(self) -> Path:
+    def gitignore(self) -> str:
         """TODO: write"""
-        return self._template_resource_dir / "project_macro_file.tex"
+        return "gitignore"
 
     @constant
-    def gitignore(self) -> Path:
+    def build_latex(self) -> str:
         """TODO: write"""
-        return self._template_resource_dir / "gitignore"
+        return "build_latex.yml"
 
     @constant
-    def build_latex(self) -> Path:
+    def pre_commit(self) -> str:
         """TODO: write"""
-        return self._template_resource_dir / "build_latex.yml"
+        return "pre-commit"
 
     @constant
-    def pre_commit(self) -> Path:
+    def classinfo(self) -> str:
         """TODO: write"""
-        return self._template_resource_dir / "pre-commit"
+        return "classinfo.tex"
 
     @constant
-    def classinfo(self) -> Path:
+    def bibinfo(self) -> str:
         """TODO: write"""
-        return self._template_resource_dir / "classinfo.tex"
+        return "bibinfo.tex"
 
     @constant
-    def bibinfo(self) -> Path:
+    def bibliography(self) -> str:
         """TODO: write"""
-        return self._template_resource_dir / "bibinfo.tex"
+        return "bibliography.tex"
 
     @constant
-    def bibliography(self) -> Path:
+    def arxiv_autotex(self) -> str:
         """TODO: write"""
-        return self._template_resource_dir / "bibliography.tex"
-
-    @constant
-    def arxiv_autotex(self) -> Path:
-        """TODO: write"""
-        return self._template_resource_dir / "arxiv_autotex.txt"
+        return "arxiv_autotex.txt"
 
 
 def relative(base: str):

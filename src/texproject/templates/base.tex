@@ -1,0 +1,12 @@
+% Project created on <+ date +>
+% Author: <+ user.name +> (<+ user.email +>)
+\input{<+ config.project_data_folder +>/<+ config.classinfo_file +>}
+
+% constants
+<* for const in template.constants *>
+\newcommand{\<+ const +>}{<+ replace +>}
+<* endfor *>
+
+% main document
+<* block document *>
+<* endblock *>

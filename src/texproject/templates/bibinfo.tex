@@ -1,0 +1,6 @@
+<* if template.citations|length > 0 *>
+\bibliographystyle{<+ template.bibstyle +>}
+\bibliography{<+ config.project_data_folder +>/<+ template.citations|map('data_name','citation')|join(', ') +>}
+<* else *>
+% no bibliography files specified
+<* endif *>

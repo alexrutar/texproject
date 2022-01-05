@@ -167,9 +167,15 @@ class ModifyArxiv(AtomicIterable):
             proj_path, template_dict, state, temp_dir
         )
 
+        # todo: during dry run, temp_dir may not exist! in this situation, nothing will print...
+        # todo: think about what sort of controls are required when interacting with temp
+        # directories, or if it is fine for stuff to just fail. For example, when some commands
+        # depend on modifications done by other commands / filesystem state, (e.g. cleaning here)
+        # stuff will break very subtly
+        yield from CleanProject(new_data_dir)(proj_path, template_dict, state, temp_dir)
+
         # replace \input{...classinfo.tex} and \input{...bibinfo.tex}
         # with the contents of the corresponding files
-
         def _callable():
             with open(main_tex_path, "r", encoding="utf-8") as texfile:
                 new_contents = texfile.read()
@@ -192,17 +198,10 @@ class ModifyArxiv(AtomicIterable):
                             render_mods={"project_data_folder": new_data_dir_name},
                         ),
                     )
-
             with open(main_tex_path, "w", encoding="utf-8") as texfile:
                 texfile.write(new_contents)
             return RuntimeOutput(True)
 
-        # todo: during dry run, temp_dir may not exist! in this situation, nothing will print...
-        # todo: think about what sort of controls are required when interacting with temp
-        # directories, or if it is fine for stuff to just fail. For example, when some commands
-        # depend on modifications done by other commands / filesystem state, (e.g. cleaning here)
-        # stuff will break very subtly
-        yield from CleanProject(new_data_dir)(proj_path, template_dict, state, temp_dir)
         yield RuntimeClosure(
             FORMAT_MESSAGE.info("Modifying main tex file."),
             True,

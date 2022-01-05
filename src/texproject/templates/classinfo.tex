@@ -1,0 +1,15 @@
+\documentclass<* if template.class_options|length > 0 *>[<+ template.class_options|join(', ') +>]<* endif *>{<+ template.doctype +>}
+<* if template.geometry is not none *>
+\usepackage[<* for key, value in template.geometry.items() *><+ key +>=<+ value +><+ ', ' if not loop.last +><* endfor *>]{geometry}
+<* endif *>
+
+% style packages
+<* for pack in template.styles *>
+\usepackage{<+ config.project_data_folder+>/<+ pack|data_name('style') +>}
+<* endfor *>
+
+% macro packages
+<* for pack in template.macros *>
+\usepackage{<+ config.project_data_folder+>/<+ pack|data_name('macro') +>}
+<* endfor *>
+\usepackage{<+ config.project_macro_file +>}

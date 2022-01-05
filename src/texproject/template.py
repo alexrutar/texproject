@@ -8,7 +8,13 @@ import os
 from pathlib import Path
 import stat
 
-from jinja2 import Environment, FileSystemLoader, TemplateNotFound
+from jinja2 import (
+    Environment,
+    ChoiceLoader,
+    PackageLoader,
+    FileSystemLoader,
+    TemplateNotFound,
+)
 
 from .base import NAMES
 from .term import FORMAT_MESSAGE
@@ -104,7 +110,12 @@ class ApplyStateModifications(AtomicIterable):
 
 class JinjaTemplate:
     _env = Environment(
-        loader=FileSystemLoader(searchpath=DATA_PATH.data_dir),
+        loader=ChoiceLoader(
+            [
+                PackageLoader(__name__.split(".")[0], "templates"),
+                FileSystemLoader(searchpath=(DATA_PATH.data_dir / "templates")),
+            ]
+        ),
         block_start_string="<*",
         block_end_string="*>",
         variable_start_string="<+",
