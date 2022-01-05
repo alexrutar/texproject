@@ -1,16 +1,15 @@
 """TODO: write docstring"""
 from __future__ import annotations
+from typing import TYPE_CHECKING
 
 from functools import update_wrapper
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import click
 
 from . import __version__, __repo__
 from .base import SHUTIL_ARCHIVE_FORMATS, SHUTIL_ARCHIVE_SUFFIX_MAP
 from .control import CommandRunner
-from .export import ArchiveWriter
 from .filesystem import (
     ProjectPath,
     NAMES,
@@ -20,27 +19,29 @@ from .filesystem import (
     template_linker,
     toml_load_local_template,
 )
-from .git import CreateGithubRepo, WriteGithubApiToken, InitializeGitRepo
-from .process import LatexCompiler
+from .git import (
+    InitializeGitRepo,
+    CreateGithubRepo,
+    WriteGithubApiToken,
+    PrecommitWriter,
+    GitignoreWriter,
+    GitFileWriter,
+    LatexBuildWriter,
+)
+from .utils import FileEditor, UpgradeProject, CleanProject
+from .output import ArchiveWriter, LatexCompiler
 from .template import (
     OutputFolderCreator,
     InfoFileWriter,
-    GitignoreWriter,
-    PrecommitWriter,
     TemplateDictLinker,
-    FileEditor,
     NameSequenceLinker,
     PathSequenceLinker,
     ApplyModificationSequence,
     TemplateDictWriter,
-    GitFileWriter,
-    LatexBuildWriter,
-    UpgradeRepository,
-    CleanRepository,
 )
 
 if TYPE_CHECKING:
-    from .base import Modes, NAMES, RepoVisibility
+    from .base import LinkMode, NAMES, RepoVisibility
     from typing import Optional, Iterable, List, Literal, Dict, Callable
     from .control import AtomicIterable
 
@@ -188,7 +189,7 @@ def config(config_file: Literal["local", "global"]) -> Iterable[AtomicIterable]:
     yield FileEditor(config_file)
 
 
-def _link_option(mode: Modes):
+def _link_option(mode: LinkMode):
     linker = {"macro": macro_linker, "citation": citation_linker, "style": style_linker}
     return click.option(
         f"--{mode}",
@@ -200,7 +201,7 @@ def _link_option(mode: Modes):
     )
 
 
-def _path_option(mode: Modes):
+def _path_option(mode: LinkMode):
     return click.option(
         f"--{mode}-path",
         f"{mode}_paths",
@@ -500,7 +501,7 @@ def util() -> None:
 @process_atoms(load_template=None)
 def upgrade() -> Iterable[AtomicIterable]:
     """Upgrade project data structure from previous versions."""
-    yield UpgradeRepository()
+    yield UpgradeProject()
 
 
 @util.command("refresh")
@@ -520,7 +521,7 @@ def clean() -> Iterable[AtomicIterable]:
     """Clean the project directory. This deletes any template files that are not
     currently loaded in the template dictionary.
     """
-    yield CleanRepository()
+    yield CleanProject()
 
 
 @util.command()
@@ -548,7 +549,7 @@ def show_config():
 
 @cli.command("list")
 @click.argument("res_class", type=click.Choice(NAMES.modes + ("template",)))
-def list_(res_class: Modes | Literal["template"]) -> None:
+def list_(res_class: LinkMode | Literal["template"]) -> None:
     """Retrieve program and template information."""
     linker_map = {
         "citation": citation_linker,

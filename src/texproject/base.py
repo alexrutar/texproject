@@ -1,14 +1,15 @@
 from __future__ import annotations
-
 from typing import TYPE_CHECKING
+
 from pathlib import Path
 import shutil
 
 if TYPE_CHECKING:
-    from typing import Literal, TypeVar, Tuple, Iterable, Final
+    from typing import Final, Iterable, Literal, Tuple, TypeVar
 
-    # todo: rename to "Mode" or "LinkMode"
-    Modes = TypeVar("Modes", Literal["citation"], Literal["style"], Literal["macro"])
+    LinkMode = TypeVar(
+        "LinkMode", Literal["citation"], Literal["style"], Literal["macro"]
+    )
     ModCommand = TypeVar(
         "ModCommand",
         Tuple[
@@ -71,10 +72,10 @@ class _Naming:
         """TODO: write"""
         return "document.tex"
 
-    def convert_mode(self, mode: Modes) -> str:
+    def convert_mode(self, mode: LinkMode) -> str:
         return {"citation": "citations", "style": "styles", "macro": "macros"}[mode]
 
-    def resource_subdir(self, mode: Modes) -> Path:
+    def resource_subdir(self, mode: LinkMode) -> Path:
         return Path(
             {"citation": "citations", "style": "styles", "macro": "macros"}[mode]
         )
@@ -91,12 +92,12 @@ class _Naming:
             raise Exception("Invalid template file path!")
 
     def existing_template_files(
-        self, working_dir: Path, mode: Modes
+        self, working_dir: Path, mode: LinkMode
     ) -> Iterable[Tuple[Path, str]]:
         for path in (working_dir / NAMES.resource_subdir(mode)).glob("local-*"):
             yield (path, NAMES.get_name(path))
 
-    def rel_data_path(self, name: str, mode: Modes) -> Path:
+    def rel_data_path(self, name: str, mode: LinkMode) -> Path:
         # prepend local- to minimize name collisions with existing packages
         return self.resource_subdir(mode) / ("local-" + name)
 

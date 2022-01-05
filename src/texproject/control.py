@@ -1,10 +1,10 @@
 """TODO: write docstring"""
 from __future__ import annotations
+from typing import TYPE_CHECKING
 
 from dataclasses import dataclass, astuple
 from pathlib import Path
 import tempfile
-from typing import TYPE_CHECKING
 import sys
 
 import click

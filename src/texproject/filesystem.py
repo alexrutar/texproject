@@ -15,7 +15,7 @@ from .error import (
 )
 
 if TYPE_CHECKING:
-    from .base import Modes
+    from .base import LinkMode
     from typing import Optional, List, Dict
 
 
@@ -304,12 +304,12 @@ class _BaseLinker:
 class _FileLinker(_BaseLinker):
     """TODO: write"""
 
-    def __init__(self, suffix: str, user_str: str, mode: Modes):
+    def __init__(self, suffix: str, user_str: str, mode: LinkMode):
         """TODO: write"""
         super().__init__(
             DATA_PATH.resource_dir / NAMES.resource_subdir(mode), suffix, user_str
         )
-        self.mode = mode  # type: Modes
+        self.mode = mode  # type: LinkMode
 
 
 class DefaultLoader:

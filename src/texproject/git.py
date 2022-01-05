@@ -5,14 +5,16 @@ from typing import TYPE_CHECKING
 import keyring
 
 from .control import AtomicIterable, RuntimeClosure, SUCCESS, FAIL
+from .filesystem import JINJA_PATH
+from .utils import run_command
+from .template import JinjaTemplate
 from .term import Secret, FORMAT_MESSAGE
-from .process import run_command
 import subprocess
 
 if TYPE_CHECKING:
     from .base import RepoVisibility
     from .filesystem import ProjectPath
-    from typing import Optional, Iterable, Dict
+    from typing import Iterable, Dict
     from pathlib import Path
 
 
@@ -147,3 +149,69 @@ class WriteGithubApiToken(AtomicIterable):
                     self._repo_name,
                 ],
             )
+
+
+class GitignoreWriter(AtomicIterable):
+    def __init__(self, force: bool = False):
+        self._force = force
+
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        yield JinjaTemplate(JINJA_PATH.gitignore, force=self._force).write(
+            proj_path, template_dict, state, proj_path.gitignore
+        )
+
+
+class PrecommitWriter(AtomicIterable):
+    def __init__(self, force: bool = False):
+        self._force = force
+
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        yield JinjaTemplate(
+            JINJA_PATH.pre_commit,
+            executable=True,
+            force=self._force,
+        ).write(proj_path, template_dict, state, proj_path.pre_commit)
+
+
+class GitFileWriter(AtomicIterable):
+    def __init__(self, force: bool = False) -> None:
+        self.force = force
+
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        for template, target in [
+            (
+                JinjaTemplate(JINJA_PATH.gitignore, force=self.force),
+                proj_path.gitignore,
+            ),
+            (
+                JinjaTemplate(JINJA_PATH.build_latex, force=self.force),
+                proj_path.build_latex,
+            ),
+            (
+                JinjaTemplate(
+                    JINJA_PATH.pre_commit,
+                    executable=True,
+                    force=self.force,
+                ),
+                proj_path.pre_commit,
+            ),
+        ]:
+            yield template.write(proj_path, template_dict, state, target)
+
+
+class LatexBuildWriter(AtomicIterable):
+    def __init__(self, force: bool = False) -> None:
+        self.force = force
+
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        yield JinjaTemplate(JINJA_PATH.build_latex, force=self.force).write(
+            proj_path, template_dict, state, proj_path.build_latex
+        )

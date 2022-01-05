@@ -1,14 +1,13 @@
 """TODO: write"""
 from __future__ import annotations
+from typing import TYPE_CHECKING
 
 import datetime
 import shutil
 import os
 from pathlib import Path
 import stat
-from typing import TYPE_CHECKING
 
-import click
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 
 from .base import NAMES
@@ -29,13 +28,13 @@ from .filesystem import (
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Iterable, Dict, Literal, Optional
+    from typing import Iterable, Dict, Optional
 
-    from .base import Modes, ModCommand
+    from .base import LinkMode, ModCommand
     from .filesystem import ProjectPath, _FileLinker
 
 
-def data_name(name: str, mode: Modes) -> str:
+def data_name(name: str, mode: LinkMode) -> str:
     return str(NAMES.rel_data_path(name, mode))
 
 
@@ -193,32 +192,6 @@ class JinjaTemplate:
             )
 
 
-class GitignoreWriter(AtomicIterable):
-    def __init__(self, force: bool = False):
-        self._force = force
-
-    def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
-    ) -> Iterable[RuntimeClosure]:
-        yield JinjaTemplate(JINJA_PATH.gitignore, force=self._force).write(
-            proj_path, template_dict, state, proj_path.gitignore
-        )
-
-
-class PrecommitWriter(AtomicIterable):
-    def __init__(self, force: bool = False):
-        self._force = force
-
-    def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
-    ) -> Iterable[RuntimeClosure]:
-        yield JinjaTemplate(
-            JINJA_PATH.pre_commit,
-            executable=True,
-            force=self._force,
-        ).write(proj_path, template_dict, state, proj_path.pre_commit)
-
-
 def _link_helper(
     linker, name, source_path, target_path, force, state
 ) -> RuntimeClosure:
@@ -295,7 +268,7 @@ def link_path(
 class NameSequenceLinker(AtomicIterable):
     def __init__(
         self,
-        mode: Modes,
+        mode: LinkMode,
         name_list: Iterable[str],
         force: bool = False,
         target_dir: Optional[Path] = None,
@@ -325,7 +298,7 @@ class NameSequenceLinker(AtomicIterable):
 class PathSequenceLinker(AtomicIterable):
     def __init__(
         self,
-        mode: Modes,
+        mode: LinkMode,
         path_list: Iterable[Path],
         force: bool = False,
     ) -> None:
@@ -408,184 +381,3 @@ class OutputFolderCreator(AtomicIterable):
             (JINJA_PATH.project_macro, proj_path.project_macro),
         ]:
             yield JinjaTemplate(source).write(proj_path, template_dict, state, target)
-
-
-class GitFileWriter(AtomicIterable):
-    def __init__(self, force: bool = False) -> None:
-        self.force = force
-
-    def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
-    ) -> Iterable[RuntimeClosure]:
-        for template, target in [
-            (
-                JinjaTemplate(JINJA_PATH.gitignore, force=self.force),
-                proj_path.gitignore,
-            ),
-            (
-                JinjaTemplate(JINJA_PATH.build_latex, force=self.force),
-                proj_path.build_latex,
-            ),
-            (
-                JinjaTemplate(
-                    JINJA_PATH.pre_commit,
-                    executable=True,
-                    force=self.force,
-                ),
-                proj_path.pre_commit,
-            ),
-        ]:
-            yield template.write(proj_path, template_dict, state, target)
-
-
-class LatexBuildWriter(AtomicIterable):
-    def __init__(self, force: bool = False) -> None:
-        self.force = force
-
-    def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
-    ) -> Iterable[RuntimeClosure]:
-        yield JinjaTemplate(JINJA_PATH.build_latex, force=self.force).write(
-            proj_path, template_dict, state, proj_path.build_latex
-        )
-
-
-class FileEditor(AtomicIterable):
-    def __init__(self, config_file: Literal["local", "global", "template"]):
-        self._config_file = config_file
-
-    def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
-    ) -> Iterable[RuntimeClosure]:
-        match self._config_file:
-            case "local":
-                fpath = proj_path.config.local_path
-            case "global":
-                fpath = proj_path.config.global_path
-            case "template":
-                fpath = proj_path.template
-            case _:
-                yield RuntimeClosure(f"Invalid option for configuration file!", *FAIL)
-                return
-
-        try:
-            click.edit(filename=str(fpath))
-            yield RuntimeClosure(FORMAT_MESSAGE.edit(fpath), *SUCCESS)
-        except click.UsageError:
-            yield RuntimeClosure(
-                FORMAT_MESSAGE.error("Could not open file for editing!"), *FAIL
-            )
-
-
-def remove_path(target: Path) -> RuntimeClosure:
-    def _callable():
-        target.unlink()
-        return RuntimeOutput(True)
-
-    return RuntimeClosure(FORMAT_MESSAGE.remove(target), True, _callable)
-
-
-def rename_path(source: Path, target: Path) -> RuntimeClosure:
-    def _callable():
-        source.rename(target)
-        return RuntimeOutput(True)
-
-    return RuntimeClosure(FORMAT_MESSAGE.rename(source, target), True, _callable)
-
-
-def copy_directory(
-    proj_path: ProjectPath, source: Path, target: Path
-) -> RuntimeClosure:
-    def _callable():
-        shutil.copytree(
-            source,
-            target,
-            copy_function=shutil.copy,
-            ignore=shutil.ignore_patterns(*proj_path.config.process["ignore_patterns"]),
-        )
-        return RuntimeOutput(True)
-
-    return RuntimeClosure(FORMAT_MESSAGE.copy(source, target), True, _callable)
-
-
-def make_archive(source_dir, target_file, compression) -> RuntimeClosure:
-    def _callable():
-        shutil.make_archive(str(target_file), compression, source_dir)
-        return RuntimeOutput(True)
-
-    return RuntimeClosure(
-        FORMAT_MESSAGE.info(
-            f"Create compressed archive '{target_file}' with compression '{compression}'."
-        ),
-        True,
-        _callable,
-    )
-
-
-class CleanRepository(AtomicIterable):
-    def __init__(self, working_dir=None):
-        self._working_dir = working_dir
-
-    def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, *_
-    ) -> Iterable[RuntimeClosure]:
-        if self._working_dir is None:
-            dir = proj_path.data_dir
-        else:
-            dir = self._working_dir
-
-        for mode in NAMES.modes:
-            for path, name in NAMES.existing_template_files(dir, mode):
-                if name not in template_dict[NAMES.convert_mode(mode)]:
-                    yield remove_path(path)
-
-
-class UpgradeRepository(AtomicIterable):
-    def __call__(self, proj_path: ProjectPath, *_) -> Iterable[RuntimeClosure]:
-        import yaml
-        import pytomlpp
-
-        def _callable():
-            yaml_path = proj_path.data_dir / "tpr_info.yaml"
-            old_toml_path = proj_path.data_dir / "tpr_info.toml"
-            if yaml_path.exists():
-                proj_path.template.write_text(
-                    pytomlpp.dumps(yaml.safe_load(yaml_path.read_text()))
-                )
-                yaml_path.unlink()
-            if old_toml_path.exists():
-                old_toml_path.rename(proj_path.template)
-
-            # rename all the files
-            for init, trg, end in [
-                ("macro", "macros", ".sty"),
-                ("citation", "citations", ".bib"),
-                ("format", "style", ".sty"),
-            ]:
-                (proj_path.data_dir / trg).mkdir(exist_ok=True)
-                for path in proj_path.data_dir.glob(f"{init}-*{end}"):
-                    path.rename(
-                        proj_path.data_dir
-                        / trg
-                        / ("local-" + "".join(path.name.split("-")[1:]))
-                    )
-
-            # rename style directory
-            if (proj_path.data_dir / "style").exists():
-                (proj_path.data_dir / "style").rename(proj_path.data_dir / "styles")
-
-            # rename format / style key to list of styles
-            for old_name in ("format", "style"):
-                try:
-                    tpl_dict = pytomlpp.load(proj_path.template)
-                    tpl_dict["styles"] = [tpl_dict.pop(old_name)]
-                    proj_path.template.write_text(pytomlpp.dumps(tpl_dict))
-                except KeyError:
-                    pass
-            return RuntimeOutput(True)
-
-        yield RuntimeClosure(
-            FORMAT_MESSAGE.info("Upgrading repository files"),
-            True,
-            _callable,
-        )

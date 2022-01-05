@@ -1,22 +1,95 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
+import shlex
+
+from .control import RuntimeClosure, AtomicIterable, RuntimeOutput
 from .filesystem import ProjectPath, JINJA_PATH
 from .template import (
-    remove_path,
-    rename_path,
     JinjaTemplate,
     apply_template_dict_modification,
     TemplateDictLinker,
-    CleanRepository,
-    copy_directory,
-    make_archive,
 )
 from .term import FORMAT_MESSAGE
-from .process import compile_latex, copy_output
 from .control import RuntimeClosure, AtomicIterable, RuntimeOutput
+from .utils import (
+    run_cmd,
+    remove_path,
+    rename_path,
+    copy_directory,
+    make_archive,
+    CleanProject,
+)
 
-# from .template import LoadTemplate
+if TYPE_CHECKING:
+    from .filesystem import ProjectPath
+    from typing import Dict, Optional, Iterable
+    from pathlib import Path
+
+
+def compile_latex(
+    proj_path: ProjectPath, build_dir: Path, tex_dir: Path = None, check: bool = False
+):
+    if tex_dir is None:
+        dir = proj_path.dir
+    else:
+        dir = tex_dir
+
+    def _callable():
+        out = run_cmd(
+            ["latexmk", "-pdf", "-interaction=nonstopmode"]
+            + proj_path.config.process["latexmk_compile_options"]
+            + [
+                f"-outdir={str(build_dir)}",
+                proj_path.config.render["default_tex_name"] + ".tex",
+            ],
+            dir,
+            check=check,
+        )
+        return out
+
+    return RuntimeClosure(
+        FORMAT_MESSAGE.info(
+            f"Compiling LaTeX file '{dir}/{proj_path.config.render['default_tex_name']}.tex' with command '{shlex.join(['latexmk', '-pdf', '-interaction=nonstopmode'] + proj_path.config.process['latexmk_compile_options'])}'"
+        ),
+        True,
+        _callable,
+    )
+
+
+def copy_output(proj_path: ProjectPath, build_dir: Path, output_map: Dict[str, Path]):
+    def _callable():
+        for filetype, target in output_map.items():
+            try:
+                (
+                    build_dir / (proj_path.config.render["default_tex_name"] + filetype)
+                ).rename(target)
+            except FileNotFoundError:
+                pass
+        # todo: catch the case where something cannot be copied, even when requested!
+        return RuntimeOutput(True)
+
+    return RuntimeClosure(
+        FORMAT_MESSAGE.info(
+            "Creating output files: "
+            + ", ".join(f"'{path.name}'" for path in output_map.values())
+        ),
+        True,
+        _callable,
+    )
+
+
+class LatexCompiler(AtomicIterable):
+    def __init__(self, output_map: Optional[Dict[str, Path]] = None):
+        self._output_map = output_map
+
+    def __call__(
+        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+    ) -> Iterable[RuntimeClosure]:
+        yield compile_latex(proj_path, temp_dir)
+        if self._output_map is not None and len(self._output_map) > 0:
+            yield copy_output(proj_path, temp_dir, output_map=self._output_map)
+
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -129,9 +202,7 @@ class ModifyArxiv(AtomicIterable):
         # directories, or if it is fine for stuff to just fail. For example, when some commands
         # depend on modifications done by other commands / filesystem state, (e.g. cleaning here)
         # stuff will break very subtly
-        yield from CleanRepository(new_data_dir)(
-            proj_path, template_dict, state, temp_dir
-        )
+        yield from CleanProject(new_data_dir)(proj_path, template_dict, state, temp_dir)
         yield RuntimeClosure(
             FORMAT_MESSAGE.info("Modifying main tex file."),
             True,
