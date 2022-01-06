@@ -40,7 +40,6 @@ def git_has_remote(path: Path):
     )
 
 
-@dataclass
 class InitializeGitRepo(AtomicIterable):
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
@@ -103,9 +102,9 @@ class CreateGithubRepo(AtomicIterable):
             yield run_command(proj_path, gh_command)
 
 
+@dataclass
 class WriteGithubApiToken(AtomicIterable):
-    def __init__(self, repo_name: str):
-        self._repo_name = repo_name
+    repo_name: str
 
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
@@ -131,26 +130,26 @@ class WriteGithubApiToken(AtomicIterable):
                     "-b",
                     token,
                     "-r",
-                    self._repo_name,
+                    self.repo_name,
                 ],
             )
 
 
+@dataclass
 class GitignoreWriter(AtomicIterable):
-    def __init__(self, force: bool = False):
-        self._force = force
+    force: bool = False
 
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
-        yield JinjaTemplate(JINJA_PATH.gitignore, force=self._force).write(
+        yield JinjaTemplate(JINJA_PATH.gitignore, force=self.force).write(
             proj_path, template_dict, state, proj_path.gitignore
         )
 
 
+@dataclass
 class PrecommitWriter(AtomicIterable):
-    def __init__(self, force: bool = False):
-        self._force = force
+    force: bool = False
 
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
@@ -158,13 +157,13 @@ class PrecommitWriter(AtomicIterable):
         yield JinjaTemplate(
             JINJA_PATH.pre_commit,
             executable=True,
-            force=self._force,
+            force=self.force,
         ).write(proj_path, template_dict, state, proj_path.pre_commit)
 
 
+@dataclass
 class GitFileWriter(AtomicIterable):
-    def __init__(self, force: bool = False) -> None:
-        self.force = force
+    force: bool = False
 
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
@@ -190,9 +189,9 @@ class GitFileWriter(AtomicIterable):
             yield template.write(proj_path, template_dict, state, target)
 
 
+@dataclass
 class LatexBuildWriter(AtomicIterable):
-    def __init__(self, force: bool = False) -> None:
-        self.force = force
+    force: bool
 
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path

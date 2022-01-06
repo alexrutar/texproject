@@ -14,6 +14,7 @@ from .base import (
     AddCommand,
     RemoveCommand,
     LinkMode,
+    ExportMode,
 )
 from .control import CommandRunner
 from .filesystem import (
@@ -292,7 +293,7 @@ def validate(pdf: Optional[Path], logfile: Optional[Path]) -> Iterable[AtomicIte
 @click.option(
     "--mode",
     "mode",
-    type=click.Choice(["arxiv", "build", "source"]),
+    type=click.Choice(ExportMode),  # type: ignore
     default="source",
     show_default=True,
     help="specify what to export",
@@ -300,7 +301,7 @@ def validate(pdf: Optional[Path], logfile: Optional[Path]) -> Iterable[AtomicIte
 @click.argument("output", type=click.Path(exists=False, writable=True, path_type=Path))
 @process_atoms()
 def archive(
-    compression: str, mode: Literal["archive", "build", "source"], output: Path
+    compression: str, mode: ExportMode, output: Path
 ) -> Iterable[AtomicIterable]:
     """Create a compressed export with name OUTPUT. If the 'arxiv' or 'build' options are
     chosen, 'latexmk' is used to compile additional required files.

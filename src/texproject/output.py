@@ -1,9 +1,10 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
+from dataclasses import dataclass
 import shlex
 
-from .base import UpdateCommand, LinkMode
+from .base import UpdateCommand, LinkMode, ExportMode
 from .control import RuntimeClosure, AtomicIterable, RuntimeOutput
 from .filesystem import ProjectPath, JINJA_PATH
 from .template import (
@@ -12,7 +13,6 @@ from .template import (
     TemplateDictLinker,
 )
 from .term import FORMAT_MESSAGE
-from .control import RuntimeClosure, AtomicIterable, RuntimeOutput
 from .utils import (
     run_cmd,
     remove_path,
@@ -24,7 +24,7 @@ from .utils import (
 
 if TYPE_CHECKING:
     from .filesystem import ProjectPath
-    from typing import Dict, Optional, Iterable
+    from typing import Dict, Optional, Iterable, Literal
     from pathlib import Path
 
 
@@ -80,33 +80,23 @@ def copy_output(proj_path: ProjectPath, build_dir: Path, output_map: Dict[str, P
     )
 
 
+@dataclass
 class LatexCompiler(AtomicIterable):
-    def __init__(self, output_map: Optional[Dict[str, Path]] = None):
-        self._output_map = output_map
+    output_map: Optional[Dict[str, Path]]
 
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
         yield compile_latex(proj_path, temp_dir)
-        if self._output_map is not None and len(self._output_map) > 0:
-            yield copy_output(proj_path, temp_dir, output_map=self._output_map)
+        if self.output_map is not None and len(self.output_map) > 0:
+            yield copy_output(proj_path, temp_dir, output_map=self.output_map)
 
 
-if TYPE_CHECKING:
-    from pathlib import Path
-    from typing import Literal, Iterable, Dict
-
-
+@dataclass
 class ArchiveWriter(AtomicIterable):
-    def __init__(
-        self,
-        compression: str,
-        output_file: Path,
-        fmt: Literal["archive", "build", "source"] = "source",
-    ):
-        self._compression = compression
-        self._output_file = output_file
-        self._fmt = fmt
+    compression: str
+    output_file: Path
+    fmt: ExportMode = ExportMode.source
 
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
@@ -118,8 +108,8 @@ class ArchiveWriter(AtomicIterable):
         yield copy_directory(proj_path, proj_path.dir, archive_dir)
 
         # compile the tex files to get .bbl / .pdf
-        if self._fmt in ("arxiv", "build"):
-            if self._fmt == "arxiv":
+        if self.fmt in (ExportMode.arxiv, ExportMode.build):
+            if self.fmt == "arxiv":
                 # must copy first to ensure additional files are also moved
                 yield from ModifyArxiv(archive_dir)(
                     proj_path, template_dict, state, temp_dir
@@ -136,27 +126,27 @@ class ArchiveWriter(AtomicIterable):
             yield compile_latex(proj_path, build_dir, archive_dir, check=True)
             yield copy_output(proj_path, build_dir, output_map)
 
-        yield make_archive(archive_dir, self._output_file, self._compression)
+        yield make_archive(archive_dir, self.output_file, self.compression)
 
 
+@dataclass
 class ModifyArxiv(AtomicIterable):
-    def __init__(self, working_dir):
-        self._working_dir = working_dir
+    working_dir: Path
 
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
         # rename data directory to a filename with no dots and which does not exist
         new_data_dir_name = proj_path.data_dir.name.replace(".", "")
-        while (self._working_dir / new_data_dir_name).exists():
+        while (self.working_dir / new_data_dir_name).exists():
             new_data_dir_name += "X"
-        new_data_dir = self._working_dir / new_data_dir_name
+        new_data_dir = self.working_dir / new_data_dir_name
 
-        main_tex_path = self._working_dir / (
+        main_tex_path = self.working_dir / (
             proj_path.config.render["default_tex_name"] + ".tex"
         )
 
-        yield rename_path(self._working_dir / proj_path.data_dir.name, new_data_dir)
+        yield rename_path(self.working_dir / proj_path.data_dir.name, new_data_dir)
         for st in ("classinfo_file", "bibinfo_file"):
             yield remove_path(new_data_dir / (proj_path.config.render[st] + ".tex"))
 
@@ -210,5 +200,5 @@ class ModifyArxiv(AtomicIterable):
             _callable,
         )
         yield JinjaTemplate(JINJA_PATH.arxiv_autotex).write(
-            proj_path, template_dict, state, self._working_dir / "000README.XXX"
+            proj_path, template_dict, state, self.working_dir / "000README.XXX"
         )

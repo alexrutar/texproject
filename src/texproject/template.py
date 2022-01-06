@@ -290,31 +290,25 @@ class NameSequenceLinker(AtomicIterable):
         )
 
 
+@dataclass
 class PathSequenceLinker(AtomicIterable):
-    def __init__(
-        self,
-        mode: LinkMode,
-        path_list: Iterable[Path],
-        force: bool = False,
-    ) -> None:
-        """TODO: write"""
-        self._mode = mode
-        self._path_list = path_list
-        self._force = force
+    mode: LinkMode
+    path_list: Iterable[Path]
+    force: bool = False
 
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
         yield from (
-            link_path(proj_path, state, LINKER_MAP[self._mode], path, force=self._force)
-            for path in self._path_list
+            link_path(proj_path, state, LINKER_MAP[self.mode], path, force=self.force)
+            for path in self.path_list
         )
 
 
+@dataclass
 class TemplateDictLinker(AtomicIterable):
-    def __init__(self, force: bool = False, target_dir=None) -> None:
-        self._force = force
-        self._target_dir = target_dir
+    force: bool = False
+    target_dir: Optional[Path] = None
 
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
@@ -323,8 +317,8 @@ class TemplateDictLinker(AtomicIterable):
             yield from NameSequenceLinker(
                 mode,
                 template_dict[NAMES.convert_mode(mode)],
-                force=self._force,
-                target_dir=self._target_dir,
+                force=self.force,
+                target_dir=self.target_dir,
             )(proj_path, template_dict, state, temp_dir)
 
 

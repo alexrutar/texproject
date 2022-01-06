@@ -16,6 +16,12 @@ class LinkMode(str, Enum):
     style = "style"
 
 
+class ExportMode(str, Enum):
+    arxiv = "arxiv"
+    build = "build"
+    source = "source"
+
+
 class RepoVisibility(str, Enum):
     public = "public"
     private = "private"
