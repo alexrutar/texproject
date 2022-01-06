@@ -62,22 +62,24 @@ def process_atoms(load_template: Optional[bool] = True):
         return state_init
 
     def decorator(f):
-        if load_template is None:
+        def _helper(ctx, template, *args, **kwargs):
+            if load_template is None:
+                template_dict = None
+            elif load_template:
+                template_dict = toml_load_local_template(ctx.obj["proj_path"].template)
+            else:
+                template_dict = template_linker.load_template(template)
 
-            @click.pass_context
-            def new_func_0(ctx, *args, **kwargs):
-                command_iter = ctx.invoke(f, *args, **kwargs)
-                runner = CommandRunner(
-                    ctx.obj["proj_path"],
-                    None,
-                    dry_run=ctx.obj["dry_run"],
-                    verbose=ctx.obj["verbose"],
-                )
-                runner.execute(command_iter, state_init=state_constructor())
+            CommandRunner(
+                ctx.obj["proj_path"],
+                template_dict,
+                dry_run=ctx.obj["dry_run"],
+                verbose=ctx.obj["verbose"],
+            ).execute(
+                ctx.invoke(f, *args, **kwargs), state_init=state_constructor(template)
+            )
 
-            return update_wrapper(new_func_0, f)
-
-        elif not load_template:
+        if load_template is False:
 
             @click.argument(
                 "template",
@@ -85,39 +87,22 @@ def process_atoms(load_template: Optional[bool] = True):
                 metavar="TEMPLATE",
             )
             @click.pass_context
-            def new_func_1(ctx, template: str, *args, **kwargs):
-                command_iter = ctx.invoke(f, *args, **kwargs)
-                runner = CommandRunner(
-                    ctx.obj["proj_path"],
-                    template_linker.load_template(template),
-                    dry_run=ctx.obj["dry_run"],
-                    verbose=ctx.obj["verbose"],
-                )
-                runner.execute(command_iter, state_init=state_constructor(template))
+            def wrapper_with_template(ctx, template, *args, **kwargs):
+                _helper(ctx, template, *args, **kwargs)
 
-            return update_wrapper(new_func_1, f)
+            return update_wrapper(wrapper_with_template, f)
 
         else:
 
             @click.pass_context
-            def new_func(ctx, *args, **kwargs):
-                command_iter = ctx.invoke(f, *args, **kwargs)
-                runner = CommandRunner(
-                    ctx.obj["proj_path"],
-                    toml_load_local_template(ctx.obj["proj_path"].template),
-                    dry_run=ctx.obj["dry_run"],
-                    verbose=ctx.obj["verbose"],
-                )
-                runner.execute(command_iter, state_init=state_constructor())
+            def wrapper(ctx, *args, **kwargs):
+                _helper(ctx, None, *args, **kwargs)
 
-            return update_wrapper(new_func, f)
+            return update_wrapper(wrapper, f)
 
     return decorator
 
 
-# TODO
-# figure out how to just stick these wrappers directly inside the process_atoms function
-# then -n and --verbose can be specified at the end, rather than right at the front
 @click.group()
 @click.version_option(prog_name="tpr (texproject)")
 @click.option(
