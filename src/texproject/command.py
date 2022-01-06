@@ -47,7 +47,6 @@ if TYPE_CHECKING:
 
 
 def process_atoms(load_template: Optional[bool] = True):
-    # *validation_funcs: Callable[[ProjectPath], bool], pass_template_name=False
     """Custom decorator which passes the object after performing some state verification on it."""
 
     def state_constructor(template: Optional[str] = None) -> Callable[[], Dict]:
@@ -136,7 +135,7 @@ def cli(ctx, proj_dir: Path, dry_run: bool, verbose: bool) -> None:
     }
 
 
-@cli.command()
+@cli.command(short_help="Initialize a new project.")
 @process_atoms(load_template=False)
 def init() -> Iterable[AtomicIterable]:
     """Initialize a new project in the working directory. The project is created using
@@ -164,12 +163,9 @@ def init() -> Iterable[AtomicIterable]:
 )
 @process_atoms(load_template=None)
 def config(config_file: Literal["local", "global"]) -> Iterable[AtomicIterable]:
-    """Edit texproject configuration files. This opens the corresponding file in your
-    $EDITOR. By default, edit the project template file: this requires the working
+    """Edit configuration files. This opens the corresponding file in your
+    $EDITOR. By default, edit the local template file: this requires the working
     directory to be texproject directory.
-
-    Note that this command does not replace existing macro files. See the `tpr import`
-    command for this functionality.
     """
     yield FileEditor(config_file)
 
@@ -276,7 +272,7 @@ def validate(pdf: Optional[Path], logfile: Optional[Path]) -> Iterable[AtomicIte
     )
 
 
-@cli.command()
+@cli.command(short_help="Create compressed exports.")
 @click.option(
     "--format",
     "compression",
@@ -320,7 +316,8 @@ def archive(
      xztar: xz'ed tar-file
      zip: ZIP file
 
-    Note that not all compression modes may be available on your system.
+    Note that some compression modes may not be available on your system. The available
+    options are listed below.
     """
     if compression is None:
         try:
@@ -376,6 +373,7 @@ def remove(
 @template.command()
 @process_atoms()
 def edit():
+    """Open the template dictionary in your $EDITOR."""
     yield FileEditor("template")
 
 
@@ -472,7 +470,7 @@ def init_files(force: bool) -> Iterable[AtomicIterable]:
 )
 @process_atoms()
 def init_archive(repo_name: str) -> Iterable[AtomicIterable]:
-    """Set the GitHub secret and archive repository."""
+    """Set the GitHub secret and archive repository. Run tpr git init --help for more information."""
     yield LatexBuildWriter(force=True)
     yield WriteGithubApiToken(repo_name)
 
@@ -485,7 +483,7 @@ def util() -> None:
 @util.command("upgrade")
 @process_atoms(load_template=None)
 def upgrade() -> Iterable[AtomicIterable]:
-    """Upgrade project data structure from previous versions."""
+    """Upgrade the project data structure from previous versions."""
     yield UpgradeProject()
 
 

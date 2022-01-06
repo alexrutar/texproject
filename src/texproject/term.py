@@ -17,38 +17,38 @@ REPO_FORMATTED = click.style(__repo__, fg="bright_blue")
 
 
 class Secret(str):
-    """TODO: write"""
+    """Special string class which is concealed when printed by _MessageFormatter."""
 
 
 def redact(obj: str):
-    """TODO: write"""
+    """Redact the string if it is a Secret."""
     if isinstance(obj, Secret):
         return "[*****]"
     return str(obj)
 
 
 class _MessageFormatter:
-    def __init__(self):
-        """TODO: write"""
-        self._prefix = {
-            "cmd": "$ ",
-            "file": "> ",
-            "edit": "% ",
-            "err": "! ",
-        }
-        # should remove fail and print err to stdout?
-        self._opts = {
-            "info": dict(fg="blue"),
-            "ok": dict(fg="green"),
-            "warn": dict(fg="yellow"),
-            "err": dict(fg="red"),
-        }
+    """Formatting messages before printing to the terminal."""
+
+    _prefix = {
+        "cmd": "$ ",
+        "file": "> ",
+        "info": "% ",
+        "err": "! ",
+    }
+    _opts = {
+        "info": dict(fg="blue"),
+        "ok": dict(fg="green"),
+        "warn": dict(fg="yellow"),
+        "err": dict(fg="red"),
+    }
 
     def _apply_style(self, msg: str, prefix, fmt):
+        """Helper to apply the prefix and format styles to the message."""
         return click.style(self._prefix[prefix] + msg, **self._opts[fmt])
 
     def render(self, template_path: Path, target: Path, overwrite: bool = False):
-        """TODO: write"""
+        """Format for rendering."""
         pref = "file"
         base_str = f" file '{target}' from template at '{template_path}'"
         if overwrite:
@@ -90,7 +90,7 @@ class _MessageFormatter:
         return self._apply_style(f"Removing file '{target}'", "file", "info")
 
     def edit(self, file_path: Path):
-        return self._apply_style(f"Editing file at '{file_path}'", "edit", "ok")
+        return self._apply_style(f"Editing file at '{file_path}'", "info", "ok")
 
     def cmd(self, cmd_list: Iterable[str]):
         """TODO: write"""
@@ -101,12 +101,12 @@ class _MessageFormatter:
     def archive(self, output_path: Path, compression: str):
         return self._apply_style(
             f"Create compressed archive '{output_path}' with compression '{compression}'.",
-            "edit",
+            "info",
             "ok",
         )
 
     def info(self, message: str):
-        return self._apply_style(message, "edit", "ok")
+        return self._apply_style(message, "info", "info")
 
     def error(self, message: str):
         return self._apply_style(message, "err", "err")

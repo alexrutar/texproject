@@ -57,7 +57,6 @@ class CommandRunner:
                 )
 
     def process_output(self, rtc: RuntimeClosure):
-        # add dry_run and verbose processing here
         inferred_success = rtc.success()
         if self._dry_run:
             click.echo(rtc.message())
@@ -73,7 +72,6 @@ class CommandRunner:
                 if out is not None:
                     click.echo(out.decode("ascii"), err=not success)
 
-            # if not dry run, both need to pass
             return success and inferred_success
 
     def execute(
@@ -115,7 +113,6 @@ class RuntimeClosure:
     the filesystem).
     """
 
-    # fix the typing here
     def __init__(
         self,
         message: str,
@@ -129,7 +126,6 @@ class RuntimeClosure:
     def message(self) -> str:
         return self._message
 
-    # todo: rename to inferred_success?
     def success(self) -> bool:
         return self._status
 

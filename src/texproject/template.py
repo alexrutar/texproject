@@ -67,22 +67,18 @@ def apply_template_dict_modification(
             _apply_modification(mod, template_dict)
             return RuntimeOutput(True)
         except ValueError:
-            # TODO: better error here!
             return RuntimeOutput(False)
 
     match mod:
-        case mode, "remove", name:
+        case (mode, "remove", name):
             msg = f"Remove {mode} '{name}' from template dict."
-        case mode, "add", name, index:
+        case (mode, "add", name, index):
             msg = f"Add {mode} '{name}' to template dict in position {index}."
         case (mode, "update", name, new_name):
             msg = f"Update {mode} {name} to {new_name}"
         case _:
-            # todo: fix this
-            msg = "Something bad happened"
+            return RuntimeClosure("Invalid template dict modification!", *FAIL)
 
-    # todo: return error here if trying to remove a macro that does not exist, or something
-    # or some sort of issue with inserting
     return RuntimeClosure(FORMAT_MESSAGE.info(msg), True, _callable)
 
 
@@ -101,11 +97,10 @@ class ApplyStateModifications(AtomicIterable):
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
-        for mod in state["template_modifications"]:
-            yield apply_template_dict_modification(template_dict, mod)
-
-        # TODO: fix this, should not modify global state outside callable
-        state["template_modifications"] = []
+        while len(state["template_modifications"]) > 0:
+            yield apply_template_dict_modification(
+                template_dict, state["template_modifications"].pop(0)
+            )
 
 
 class JinjaTemplate:
