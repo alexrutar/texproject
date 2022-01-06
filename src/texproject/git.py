@@ -1,6 +1,8 @@
 from __future__ import annotations
-import os
 from typing import TYPE_CHECKING
+
+from dataclasses import dataclass
+import os
 
 import keyring
 
@@ -38,6 +40,7 @@ def git_has_remote(path: Path):
     )
 
 
+@dataclass
 class InitializeGitRepo(AtomicIterable):
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
@@ -55,20 +58,13 @@ class InitializeGitRepo(AtomicIterable):
                 run_command(proj_path, command)
 
 
+@dataclass
 class CreateGithubRepo(AtomicIterable):
-    def __init__(
-        self,
-        repo_name: str,
-        description: str,
-        visibility: RepoVisibility,
-        wiki: bool,
-        issues: bool,
-    ) -> None:
-        self._repo_name = repo_name
-        self._description = description
-        self._visibility = visibility
-        self._wiki = wiki
-        self._issues = issues
+    repo_name: str
+    description: str
+    visibility: RepoVisibility
+    wiki: bool
+    issues: bool
 
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
@@ -80,28 +76,28 @@ class CreateGithubRepo(AtomicIterable):
             )
         else:
             if org is not None:
-                repo_name = f"{org}/{self._repo_name}"
+                repo_name = f"{org}/{self.repo_name}"
             else:
-                repo_name = self._repo_name
+                repo_name = self.repo_name
             gh_command = [
                 "gh",
                 "repo",
                 "create",
                 "-d",
-                self._description,
+                self.description,
                 "--source",
                 str(proj_path.dir),
                 "--remote",
                 "origin",
                 "--push",
                 repo_name,
-                "--" + self._visibility,
+                "--" + self.visibility,
             ]
 
-            if not self._wiki:
+            if not self.wiki:
                 gh_command.append("--disable-wiki")
 
-            if not self._issues:
+            if not self.issues:
                 gh_command.append("--disable-issues")
 
             yield run_command(proj_path, gh_command)

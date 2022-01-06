@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from dataclasses import dataclass, astuple
+from itertools import repeat
 from pathlib import Path
 import tempfile
 import sys
@@ -13,7 +14,7 @@ from .error import AbortRunner
 from .filesystem import ProjectPath
 
 if TYPE_CHECKING:
-    from typing import Callable, Dict, Final, Iterable, Optional, Any
+    from typing import Callable, Dict, Final, Iterable, Optional, Any, Tuple
 
 
 @dataclass
@@ -47,20 +48,21 @@ class CommandRunner:
         self,
         command_iter: Iterable[AtomicIterable],
         state_init: Callable[[], Dict[str, Any]] = lambda: {},
-    ) -> Iterable[RuntimeClosure]:
+    ) -> Iterable[Tuple[bool, RuntimeClosure]]:
         state = state_init()
         for at_iter in command_iter:
             with tempfile.TemporaryDirectory() as temp_dir_str:
                 temp_dir = Path(temp_dir_str)
-                yield from at_iter(
-                    self._proj_path, self._template_dict, state, temp_dir
+                yield from zip(
+                    repeat(at_iter.abort_on_failure),
+                    at_iter(self._proj_path, self._template_dict, state, temp_dir),
                 )
 
-    def process_output(self, rtc: RuntimeClosure):
+    def process_output(self, rtc: RuntimeClosure, abort_on_failure: bool = False):
         inferred_success = rtc.success()
         if self._dry_run:
             click.echo(rtc.message())
-            return inferred_success
+            ret = inferred_success
         else:
             success, out = astuple(rtc.run())
             if self._verbose:
@@ -72,7 +74,10 @@ class CommandRunner:
                 if out is not None:
                     click.echo(out.decode("ascii"), err=not success)
 
-            return success and inferred_success
+            ret = success and inferred_success
+        if abort_on_failure and ret is False:
+            raise AbortRunner("aborting on failure")
+        return ret
 
     def execute(
         self,
@@ -80,14 +85,13 @@ class CommandRunner:
         state_init: Callable[[], Dict[str, str]] = lambda: {},
     ):
         try:
-            # list is needed here to avoid generator short-circuiting:
-            # side effects are important!
-            if not all(
-                [
-                    self.process_output(rtc)
-                    for rtc in self.atomic_outputs(command_iter, state_init)
-                ]
-            ):
+            outputs = [
+                self.process_output(rtc, abort_on_failure=abort_on_failure)
+                for abort_on_failure, rtc in self.atomic_outputs(
+                    command_iter, state_init
+                )
+            ]
+            if not all(outputs):
                 click.secho(
                     "\nError: Runner completed, but one of the commands failed!",
                     err=True,
@@ -97,7 +101,7 @@ class CommandRunner:
 
         except AbortRunner as e:
             click.secho(
-                f"Runner aborted with error message '{str(e)}'. Dumping stderr: ",
+                f"Runner aborted with error message '{str(e)}'.",
                 err=True,
                 fg="red",
             )
@@ -130,13 +134,15 @@ class RuntimeClosure:
         return self._status
 
     def run(self) -> RuntimeOutput:
-        # only allow running once!
+        # only allow running once
         ret = self._callable()
         del self._callable
         return ret
 
 
 class AtomicIterable:
+    abort_on_failure = False
+
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:

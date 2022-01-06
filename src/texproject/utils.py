@@ -6,7 +6,7 @@ import subprocess
 
 import click
 
-from .base import NAMES
+from .base import NAMES, LinkMode
 from .control import RuntimeOutput, RuntimeClosure, AtomicIterable, SUCCESS, FAIL
 from .error import AbortRunner
 from .term import FORMAT_MESSAGE
@@ -137,7 +137,7 @@ class CleanProject(AtomicIterable):
         else:
             dir = self._working_dir
 
-        for mode in NAMES.modes:
+        for mode in LinkMode:
             for path, name in NAMES.existing_template_files(dir, mode):
                 if name not in template_dict[NAMES.convert_mode(mode)]:
                     yield remove_path(path)

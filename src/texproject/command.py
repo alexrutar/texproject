@@ -8,7 +8,13 @@ from pathlib import Path
 import click
 
 from . import __version__, __repo__
-from .base import SHUTIL_ARCHIVE_FORMATS, SHUTIL_ARCHIVE_SUFFIX_MAP
+from .base import (
+    SHUTIL_ARCHIVE_FORMATS,
+    SHUTIL_ARCHIVE_SUFFIX_MAP,
+    AddCommand,
+    RemoveCommand,
+    LinkMode,
+)
 from .control import CommandRunner
 from .filesystem import (
     ProjectPath,
@@ -41,7 +47,7 @@ from .template import (
 )
 
 if TYPE_CHECKING:
-    from .base import LinkMode, NAMES, RepoVisibility
+    from .base import NAMES, RepoVisibility
     from typing import Optional, Iterable, List, Literal, Dict, Callable
     from .control import AtomicIterable
 
@@ -52,7 +58,7 @@ def process_atoms(load_template: Optional[bool] = True):
     def state_constructor(template: Optional[str] = None) -> Callable[[], Dict]:
         def state_init() -> Dict:
             dct = {
-                "linked": {NAMES.convert_mode(mode): [] for mode in NAMES.modes},
+                "linked": {NAMES.convert_mode(mode): [] for mode in LinkMode},
                 "template_modifications": [],
             }
             names = {"template": template} if template is not None else {}
@@ -171,7 +177,11 @@ def config(config_file: Literal["local", "global"]) -> Iterable[AtomicIterable]:
 
 
 def _link_option(mode: LinkMode):
-    linker = {"macro": macro_linker, "citation": citation_linker, "style": style_linker}
+    linker = {
+        LinkMode.macro: macro_linker,
+        LinkMode.citation: citation_linker,
+        LinkMode.style: style_linker,
+    }
     return click.option(
         f"--{mode}",
         f"{NAMES.convert_mode(mode)}",
@@ -195,12 +205,12 @@ def _path_option(mode: LinkMode):
 
 
 @cli.command("import")
-@_link_option("macro")
-@_link_option("citation")
-@_link_option("style")
-@_path_option("macro")
-@_path_option("citation")
-@_path_option("style")
+@_link_option(LinkMode.macro)
+@_link_option(LinkMode.citation)
+@_link_option(LinkMode.style)
+@_path_option(LinkMode.macro)
+@_path_option(LinkMode.citation)
+@_path_option(LinkMode.style)
 @click.option(
     "--gitignore",
     "gitignore",
@@ -335,9 +345,9 @@ def template() -> None:
 
 
 @template.command()
-@_link_option("macro")
-@_link_option("citation")
-@_link_option("style")
+@_link_option(LinkMode.macro)
+@_link_option(LinkMode.citation)
+@_link_option(LinkMode.style)
 @click.option("--index", "index", help="position to insert", default=0, type=int)
 @process_atoms()
 def add(
@@ -349,24 +359,30 @@ def add(
     """Add entries to the template dictionary. The --index option allows you to specify
     the index to insert the citation (--index 0 means to insert at the beginning).
     """
-    for mode, names in [("macro", macros), ("citation", citations), ("style", styles)]:
-        yield ApplyModificationSequence((mode, "add", name, index) for name in names)
-
+    for mode, names in [
+        (LinkMode.macro, macros),
+        (LinkMode.citation, citations),
+        (LinkMode.style, styles),
+    ]:
+        yield ApplyModificationSequence(AddCommand(mode, name, index) for name in names)
     yield TemplateDictWriter()
 
 
 @template.command()
-@_link_option("macro")
-@_link_option("citation")
-@_link_option("style")
+@_link_option(LinkMode.macro)
+@_link_option(LinkMode.citation)
+@_link_option(LinkMode.style)
 @process_atoms()
 def remove(
     macros: List[str], citations: List[str], styles: List[str]
 ) -> Iterable[AtomicIterable]:
     """Remove entries from the template dictionary."""
-    for mode, names in [("macro", macros), ("citation", citations), ("style", styles)]:
-        yield ApplyModificationSequence((mode, "remove", name) for name in names)
-
+    for mode, names in [
+        (LinkMode.macro, macros),
+        (LinkMode.citation, citations),
+        (LinkMode.style, styles),
+    ]:
+        yield ApplyModificationSequence(RemoveCommand(mode, name) for name in names)
     yield TemplateDictWriter()
 
 
@@ -508,9 +524,9 @@ def clean() -> Iterable[AtomicIterable]:
 
 
 @util.command()
-@_link_option("macro")
-@_link_option("citation")
-@_link_option("style")
+@_link_option(LinkMode.macro)
+@_link_option(LinkMode.citation)
+@_link_option(LinkMode.style)
 @process_atoms()
 def diff(
     macros: List[str],
@@ -531,13 +547,15 @@ def show_config():
 
 
 @cli.command("list")
-@click.argument("res_class", type=click.Choice(NAMES.modes + ("template",)))
-def list_(res_class: LinkMode | Literal["template"]) -> None:
+@click.argument(
+    "res_class", type=click.Choice([e.value for e in LinkMode] + ["template"])
+)
+def list_(res_class: Literal["macro", "citation", "style", "template"]) -> None:
     """Retrieve program and template information."""
     linker_map = {
-        "citation": citation_linker,
-        "macro": macro_linker,
-        "style": style_linker,
+        LinkMode.citation.value: citation_linker,
+        LinkMode.macro.value: macro_linker,
+        LinkMode.style.value: style_linker,
         "template": template_linker,
     }
 

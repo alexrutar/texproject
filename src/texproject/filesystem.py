@@ -8,14 +8,13 @@ import pytomlpp as toml
 from xdg import XDG_DATA_HOME, XDG_CONFIG_HOME
 
 from . import defaults
-from .base import NAMES, constant
+from .base import NAMES, constant, LinkMode
 from .error import (
     ProjectDataMissingError,
     TemplateDataMissingError,
 )
 
 if TYPE_CHECKING:
-    from .base import LinkMode
     from typing import Optional, List, Dict
 
 
@@ -262,7 +261,7 @@ class ProjectPath:
         return "pre-commit"
 
     def mk_data_dir(self):
-        for mode in NAMES.modes:
+        for mode in LinkMode:
             (self.data_dir / NAMES.resource_subdir(mode)).mkdir(
                 exist_ok=True, parents=True
             )

@@ -1,36 +1,48 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 import shutil
 
 if TYPE_CHECKING:
-    from typing import Final, Iterable, Literal, Tuple, TypeVar
+    from typing import Final, Iterable, Tuple
 
-    LinkMode = TypeVar(
-        "LinkMode", Literal["citation"], Literal["style"], Literal["macro"]
-    )
-    ModCommand = TypeVar(
-        "ModCommand",
-        Tuple[
-            Literal["citation"] | Literal["style"] | Literal["macro"],
-            Literal["remove"],
-            str,
-        ],
-        Tuple[
-            Literal["citation"] | Literal["style"] | Literal["macro"],
-            Literal["add"],
-            str,
-            int,
-        ],
-        Tuple[
-            Literal["citation"] | Literal["style"] | Literal["macro"],
-            Literal["update"],
-            str,
-            str,
-        ],
-    )
-    RepoVisibility = TypeVar("RepoVisibility", Literal["public"], Literal["private"])
+
+class LinkMode(str, Enum):
+    macro = "macro"
+    citation = "citation"
+    style = "style"
+
+
+class RepoVisibility(str, Enum):
+    public = "public"
+    private = "private"
+
+
+@dataclass
+class ModCommand:
+    """"""
+
+    mode: LinkMode
+
+
+@dataclass
+class AddCommand(ModCommand):
+    source: str
+    index: int
+
+
+@dataclass
+class RemoveCommand(ModCommand):
+    source: str
+
+
+@dataclass
+class UpdateCommand(ModCommand):
+    source: str
+    target: str
 
 
 _suffix_map_helper = {
@@ -73,16 +85,20 @@ class _Naming:
         return "document.tex"
 
     def convert_mode(self, mode: LinkMode) -> str:
-        return {"citation": "citations", "style": "styles", "macro": "macros"}[mode]
+        return {
+            LinkMode.citation: "citations",
+            LinkMode.style: "styles",
+            LinkMode.macro: "macros",
+        }[mode]
 
     def resource_subdir(self, mode: LinkMode) -> Path:
         return Path(
-            {"citation": "citations", "style": "styles", "macro": "macros"}[mode]
+            {
+                LinkMode.citation: "citations",
+                LinkMode.style: "styles",
+                LinkMode.macro: "macros",
+            }[mode]
         )
-
-    @constant
-    def modes(self) -> tuple[str, str, str]:
-        return ("citation", "style", "macro")
 
     def get_name(self, template_file_path: Path):
         fn = template_file_path.stem

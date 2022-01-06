@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING
 
 import shlex
 
+from .base import UpdateCommand, LinkMode
 from .control import RuntimeClosure, AtomicIterable, RuntimeOutput
 from .filesystem import ProjectPath, JINJA_PATH
 from .template import (
@@ -161,7 +162,8 @@ class ModifyArxiv(AtomicIterable):
 
         # perform substitutions that arxiv does not like, respecting existing files
         yield apply_template_dict_modification(
-            template_dict, ("macro", "update", "typesetting", "arxiv-typesetting")
+            template_dict,
+            UpdateCommand(LinkMode.macro, "typesetting", "arxiv-typesetting"),
         )
         yield from TemplateDictLinker(target_dir=new_data_dir)(
             proj_path, template_dict, state, temp_dir

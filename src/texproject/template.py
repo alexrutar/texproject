@@ -2,6 +2,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
+from dataclasses import dataclass
 import datetime
 import shutil
 import os
@@ -16,7 +17,7 @@ from jinja2 import (
     TemplateNotFound,
 )
 
-from .base import NAMES
+from .base import NAMES, AddCommand, RemoveCommand, UpdateCommand, LinkMode
 from .term import FORMAT_MESSAGE
 from .control import (
     RuntimeClosure,
@@ -34,9 +35,9 @@ from .filesystem import (
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Iterable, Dict, Optional
+    from typing import Iterable, Dict, Optional, ClassVar
 
-    from .base import LinkMode, ModCommand
+    from .base import ModCommand
     from .filesystem import ProjectPath, _FileLinker
 
 
@@ -46,15 +47,15 @@ def data_name(name: str, mode: LinkMode) -> str:
 
 def _apply_modification(mod: ModCommand, template_dict: Dict):
     match mod:
-        case (mode, "remove", name):
-            template_dict[NAMES.convert_mode(mode)].remove(name)
+        case RemoveCommand(mode, source):
+            template_dict[NAMES.convert_mode(mode)].remove(source)
 
-        case (mode, "add", name, index):
-            template_dict[NAMES.convert_mode(mode)].insert(index, name)
+        case AddCommand(mode, source, index):
+            template_dict[NAMES.convert_mode(mode)].insert(index, source)
 
-        case (mode, "update", name, new_name):
+        case UpdateCommand(mode, source, target):
             template_dict[NAMES.convert_mode(mode)] = [
-                new_name if val == name else val
+                target if val == source else val
                 for val in template_dict[NAMES.convert_mode(mode)]
             ]
 
@@ -70,26 +71,26 @@ def apply_template_dict_modification(
             return RuntimeOutput(False)
 
     match mod:
-        case (mode, "remove", name):
-            msg = f"Remove {mode} '{name}' from template dict."
-        case (mode, "add", name, index):
-            msg = f"Add {mode} '{name}' to template dict in position {index}."
-        case (mode, "update", name, new_name):
-            msg = f"Update {mode} {name} to {new_name}"
+        case RemoveCommand(mode, source):
+            msg = f"Remove {mode} '{source}' from template dict."
+        case AddCommand(mode, source, index):
+            msg = f"Add {mode} '{source}' to template dict in position {index}."
+        case UpdateCommand(mode, source, target):
+            msg = f"Update {mode} {source} to {target}"
         case _:
             return RuntimeClosure("Invalid template dict modification!", *FAIL)
 
     return RuntimeClosure(FORMAT_MESSAGE.info(msg), True, _callable)
 
 
+@dataclass
 class ApplyModificationSequence(AtomicIterable):
-    def __init__(self, mods: Iterable[ModCommand]):
-        self._mods = mods
+    mods: Iterable[ModCommand]
 
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
-        for mod in self._mods:
+        for mod in self.mods:
             yield apply_template_dict_modification(template_dict, mod)
 
 
@@ -103,8 +104,13 @@ class ApplyStateModifications(AtomicIterable):
             )
 
 
+@dataclass
 class JinjaTemplate:
-    _env = Environment(
+    template_path: Path
+    force: bool = False
+    executable: bool = False
+
+    _env: ClassVar[Environment] = Environment(
         loader=ChoiceLoader(
             [
                 PackageLoader(__name__.split(".")[0], "templates"),
@@ -121,16 +127,6 @@ class JinjaTemplate:
     )
     _env.filters["data_name"] = data_name
 
-    def __init__(
-        self,
-        template_path: Path,
-        force: bool = False,
-        executable: bool = False,
-    ):
-        self._template_path = template_path
-        self._force = force
-        self._executable = executable
-
     def get_text(self, proj_path, template_dict, render_mods=None):
         config = proj_path.config
         if render_mods is not None:
@@ -146,7 +142,7 @@ class JinjaTemplate:
             + f"{render['project_data_folder']}/{render['bibinfo_file']}"
             + "}"
         )
-        return self._env.get_template(str(self._template_path)).render(
+        return self._env.get_template(str(self.template_path)).render(
             user=config.user,
             template=template_dict,
             config=render,
@@ -164,7 +160,7 @@ class JinjaTemplate:
         state: Dict,
         target_path: Path,
     ) -> RuntimeClosure:
-        if target_path.exists() and not self._force:
+        if target_path.exists() and not self.force:
             return RuntimeClosure(
                 FORMAT_MESSAGE.info(
                     f"Using existing rendered template at '{target_path}'."
@@ -178,13 +174,13 @@ class JinjaTemplate:
                 target_path.parent.mkdir(parents=True, exist_ok=True)
                 target_path.write_text(output)
                 # catch chmod failure
-                if self._executable:
+                if self.executable:
                     os.chmod(target_path, stat.S_IXUSR | stat.S_IWUSR | stat.S_IRUSR)
                 return RuntimeOutput(True)
 
             return RuntimeClosure(
                 FORMAT_MESSAGE.render(
-                    self._template_path,
+                    self.template_path,
                     target_path,
                     overwrite=target_path.exists(),
                 ),
@@ -206,7 +202,7 @@ def _link_helper(
         return RuntimeOutput(True)
 
     def _fail_callable():
-        state["template_modifications"].append((linker.mode, "remove", name))
+        state["template_modifications"].append(RemoveCommand(linker.mode, name))
         return RuntimeOutput(False)
 
     message_args = (linker, name, target_path.parent)
@@ -271,19 +267,12 @@ def link_path(
     )
 
 
+@dataclass
 class NameSequenceLinker(AtomicIterable):
-    def __init__(
-        self,
-        mode: LinkMode,
-        name_list: Iterable[str],
-        force: bool = False,
-        target_dir: Optional[Path] = None,
-    ) -> None:
-        """TODO: write"""
-        self._mode = mode
-        self._name_list = name_list
-        self._force = force
-        self._target_dir = target_dir
+    mode: LinkMode
+    name_list: Iterable[str]
+    force: bool = False
+    target_dir: Optional[Path] = None
 
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
@@ -292,12 +281,12 @@ class NameSequenceLinker(AtomicIterable):
             link_name(
                 proj_path,
                 state,
-                LINKER_MAP[self._mode],
+                LINKER_MAP[self.mode],
                 name,
-                force=self._force,
-                target_dir=self._target_dir,
+                force=self.force,
+                target_dir=self.target_dir,
             )
-            for name in self._name_list
+            for name in self.name_list
         )
 
 
@@ -330,7 +319,7 @@ class TemplateDictLinker(AtomicIterable):
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
-        for mode in NAMES.modes:
+        for mode in LinkMode:
             yield from NameSequenceLinker(
                 mode,
                 template_dict[NAMES.convert_mode(mode)],

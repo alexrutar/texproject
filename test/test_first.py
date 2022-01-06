@@ -125,3 +125,13 @@ def test_clean(fs_runner):
     assert Path(".texproject/macros/local-tikz.sty").exists()
     _run_cmd_seq(fs_runner, ["util", "clean"])
     assert not Path(".texproject/macros/local-tikz.sty").exists()
+
+
+def test_list(fs_runner):
+    _run_cmd_seq(
+        fs_runner,
+        ["list", "macro"],
+        ["list", "citation"],
+        ["list", "style"],
+        ["list", "template"],
+    )
