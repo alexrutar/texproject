@@ -125,7 +125,7 @@ email = "jdoe@email.com"
 specify the name and email used to sign the automated commits made on your behalf, and the keys
 ```
 [github.archive]
-repo = 'paper_archive'
+repo = 'johndoe/paper_archive'
 folder = 'pdfs'
 branch = 'main'
 ```
@@ -146,8 +146,8 @@ username = '<name>'
 entry = '<github_cli_token>'
 ```
 to your Texproject system configuration.
-Of course, `<name>` and `<github_cli_token>` can be whatever you want.
-You can also set the `API_TOKEN_GITHUB` environment variable.
+
+You can also set the `API_TOKEN_GITHUB` environment variable; this has priority over the keyrin option.
 
 When these settings are in place, running `tpr git init` will automatically add this action, as well as the API token, to your GitHub repository.
 In order to upgrade an existing project to include this feature, you can also run

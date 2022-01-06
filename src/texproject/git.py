@@ -38,17 +38,6 @@ def git_has_remote(path: Path):
     )
 
 
-def github_remote_repo(path: Path) -> str:
-    # todo: think about formatting here
-    proc = subprocess.run(
-        ["git", "config", "--get", "remote.origin.url"], cwd=path, capture_output=True
-    )
-    if proc.returncode == 0:
-        return proc.stdout.decode("ascii").split(":")[1]
-    else:
-        raise Exception("No remote!")
-
-
 class InitializeGitRepo(AtomicIterable):
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
