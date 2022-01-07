@@ -2,7 +2,8 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from dataclasses import dataclass, astuple
+from types import SimpleNamespace
+from dataclasses import dataclass, astuple, field, InitVar
 from itertools import repeat
 from pathlib import Path
 import tempfile
@@ -140,8 +141,15 @@ class RuntimeClosure:
         return ret
 
 
+@dataclass
 class AtomicIterable:
-    abort_on_failure = False
+    abort_on_failure: bool = field(default=False, init=False)
+
+    @classmethod
+    def with_abort(cls, *args, **kwargs):
+        self = cls(*args, **kwargs)
+        self.abort_on_failure = True
+        return self
 
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path

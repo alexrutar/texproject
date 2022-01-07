@@ -40,6 +40,7 @@ def git_has_remote(path: Path):
     )
 
 
+@dataclass
 class InitializeGitRepo(AtomicIterable):
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path

@@ -463,7 +463,7 @@ def git_init(
     """
     yield GitFileWriter()
     yield InitializeGitRepo()
-    yield CreateGithubRepo(repo_name, repo_desc, vis, wiki, issues)
+    yield CreateGithubRepo.with_abort(repo_name, repo_desc, vis, wiki, issues)
     yield WriteGithubApiToken(repo_name)
 
 
