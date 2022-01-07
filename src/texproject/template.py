@@ -114,7 +114,7 @@ class JinjaTemplate:
         loader=ChoiceLoader(
             [
                 PackageLoader(__name__.split(".")[0], "templates"),
-                FileSystemLoader(searchpath=(DATA_PATH.data_dir / "templates")),
+                FileSystemLoader(searchpath=(DATA_PATH.template_dir)),
             ]
         ),
         block_start_string="<*",

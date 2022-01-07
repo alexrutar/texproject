@@ -96,7 +96,7 @@ class _DataPath:
     @constant
     def resource_dir(self) -> Path:
         """TODO: write"""
-        return XDG_DATA_HOME / "texproject" / "resources"
+        return self.data_dir
 
     @constant
     def template_dir(self) -> Path:
@@ -161,22 +161,16 @@ def relative(base: str):
 
     def decorator(func):
         def fget(self) -> Path:
-            if base == "root":
-                return self.working_dir / func(self)
-            elif base == "data":
-                return (
+            return {
+                "root": self.working_dir / func(self),
+                "data": (
                     self.working_dir
                     / self.config.render["project_data_folder"]
                     / func(self)
-                )
-
-            elif base == "gh_actions":
-                return self.working_dir / ".github" / "workflows" / func(self)
-
-            elif base == "git_hooks":
-                return self.working_dir / ".git" / "hooks" / func(self)
-            # TODO: fix
-            raise Exception("something bad")
+                ),
+                "gh_actions": self.working_dir / ".github" / "workflows" / func(self),
+                "git_hooks": self.working_dir / ".git" / "hooks" / func(self),
+            }[base]
 
         return property(fget, fset)
 
@@ -354,14 +348,14 @@ class _TemplateLinker(_BaseLinker):
         )
 
 
-macro_linker = _FileLinker(".sty", "macro file", "macro")
-style_linker = _FileLinker(".sty", "style file", "style")
-citation_linker = _FileLinker(".bib", "citation file", "citation")
+macro_linker = _FileLinker(".sty", "macro file", LinkMode.macro)
+citation_linker = _FileLinker(".bib", "citation file", LinkMode.citation)
+style_linker = _FileLinker(".sty", "style file", LinkMode.style)
 template_linker = _TemplateLinker(DATA_PATH.template_dir, "", "template")
 
 LINKER_MAP = {
-    "citation": citation_linker,
-    "macro": macro_linker,
-    "style": style_linker,
+    LinkMode.macro: macro_linker,
+    LinkMode.citation: citation_linker,
+    LinkMode.style: style_linker,
     "template": template_linker,
 }
