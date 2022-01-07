@@ -152,7 +152,7 @@ def init() -> Iterable[AtomicIterable]:
     intermediate directories are automatically constructed.
     """
     # must link templates before writing
-    yield OutputFolderCreator()
+    yield OutputFolderCreator.with_abort()
     yield TemplateDictLinker()
     yield InfoFileWriter()
 
@@ -488,7 +488,7 @@ def init_files(force: bool) -> Iterable[AtomicIterable]:
 @process_atoms()
 def init_archive(repo_name: str) -> Iterable[AtomicIterable]:
     """Set the GitHub secret and archive repository. Run tpr git init --help for more information."""
-    yield LatexBuildWriter(force=True)
+    yield LatexBuildWriter.with_abort(force=True)
     yield WriteGithubApiToken(repo_name)
 
 
