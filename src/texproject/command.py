@@ -59,7 +59,6 @@ def process_atoms(load_template: Optional[bool] = True):
     def state_constructor(template: Optional[str] = None) -> Callable[[], Dict]:
         def state_init() -> Dict:
             dct = {
-                "linked": {NAMES.convert_mode(mode): [] for mode in LinkMode},
                 "template_modifications": [],
             }
             names = {"template": template} if template is not None else {}
