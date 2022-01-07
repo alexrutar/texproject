@@ -10,7 +10,7 @@ from . import __repo__
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Iterable
+    from typing import Iterable, Final
     from .filesystem import _FileLinker
 
 REPO_FORMATTED = click.style(__repo__, fg="bright_blue")
@@ -112,4 +112,4 @@ class _MessageFormatter:
         return self._apply_style(message, "err", "err")
 
 
-FORMAT_MESSAGE = _MessageFormatter()
+FORMAT_MESSAGE: Final = _MessageFormatter()

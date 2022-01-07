@@ -15,7 +15,7 @@ from .error import (
 )
 
 if TYPE_CHECKING:
-    from typing import Optional, List, Dict
+    from typing import Optional, List, Dict, Final
 
 
 def toml_load(path_obj: Path, missing_ok: bool = False) -> Dict:
@@ -94,11 +94,6 @@ class _DataPath:
         return XDG_DATA_HOME / "texproject"
 
     @constant
-    def resource_dir(self) -> Path:
-        """TODO: write"""
-        return self.data_dir
-
-    @constant
     def template_dir(self) -> Path:
         """TODO: write"""
         return self.data_dir / "templates"
@@ -150,6 +145,10 @@ class _JinjaTemplatePath:
     def arxiv_autotex(self) -> str:
         """TODO: write"""
         return "arxiv_autotex.txt"
+
+
+JINJA_PATH: Final = _JinjaTemplatePath()
+DATA_PATH: Final = _DataPath()
 
 
 def relative(base: str):
@@ -261,10 +260,6 @@ class ProjectPath:
             )
 
 
-JINJA_PATH = _JinjaTemplatePath()
-DATA_PATH = _DataPath()
-
-
 class _BaseLinker:
     """TODO: write"""
 
@@ -295,9 +290,9 @@ class _FileLinker(_BaseLinker):
     def __init__(self, suffix: str, user_str: str, mode: LinkMode):
         """TODO: write"""
         super().__init__(
-            DATA_PATH.resource_dir / NAMES.resource_subdir(mode), suffix, user_str
+            DATA_PATH.data_dir / NAMES.resource_subdir(mode), suffix, user_str
         )
-        self.mode = mode  # type: LinkMode
+        self.mode = mode
 
 
 class DefaultLoader:
@@ -348,12 +343,12 @@ class _TemplateLinker(_BaseLinker):
         )
 
 
-macro_linker = _FileLinker(".sty", "macro file", LinkMode.macro)
-citation_linker = _FileLinker(".bib", "citation file", LinkMode.citation)
-style_linker = _FileLinker(".sty", "style file", LinkMode.style)
-template_linker = _TemplateLinker(DATA_PATH.template_dir, "", "template")
+macro_linker: Final = _FileLinker(".sty", "macro file", LinkMode.macro)
+citation_linker: Final = _FileLinker(".bib", "citation file", LinkMode.citation)
+style_linker: Final = _FileLinker(".sty", "style file", LinkMode.style)
+template_linker: Final = _TemplateLinker(DATA_PATH.template_dir, "", "template")
 
-LINKER_MAP = {
+LINKER_MAP: Final = {
     LinkMode.macro: macro_linker,
     LinkMode.citation: citation_linker,
     LinkMode.style: style_linker,
