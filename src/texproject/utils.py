@@ -14,7 +14,7 @@ from .term import FORMAT_MESSAGE
 if TYPE_CHECKING:
     from pathlib import Path
     from typing import List, Iterable, Dict, Literal
-    from .filesystem import ProjectPath
+    from .filesystem import ProjectPath, TemplateDict
 
 
 def remove_path(target: Path) -> RuntimeClosure:
@@ -93,7 +93,11 @@ class RunCommand(AtomicIterable):
         self._command = command
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         yield run_command(proj_path, self._command)
 
@@ -103,7 +107,11 @@ class FileEditor(AtomicIterable):
         self._config_file = config_file
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         match self._config_file:
             case "local":

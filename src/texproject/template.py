@@ -29,23 +29,22 @@ from .control import (
 from .filesystem import (
     DATA_PATH,
     JINJA_PATH,
-    LINKER_MAP,
-    toml_dump,
+    TemplateDict,
 )
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Iterable, Dict, Optional, ClassVar
+    from typing import Iterable, Optional, ClassVar, Final, List, Dict
 
     from .base import ModCommand
-    from .filesystem import ProjectPath, _FileLinker
+    from .filesystem import ProjectPath
 
 
 def data_name(name: str, mode: LinkMode) -> str:
     return str(NAMES.rel_data_path(name, mode))
 
 
-def _apply_modification(mod: ModCommand, template_dict: Dict):
+def _apply_modification(mod: ModCommand, template_dict: TemplateDict):
     match mod:
         case RemoveCommand(mode, source):
             template_dict[NAMES.convert_mode(mode)].remove(source)
@@ -61,7 +60,7 @@ def _apply_modification(mod: ModCommand, template_dict: Dict):
 
 
 def apply_template_dict_modification(
-    template_dict: Dict, mod: ModCommand
+    template_dict: TemplateDict, mod: ModCommand
 ) -> RuntimeClosure:
     def _callable():
         try:
@@ -88,7 +87,11 @@ class ApplyModificationSequence(AtomicIterable):
     mods: Iterable[ModCommand]
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         for mod in self.mods:
             yield apply_template_dict_modification(template_dict, mod)
@@ -96,7 +99,11 @@ class ApplyModificationSequence(AtomicIterable):
 
 class ApplyStateModifications(AtomicIterable):
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         while len(state["template_modifications"]) > 0:
             yield apply_template_dict_modification(
@@ -275,7 +282,11 @@ class NameSequenceLinker(AtomicIterable):
     target_dir: Optional[Path] = None
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         yield from (
             link_name(
@@ -311,7 +322,11 @@ class TemplateDictLinker(AtomicIterable):
     target_dir: Optional[Path] = None
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         for mode in LinkMode:
             yield from NameSequenceLinker(
@@ -324,7 +339,11 @@ class TemplateDictLinker(AtomicIterable):
 
 class InfoFileWriter(AtomicIterable):
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         yield from ApplyStateModifications()(proj_path, template_dict, state, temp_dir)
 
@@ -337,10 +356,12 @@ class InfoFileWriter(AtomicIterable):
             )
 
 
-def write_template_dict(proj_path: ProjectPath, template_dict: Dict) -> RuntimeClosure:
+def write_template_dict(
+    proj_path: ProjectPath, template_dict: TemplateDict
+) -> RuntimeClosure:
     def _callable():
         proj_path.mk_data_dir()
-        toml_dump(proj_path.template, template_dict)
+        template_dict.dump(proj_path.template)
         return RuntimeOutput(True)
 
     return RuntimeClosure(
@@ -354,14 +375,22 @@ def write_template_dict(proj_path: ProjectPath, template_dict: Dict) -> RuntimeC
 
 class TemplateDictWriter(AtomicIterable):
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         yield write_template_dict(proj_path, template_dict)
 
 
 class OutputFolderCreator(AtomicIterable):
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         """Write top-level files into the project path."""
         yield write_template_dict(proj_path, template_dict)
@@ -370,3 +399,67 @@ class OutputFolderCreator(AtomicIterable):
             (JINJA_PATH.project_macro, proj_path.project_macro),
         ]:
             yield JinjaTemplate(source).write(proj_path, template_dict, state, target)
+
+
+class _BaseLinker:
+    """TODO: write"""
+
+    def __init__(self, dir_path: Path, suffix: str, user_str: str) -> None:
+        """TODO: write"""
+        self.user_str: Final = user_str
+        self.dir_path: Final = dir_path
+        self.suffix: Final = suffix
+
+    def valid_path(self, path: Path) -> bool:
+        """TODO: write"""
+        return path.suffix == self.suffix
+
+    def list_names(self) -> List[str]:
+        """TODO: write"""
+        return sorted(
+            [path.stem for path in self.dir_path.iterdir() if self.valid_path(path)]
+        )
+
+    def file_path(self, name: str) -> Path:
+        """TODO: write"""
+        return self.dir_path / f"{name}{self.suffix}"
+
+
+class _FileLinker(_BaseLinker):
+    """TODO: write"""
+
+    def __init__(self, suffix: str, user_str: str, mode: LinkMode) -> None:
+        """TODO: write"""
+        super().__init__(
+            DATA_PATH.data_dir / NAMES.resource_subdir(mode), suffix, user_str
+        )
+        self.mode = mode
+
+
+class _TemplateLinker(_BaseLinker):
+    """TODO: write"""
+
+    def load_template(self, name: str) -> TemplateDict:
+        """TODO: write"""
+        return TemplateDict.from_path(self.file_path(name) / NAMES.template_toml)
+
+    def valid_path(self, path: Path):
+        """TODO: write"""
+        return (
+            super().valid_path(path)
+            and (path / NAMES.template_doc).exists()
+            and (path / NAMES.template_toml).exists()
+        )
+
+
+macro_linker: Final = _FileLinker(".sty", "macro file", LinkMode.macro)
+citation_linker: Final = _FileLinker(".bib", "citation file", LinkMode.citation)
+style_linker: Final = _FileLinker(".sty", "style file", LinkMode.style)
+template_linker: Final = _TemplateLinker(DATA_PATH.template_dir, "", "template")
+
+LINKER_MAP: Final = {
+    LinkMode.macro: macro_linker,
+    LinkMode.citation: citation_linker,
+    LinkMode.style: style_linker,
+    "template": template_linker,
+}

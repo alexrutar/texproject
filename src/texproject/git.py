@@ -15,7 +15,7 @@ import subprocess
 
 if TYPE_CHECKING:
     from .base import RepoVisibility
-    from .filesystem import ProjectPath
+    from .filesystem import ProjectPath, TemplateDict
     from typing import Iterable, Dict
     from pathlib import Path
 
@@ -43,7 +43,11 @@ def git_has_remote(path: Path):
 @dataclass
 class InitializeGitRepo(AtomicIterable):
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         if is_git_repo(proj_path.dir):
             yield RuntimeClosure(
@@ -67,7 +71,11 @@ class CreateGithubRepo(AtomicIterable):
     issues: bool
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         org = proj_path.config.github.get("org", None)
         if git_has_remote(proj_path.dir):
@@ -108,7 +116,11 @@ class WriteGithubApiToken(AtomicIterable):
     repo_name: str
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         env_token = os.environ.get("API_TOKEN_GITHUB", None)
         if env_token is not None:
@@ -141,7 +153,11 @@ class GitignoreWriter(AtomicIterable):
     force: bool = False
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         yield JinjaTemplate(JINJA_PATH.gitignore, force=self.force).write(
             proj_path, template_dict, state, proj_path.gitignore
@@ -153,7 +169,11 @@ class PrecommitWriter(AtomicIterable):
     force: bool = False
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         yield JinjaTemplate(
             JINJA_PATH.pre_commit,
@@ -167,7 +187,11 @@ class GitFileWriter(AtomicIterable):
     force: bool = False
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         for template, target in [
             (
@@ -195,7 +219,11 @@ class LatexBuildWriter(AtomicIterable):
     force: bool
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         yield JinjaTemplate(JINJA_PATH.build_latex, force=self.force).write(
             proj_path, template_dict, state, proj_path.build_latex

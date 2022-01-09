@@ -20,11 +20,7 @@ from .control import CommandRunner
 from .filesystem import (
     ProjectPath,
     NAMES,
-    style_linker,
-    macro_linker,
-    citation_linker,
-    template_linker,
-    toml_load_local_template,
+    TemplateDict,
 )
 from .git import (
     InitializeGitRepo,
@@ -45,6 +41,10 @@ from .template import (
     PathSequenceLinker,
     ApplyModificationSequence,
     TemplateDictWriter,
+    style_linker,
+    macro_linker,
+    citation_linker,
+    template_linker,
 )
 
 if TYPE_CHECKING:
@@ -71,7 +71,7 @@ def process_atoms(load_template: Optional[bool] = True):
             if load_template is None:
                 template_dict = None
             elif load_template:
-                template_dict = toml_load_local_template(ctx.obj["proj_path"].template)
+                template_dict = TemplateDict.from_path(ctx.obj["proj_path"].template)
             else:
                 template_dict = template_linker.load_template(template)
 

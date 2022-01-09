@@ -11,7 +11,7 @@ from . import __repo__
 if TYPE_CHECKING:
     from pathlib import Path
     from typing import Iterable, Final
-    from .filesystem import _FileLinker
+    from .template import _FileLinker
 
 REPO_FORMATTED = click.style(__repo__, fg="bright_blue")
 

@@ -23,7 +23,7 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    from .filesystem import ProjectPath
+    from .filesystem import ProjectPath, TemplateDict
     from typing import Dict, Optional, Iterable, Literal
     from pathlib import Path
 
@@ -85,7 +85,11 @@ class LatexCompiler(AtomicIterable):
     output_map: Optional[Dict[str, Path]]
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         yield compile_latex(proj_path, temp_dir)
         if self.output_map is not None and len(self.output_map) > 0:
@@ -99,7 +103,11 @@ class ArchiveWriter(AtomicIterable):
     fmt: ExportMode = ExportMode.source
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         archive_dir = temp_dir / "archive"
         build_dir = temp_dir / "latex_compile"
@@ -134,7 +142,11 @@ class ModifyArxiv(AtomicIterable):
     working_dir: Path
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         # rename data directory to a filename with no dots and which does not exist
         new_data_dir_name = proj_path.data_dir.name.replace(".", "")
