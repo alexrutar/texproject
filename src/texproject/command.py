@@ -21,6 +21,11 @@ from .filesystem import (
     ProjectPath,
     NAMES,
     TemplateDict,
+    NamedTemplateDict,
+    style_linker,
+    macro_linker,
+    citation_linker,
+    template_linker,
 )
 from .git import (
     InitializeGitRepo,
@@ -41,48 +46,37 @@ from .template import (
     PathSequenceLinker,
     ApplyModificationSequence,
     TemplateDictWriter,
-    style_linker,
-    macro_linker,
-    citation_linker,
-    template_linker,
 )
 
 if TYPE_CHECKING:
     from .base import NAMES, RepoVisibility
-    from typing import Optional, Iterable, List, Literal, Dict, Callable
+    from typing import Optional, Iterable, List, Literal, Dict
     from .control import AtomicIterable
 
 
 def process_atoms(load_template: Optional[bool] = True):
     """Custom decorator which passes the object after performing some state verification on it."""
 
-    def state_constructor(template: Optional[str] = None) -> Callable[[], Dict]:
-        def state_init() -> Dict:
-            dct = {
-                "template_modifications": [],
-            }
-            names = {"template": template} if template is not None else {}
-            return dct | names
-
-        return state_init
+    def state_constructor() -> Dict:
+        return {"template_modifications": []}
 
     def decorator(f):
-        def _helper(ctx, template, *args, **kwargs):
+        def _helper(ctx, template: Optional[str], *args, **kwargs):
             if load_template is None:
                 template_dict = None
             elif load_template:
-                template_dict = TemplateDict.from_path(ctx.obj["proj_path"].template)
+                template_dict = TemplateDict(ctx.obj["proj_path"].template)
+            elif template is not None:
+                template_dict = NamedTemplateDict(template)
             else:
-                template_dict = template_linker.load_template(template)
+                raise ValueError("Must pass template with load_template.")
 
             CommandRunner(
                 ctx.obj["proj_path"],
                 template_dict,
                 dry_run=ctx.obj["dry_run"],
                 verbose=ctx.obj["verbose"],
-            ).execute(
-                ctx.invoke(f, *args, **kwargs), state_init=state_constructor(template)
-            )
+            ).execute(ctx.invoke(f, *args, **kwargs), state_init=state_constructor)
 
         if load_template is False:
 

@@ -1,7 +1,7 @@
 from click.testing import CliRunner
 from pathlib import Path
 from texproject.command import cli
-from texproject.template import template_linker
+from texproject.filesystem import template_linker
 import pytest
 import shlex
 

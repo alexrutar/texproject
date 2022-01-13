@@ -30,11 +30,14 @@ from .filesystem import (
     DATA_PATH,
     JINJA_PATH,
     TemplateDict,
+    NamedTemplateDict,
+    _FileLinker,
+    LINKER_MAP,
 )
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import Iterable, Optional, ClassVar, Final, List, Dict
+    from typing import Iterable, Optional, ClassVar, Dict
 
     from .base import ModCommand
     from .filesystem import ProjectPath
@@ -388,78 +391,14 @@ class OutputFolderCreator(AtomicIterable):
     def __call__(
         self,
         proj_path: ProjectPath,
-        template_dict: TemplateDict,
+        template_dict: NamedTemplateDict,
         state: Dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         """Write top-level files into the project path."""
         yield write_template_dict(proj_path, template_dict)
         for source, target in [
-            (JINJA_PATH.template_doc(state["template"]), proj_path.main),
+            (JINJA_PATH.template_doc(template_dict.name), proj_path.main),
             (JINJA_PATH.project_macro, proj_path.project_macro),
         ]:
             yield JinjaTemplate(source).write(proj_path, template_dict, state, target)
-
-
-class _BaseLinker:
-    """TODO: write"""
-
-    def __init__(self, dir_path: Path, suffix: str, user_str: str) -> None:
-        """TODO: write"""
-        self.user_str: Final = user_str
-        self.dir_path: Final = dir_path
-        self.suffix: Final = suffix
-
-    def valid_path(self, path: Path) -> bool:
-        """TODO: write"""
-        return path.suffix == self.suffix
-
-    def list_names(self) -> List[str]:
-        """TODO: write"""
-        return sorted(
-            [path.stem for path in self.dir_path.iterdir() if self.valid_path(path)]
-        )
-
-    def file_path(self, name: str) -> Path:
-        """TODO: write"""
-        return self.dir_path / f"{name}{self.suffix}"
-
-
-class _FileLinker(_BaseLinker):
-    """TODO: write"""
-
-    def __init__(self, suffix: str, user_str: str, mode: LinkMode) -> None:
-        """TODO: write"""
-        super().__init__(
-            DATA_PATH.data_dir / NAMES.resource_subdir(mode), suffix, user_str
-        )
-        self.mode = mode
-
-
-class _TemplateLinker(_BaseLinker):
-    """TODO: write"""
-
-    def load_template(self, name: str) -> TemplateDict:
-        """TODO: write"""
-        return TemplateDict.from_path(self.file_path(name) / NAMES.template_toml)
-
-    def valid_path(self, path: Path):
-        """TODO: write"""
-        return (
-            super().valid_path(path)
-            and (path / NAMES.template_doc).exists()
-            and (path / NAMES.template_toml).exists()
-        )
-
-
-macro_linker: Final = _FileLinker(".sty", "macro file", LinkMode.macro)
-citation_linker: Final = _FileLinker(".bib", "citation file", LinkMode.citation)
-style_linker: Final = _FileLinker(".sty", "style file", LinkMode.style)
-template_linker: Final = _TemplateLinker(DATA_PATH.template_dir, "", "template")
-
-LINKER_MAP: Final = {
-    LinkMode.macro: macro_linker,
-    LinkMode.citation: citation_linker,
-    LinkMode.style: style_linker,
-    "template": template_linker,
-}
