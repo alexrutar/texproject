@@ -4,11 +4,20 @@ from typing import TYPE_CHECKING
 from importlib import resources
 
 from . import defaults
+from copy import copy
 from pathlib import Path
 import pytomlpp as toml
 from xdg import XDG_DATA_HOME, XDG_CONFIG_HOME
 
-from .base import NAMES, constant, LinkMode
+from .base import (
+    NAMES,
+    constant,
+    LinkMode,
+    ModCommand,
+    RemoveCommand,
+    AddCommand,
+    UpdateCommand,
+)
 
 if TYPE_CHECKING:
     from typing import Dict, Final
@@ -61,6 +70,20 @@ class TemplateDict(dict):
 
     def dump(self, target: Path) -> None:
         target.write_text(toml.dumps(self))
+
+    def apply_modification(self, mod: ModCommand):
+        match mod:
+            case RemoveCommand(mode, source):
+                self[NAMES.convert_mode(mode)].remove(source)
+
+            case AddCommand(mode, source, index):
+                self[NAMES.convert_mode(mode)].insert(index, source)
+
+            case UpdateCommand(mode, source, target):
+                self[NAMES.convert_mode(mode)] = [
+                    target if val == source else val
+                    for val in self[NAMES.convert_mode(mode)]
+                ]
 
 
 class Config:

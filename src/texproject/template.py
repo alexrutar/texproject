@@ -44,19 +44,19 @@ def data_name(name: str, mode: LinkMode) -> str:
     return str(NAMES.rel_data_path(name, mode))
 
 
-def _apply_modification(mod: ModCommand, template_dict: TemplateDict):
-    match mod:
-        case RemoveCommand(mode, source):
-            template_dict[NAMES.convert_mode(mode)].remove(source)
+# def _apply_modification(mod: ModCommand, template_dict: TemplateDict):
+#     match mod:
+#         case RemoveCommand(mode, source):
+#             template_dict[NAMES.convert_mode(mode)].remove(source)
 
-        case AddCommand(mode, source, index):
-            template_dict[NAMES.convert_mode(mode)].insert(index, source)
+#         case AddCommand(mode, source, index):
+#             template_dict[NAMES.convert_mode(mode)].insert(index, source)
 
-        case UpdateCommand(mode, source, target):
-            template_dict[NAMES.convert_mode(mode)] = [
-                target if val == source else val
-                for val in template_dict[NAMES.convert_mode(mode)]
-            ]
+#         case UpdateCommand(mode, source, target):
+#             template_dict[NAMES.convert_mode(mode)] = [
+#                 target if val == source else val
+#                 for val in template_dict[NAMES.convert_mode(mode)]
+#             ]
 
 
 def apply_template_dict_modification(
@@ -64,7 +64,7 @@ def apply_template_dict_modification(
 ) -> RuntimeClosure:
     def _callable():
         try:
-            _apply_modification(mod, template_dict)
+            template_dict.apply_modification(mod)
             return RuntimeOutput(True)
         except ValueError:
             return RuntimeOutput(False)

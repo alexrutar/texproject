@@ -24,7 +24,7 @@ from .utils import (
 
 if TYPE_CHECKING:
     from .filesystem import ProjectPath, TemplateDict
-    from typing import Dict, Optional, Iterable, Literal
+    from typing import Dict, Optional, Iterable
     from pathlib import Path
 
 
