@@ -1,10 +1,10 @@
 """TODO: write"""
 from __future__ import annotations
 from typing import TYPE_CHECKING
+
 from importlib import resources
 
 from . import defaults
-from copy import copy
 from pathlib import Path
 import pytomlpp as toml
 from xdg import XDG_DATA_HOME, XDG_CONFIG_HOME
@@ -20,7 +20,7 @@ from .base import (
 )
 
 if TYPE_CHECKING:
-    from typing import Dict, Final, List, Optional
+    from typing import Dict, Final, List
 
 
 class TOMLLoader:
@@ -322,7 +322,7 @@ class _BaseLinker:
         return self.dir_path / f"{name}{self.suffix}"
 
 
-class _FileLinker(_BaseLinker):
+class FileLinker(_BaseLinker):
     """TODO: write"""
 
     def __init__(self, suffix: str, user_str: str, mode: LinkMode) -> None:
@@ -349,9 +349,9 @@ class _TemplateLinker(_BaseLinker):
         )
 
 
-macro_linker: Final = _FileLinker(".sty", "macro file", LinkMode.macro)
-citation_linker: Final = _FileLinker(".bib", "citation file", LinkMode.citation)
-style_linker: Final = _FileLinker(".sty", "style file", LinkMode.style)
+macro_linker: Final = FileLinker(".sty", "macro file", LinkMode.macro)
+citation_linker: Final = FileLinker(".bib", "citation file", LinkMode.citation)
+style_linker: Final = FileLinker(".sty", "style file", LinkMode.style)
 template_linker: Final = _TemplateLinker(DATA_PATH.template_dir, "", "template")
 
 LINKER_MAP: Final = {

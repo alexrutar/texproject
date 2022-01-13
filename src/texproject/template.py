@@ -31,7 +31,7 @@ from .filesystem import (
     JINJA_PATH,
     TemplateDict,
     NamedTemplateDict,
-    _FileLinker,
+    FileLinker,
     LINKER_MAP,
 )
 
@@ -241,7 +241,7 @@ def _link_helper(
 def link_name(
     proj_path: ProjectPath,
     state: Dict,
-    linker: _FileLinker,
+    linker: FileLinker,
     name: str,
     force: bool = False,
     target_dir: Optional[Path] = None,
@@ -260,7 +260,7 @@ def link_name(
 def link_path(
     proj_path: ProjectPath,
     state: Dict,
-    linker: _FileLinker,
+    linker: FileLinker,
     source_path: Path,
     force: bool = False,
 ) -> RuntimeClosure:

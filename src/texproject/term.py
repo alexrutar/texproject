@@ -11,7 +11,7 @@ from . import __repo__
 if TYPE_CHECKING:
     from pathlib import Path
     from typing import Iterable, Final
-    from .template import _FileLinker
+    from .filesystem import FileLinker
 
 REPO_FORMATTED = click.style(__repo__, fg="bright_blue")
 
@@ -56,7 +56,7 @@ class _MessageFormatter:
         else:
             return self._apply_style("Render" + base_str, pref, "info")
 
-    def link(self, linker: _FileLinker, name: str, target_dir: Path, mode: str):
+    def link(self, linker: FileLinker, name: str, target_dir: Path, mode: str):
         """TODO: write"""
 
         def helper(prop):

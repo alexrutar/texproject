@@ -2,8 +2,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from types import SimpleNamespace
-from dataclasses import dataclass, astuple, field, InitVar
+from dataclasses import dataclass, astuple, field
 from itertools import repeat
 from pathlib import Path
 import tempfile
