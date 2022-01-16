@@ -30,22 +30,23 @@ def redact(obj: str):
 class _MessageFormatter:
     """Formatting messages before printing to the terminal."""
 
-    _prefix = {
-        "cmd": "$ ",
-        "file": "> ",
-        "info": "% ",
-        "err": "! ",
+    _prefix: Final = {
+        "cmd": "$",
+        "file": ">",
+        "info": "%",
+        "err": "!",
+        "prompt": "?",
     }
-    _opts = {
+    _opts: Final = {
         "info": dict(fg="blue"),
         "ok": dict(fg="green"),
         "warn": dict(fg="yellow"),
         "err": dict(fg="red"),
     }
 
-    def _apply_style(self, msg: str, prefix, fmt):
+    def _apply_style(self, msg: str, prefix: str, fmt: str):
         """Helper to apply the prefix and format styles to the message."""
-        return click.style(self._prefix[prefix] + msg, **self._opts[fmt])
+        return click.style(self._prefix[prefix], **self._opts[fmt]) + " " + msg
 
     def render(self, template_path: Path, target: Path, overwrite: bool = False):
         """Format for rendering."""
@@ -54,7 +55,10 @@ class _MessageFormatter:
         if overwrite:
             return self._apply_style("Re-render" + base_str, pref, "warn")
         else:
-            return self._apply_style("Render" + base_str, pref, "info")
+            return self._apply_style("Render" + base_str, pref, "ok")
+
+    def prompt(self, prompt: str):
+        return self._apply_style(prompt, "prompt", "info")
 
     def link(self, linker: FileLinker, name: str, target_dir: Path, mode: str):
         """TODO: write"""

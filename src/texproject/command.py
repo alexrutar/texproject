@@ -47,6 +47,7 @@ from .template import (
     ApplyModificationSequence,
     TemplateDictWriter,
 )
+from .term import FORMAT_MESSAGE
 
 if TYPE_CHECKING:
     from .base import NAMES, RepoVisibility
@@ -144,7 +145,6 @@ def init() -> Iterable[AtomicIterable]:
     The path working directory either must not exist or be an empty folder. Missing
     intermediate directories are automatically constructed.
     """
-    # must link templates before writing
     yield OutputFolderCreator.with_abort()
     yield TemplateDictLinker()
     yield InfoFileWriter()
@@ -396,21 +396,21 @@ def git() -> None:
 @click.option(
     "--repo-name",
     "repo_name",
-    prompt="Repository name",
+    prompt=FORMAT_MESSAGE.prompt("Repository name"),
     help="Name of the repository",
     type=str,
 )
 @click.option(
     "--repo-description",
     "repo_desc",
-    prompt="Repository description",
+    prompt=FORMAT_MESSAGE.prompt("Repository description"),
     help="Repository description",
     type=str,
 )
 @click.option(
     "--repo-visibility",
     "vis",
-    prompt="Repository visibility",
+    prompt=FORMAT_MESSAGE.prompt("Repository visibility"),
     type=click.Choice(["public", "private"]),
     help="Specify public or private repository",
     default="private",
@@ -418,14 +418,14 @@ def git() -> None:
 @click.option(
     "--wiki/--no-wiki",
     "wiki",
-    prompt="Include wiki?",
+    prompt=FORMAT_MESSAGE.prompt("Include wiki?"),
     help="Create wiki",
     default=False,
 )
 @click.option(
     "--issues/--no-issues",
     "issues",
-    prompt="Include issues?",
+    prompt=FORMAT_MESSAGE.prompt("Include issues?"),
     help="Create issues page",
     default=False,
 )

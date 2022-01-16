@@ -65,9 +65,8 @@ def _merge(*dcts: Dict) -> Dict:
 
 class TemplateDict(dict):
     def __init__(self, source: Path):
-        return super().__init__(
-            _merge(TOMLLoader.default_template(), TOMLLoader.load(source))
-        )
+        self.modified = False
+        super().__init__(_merge(TOMLLoader.default_template(), TOMLLoader.load(source)))
 
     def dump(self, target: Path) -> None:
         target.write_text(toml.dumps(self))

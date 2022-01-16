@@ -11,47 +11,59 @@ if TYPE_CHECKING:
 
 
 class LinkMode(str, Enum):
+    """The type of link to create."""
+
     macro = "macro"
     citation = "citation"
     style = "style"
 
 
 class ExportMode(str, Enum):
+    """The type of export to create."""
+
     arxiv = "arxiv"
     build = "build"
     source = "source"
 
 
 class RepoVisibility(str, Enum):
+    """The visibility of the repository."""
+
     public = "public"
     private = "private"
 
 
 @dataclass
 class ModCommand:
-    """"""
+    """Base class for modifications to the template dict."""
 
     mode: LinkMode
 
 
 @dataclass
 class AddCommand(ModCommand):
+    """Add a new argument to the template dict."""
+
     source: str
     index: int
 
 
 @dataclass
 class RemoveCommand(ModCommand):
+    """Remove an argument from the template dict."""
+
     source: str
 
 
 @dataclass
 class UpdateCommand(ModCommand):
+    """Update the template dict."""
+
     source: str
     target: str
 
 
-_suffix_map_helper = {
+__suffix_map_helper = {
     ".tar": "tar",
     ".tar.bz": "bztar",
     ".tar.gz": "gztar",
@@ -60,7 +72,7 @@ _suffix_map_helper = {
 }
 SHUTIL_ARCHIVE_FORMATS: Final = [ar[0] for ar in shutil.get_archive_formats()]
 SHUTIL_ARCHIVE_SUFFIX_MAP: Final = {
-    k: v for k, v in _suffix_map_helper.items() if v in SHUTIL_ARCHIVE_FORMATS
+    k: v for k, v in __suffix_map_helper.items() if v in SHUTIL_ARCHIVE_FORMATS
 }
 
 

@@ -345,12 +345,17 @@ class InfoFileWriter(AtomicIterable):
 
 
 def write_template_dict(
-    proj_path: ProjectPath, template_dict: TemplateDict
+    proj_path: ProjectPath, template_dict: TemplateDict, force=True
 ) -> RuntimeClosure:
     def _callable():
         proj_path.mk_data_dir()
         template_dict.dump(proj_path.template)
         return RuntimeOutput(True)
+
+    if proj_path.template.exists() and not force:
+        return RuntimeClosure(
+            FORMAT_MESSAGE.error("Template dict already exists!"), *FAIL
+        )
 
     return RuntimeClosure(
         FORMAT_MESSAGE.template_dict(
@@ -372,7 +377,10 @@ class TemplateDictWriter(AtomicIterable):
         yield write_template_dict(proj_path, template_dict)
 
 
+@dataclass
 class OutputFolderCreator(AtomicIterable):
+    force: bool = False
+
     def __call__(
         self,
         proj_path: ProjectPath,
@@ -381,7 +389,7 @@ class OutputFolderCreator(AtomicIterable):
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         """Write top-level files into the project path."""
-        yield write_template_dict(proj_path, template_dict)
+        yield write_template_dict(proj_path, template_dict, force=self.force)
         for source, target in [
             (JINJA_PATH.template_doc(template_dict.name), proj_path.main),
             (JINJA_PATH.project_macro, proj_path.project_macro),
