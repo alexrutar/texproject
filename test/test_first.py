@@ -11,9 +11,12 @@ def _verbose_invoke(runner, args):
     return runner.invoke(cli, args)
 
 
-def _run_cmd_seq(runner, *args_list):
+def _run_cmd_seq(runner, *args_list, expect_fail=False):
     results = (_verbose_invoke(runner, args) for args in args_list)
-    assert all(res.exit_code == 0 for res in results)
+    if expect_fail:
+        assert all(res.exit_code != 0 for res in results)
+    else:
+        assert all(res.exit_code == 0 for res in results)
 
 
 @pytest.fixture
@@ -55,11 +58,13 @@ def test_import(fs_runner):
     cit_path = Path("test.bib")
     bibtext = "example text"
     cit_path.write_text(bibtext)
-    _run_cmd_seq(fs_runner, ["import", "--citation-path", str(cit_path)])
-    _run_cmd_seq(fs_runner, ["import", "--style", "palatino"])
-    _run_cmd_seq(fs_runner, ["import", "--gitignore"])
-    _run_cmd_seq(fs_runner, ["import", "--pre-commit"])
-
+    _run_cmd_seq(
+        fs_runner,
+        ["import", "--citation-path", str(cit_path)],
+        ["import", "--style", "palatino"],
+        ["import", "--gitignore"],
+        ["import", "--pre-commit"],
+    )
     assert Path(".texproject/citations/local-test.bib").read_text() == bibtext
     assert len(Path(".gitignore").read_text()) > 0
     assert len(Path(".git/hooks/pre-commit").read_text()) > 0
@@ -118,6 +123,7 @@ def test_template(fs_runner):
     )
     assert len(Path(".texproject/citations/local-example.bib").read_text()) > 0
     assert not Path(".texproject/macros/local-tikz.sty").exists()
+    _run_cmd_seq(fs_runner, ["template", "remove", "--macro", "tikz"], expect_fail=True)
 
 
 def test_clean(fs_runner):
@@ -135,3 +141,8 @@ def test_list(fs_runner):
         ["list", "style"],
         ["list", "template"],
     )
+
+
+def test_init_fail(fs_runner):
+    _run_cmd_seq(fs_runner, ["init", "plain"])
+    _run_cmd_seq(fs_runner, ["init", "preprint"], expect_fail=True)
