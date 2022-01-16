@@ -457,7 +457,6 @@ def git_init(
     yield GitFileWriter()
     yield InitializeGitRepo()
     yield CreateGithubRepo.with_abort(repo_name, repo_desc, vis, wiki, issues)
-    yield WriteGithubApiToken(repo_name)
 
 
 @git.command("init-files")
@@ -474,15 +473,14 @@ def init_files(force: bool) -> Iterable[AtomicIterable]:
 @click.option(
     "--repo-name",
     "repo_name",
-    prompt="Repository name",
     help="name of the repository",
     type=str,
 )
 @process_atoms()
-def init_archive(repo_name: str) -> Iterable[AtomicIterable]:
+def init_archive(repo_name: Optional[str]) -> Iterable[AtomicIterable]:
     """Set the GitHub secret and archive repository. Run tpr git init --help for more information."""
     yield LatexBuildWriter.with_abort(force=True)
-    yield WriteGithubApiToken(repo_name)
+    yield WriteGithubApiToken.with_abort(repo_name=repo_name)
 
 
 @cli.group()
@@ -495,6 +493,7 @@ def util() -> None:
 def upgrade() -> Iterable[AtomicIterable]:
     """Upgrade the project data structure from previous versions."""
     yield UpgradeProject()
+    yield InfoFileWriter()
 
 
 @util.command("refresh")
