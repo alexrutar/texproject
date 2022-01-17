@@ -36,7 +36,6 @@ from .filesystem import (
 )
 
 if TYPE_CHECKING:
-    from pathlib import Path
     from typing import Iterable, Optional, ClassVar, Dict
 
     from .base import ModCommand

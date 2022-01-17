@@ -54,9 +54,7 @@ def make_archive(source_dir, target_file, compression) -> RuntimeClosure:
         return RuntimeOutput(True)
 
     return RuntimeClosure(
-        FORMAT_MESSAGE.info(
-            f"Create compressed archive '{target_file}' with compression '{compression}'."
-        ),
+        FORMAT_MESSAGE.archive(target_file, compression),
         True,
         _callable,
     )
@@ -69,7 +67,7 @@ def run_cmd(
         proc = subprocess.run(command, cwd=working_dir, capture_output=True)
         if check and proc.returncode != 0:
             raise AbortRunner(
-                f"subcommand returned non-zero exit code.", stderr=proc.stderr
+                "subcommand returned non-zero exit code.", stderr=proc.stderr
             )
 
         return (
@@ -121,7 +119,7 @@ class FileEditor(AtomicIterable):
             case "template":
                 fpath = proj_path.template
             case _:
-                yield RuntimeClosure(f"Invalid option for configuration file!", *FAIL)
+                yield RuntimeClosure("Invalid option for configuration file!", *FAIL)
                 return
 
         try:

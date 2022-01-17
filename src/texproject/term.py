@@ -9,7 +9,6 @@ import click
 from . import __repo__
 
 if TYPE_CHECKING:
-    from pathlib import Path
     from typing import Iterable, Final
     from .filesystem import FileLinker
 
@@ -104,7 +103,8 @@ class _MessageFormatter:
 
     def archive(self, output_path: Path, compression: str):
         return self._apply_style(
-            f"Create compressed archive '{output_path}' with compression '{compression}'.",
+            f"Create compressed archive '{output_path}' with compression"
+            f" '{compression}'.",
             "info",
             "ok",
         )

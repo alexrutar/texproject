@@ -6,7 +6,7 @@ import shlex
 
 from .base import UpdateCommand, LinkMode, ExportMode
 from .control import RuntimeClosure, AtomicIterable, RuntimeOutput
-from .filesystem import ProjectPath, JINJA_PATH
+from .filesystem import JINJA_PATH
 from .template import (
     JinjaTemplate,
     apply_template_dict_modification,
@@ -36,10 +36,15 @@ def compile_latex(
     else:
         dir = tex_dir
 
+    short_cmd = [
+        "latexmk",
+        "-pdf",
+        "-interaction=nonstopmode",
+    ] + proj_path.config.process["latexmk_compile_options"]
+
     def _callable():
         out = run_cmd(
-            ["latexmk", "-pdf", "-interaction=nonstopmode"]
-            + proj_path.config.process["latexmk_compile_options"]
+            short_cmd
             + [
                 f"-outdir={str(build_dir)}",
                 proj_path.config.render["default_tex_name"] + ".tex",
@@ -51,7 +56,9 @@ def compile_latex(
 
     return RuntimeClosure(
         FORMAT_MESSAGE.info(
-            f"Compiling LaTeX file '{dir}/{proj_path.config.render['default_tex_name']}.tex' with command '{shlex.join(['latexmk', '-pdf', '-interaction=nonstopmode'] + proj_path.config.process['latexmk_compile_options'])}'"
+            "Compiling LaTeX file"
+            f" '{dir}/{proj_path.config.render['default_tex_name']}.tex' with command"
+            f" '{shlex.join(short_cmd)}'"
         ),
         True,
         _callable,
@@ -171,11 +178,11 @@ class ModifyArxiv(AtomicIterable):
             proj_path, template_dict, state, temp_dir
         )
 
-        # todo: during dry run, temp_dir may not exist! in this situation, nothing will print...
-        # todo: think about what sort of controls are required when interacting with temp
-        # directories, or if it is fine for stuff to just fail. For example, when some commands
-        # depend on modifications done by other commands / filesystem state, (e.g. cleaning here)
-        # stuff will break very subtly
+        # todo: during dry run, temp_dir may not exist! in this situation, nothing will
+        # print... todo: think about what sort of controls are required when interacting
+        # with temp directories, or if it is fine for stuff to just fail. For example,
+        # when some commands depend on modifications done by other commands / filesystem
+        # state, (e.g. cleaning here) stuff will break very subtly
         yield from CleanProject(new_data_dir)(proj_path, template_dict, state, temp_dir)
 
         # replace \input{...classinfo.tex} and \input{...bibinfo.tex}

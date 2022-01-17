@@ -110,11 +110,11 @@ class CommandRunner:
 
 
 class RuntimeClosure:
-    """RuntimeClosure is the return value of AtomicCommand: the idea is that AtomicCommand
-    does some pre-processing to try to work out what has happened (and return a verbose message,
-    and a best guess for the result), and then returns these values along with a (minimal) callable
-    function which can be executed to perform changes (e.g. by running shell commands, or by changing
-    the filesystem).
+    """RuntimeClosure is the return value of AtomicCommand: the idea is that
+    AtomicCommand does some pre-processing to try to work out what has happened (and
+    return a verbose message, and a best guess for the result), and then returns these
+    values along with a (minimal) callable function which can be executed to perform
+    changes (e.g. by running shell commands, or by changing the filesystem).
     """
 
     def __init__(

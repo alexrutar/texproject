@@ -50,13 +50,14 @@ from .template import (
 from .term import FORMAT_MESSAGE
 
 if TYPE_CHECKING:
-    from .base import NAMES, RepoVisibility
+    from .base import RepoVisibility
     from typing import Optional, Iterable, List, Literal, Dict
     from .control import AtomicIterable
 
 
 def process_atoms(load_template: Optional[bool] = True):
-    """Custom decorator which passes the object after performing some state verification on it."""
+    """Custom decorator which passes the object after performing some state verification
+    on it."""
 
     def state_constructor() -> Dict:
         return {"template_modifications": []}
@@ -234,8 +235,8 @@ def import_(
     files. Note that this command does not import the files into the main .tex file.
 
     The --macro-path and --citation-path allow macro and citation files to be specified
-    as paths to existing files. For example, this enables imports which are not installed
-    in the texproject data directory.
+    as paths to existing files. For example, this enables imports which are not
+    installed in the texproject data directory.
     """
     for mode, names, paths in [
         ("macro", macros, macro_paths),
@@ -296,12 +297,12 @@ def validate(pdf: Optional[Path], logfile: Optional[Path]) -> Iterable[AtomicIte
 def archive(
     compression: str, mode: ExportMode, output: Path
 ) -> Iterable[AtomicIterable]:
-    """Create a compressed export with name OUTPUT. If the 'arxiv' or 'build' options are
-    chosen, 'latexmk' is used to compile additional required files.
+    """Create a compressed export with name OUTPUT. If the 'arxiv' or 'build' options
+    are chosen, 'latexmk' is used to compile additional required files.
 
     The --format option specifies the format of the resulting archive. If unspecified,
-    the format is inferred from the resulting filename if possible. Otherwise, the output
-    format is 'tar'.
+    the format is inferred from the resulting filename if possible. Otherwise, the
+    output format is 'tar'.
 
     If the format is not inferred from the filename, the archive file suffix is appended
     automatically.
@@ -438,9 +439,9 @@ def git_init(
     issues: bool,
 ) -> Iterable[AtomicIterable]:
     """Initialize git and a corresponding GitHub repository. If called with no options,
-    this command will interactively prompt you in order to initialize the repo correctly.
-    This command also creates a GitHub action with automatically compiles and releases
-    the main .pdf file for tagged releases.
+    this command will interactively prompt you in order to initialize the repo
+    correctly. This command also creates a GitHub action with automatically compiles and
+    releases the main .pdf file for tagged releases.
 
     If you have specified 'github.archive', the GitHub action will also automatically
     push the build files to the corresponding folder in the specified repository. In
@@ -455,8 +456,9 @@ def git_init(
     required for the build action functionality.
     """
     yield GitFileWriter()
-    yield InitializeGitRepo()
+    yield InitializeGitRepo.with_abort()
     yield CreateGithubRepo.with_abort(repo_name, repo_desc, vis, wiki, issues)
+    yield WriteGithubApiToken.with_abort(repo_name=repo_name)
 
 
 @git.command("init-files")
@@ -478,7 +480,8 @@ def init_files(force: bool) -> Iterable[AtomicIterable]:
 )
 @process_atoms()
 def init_archive(repo_name: Optional[str]) -> Iterable[AtomicIterable]:
-    """Set the GitHub secret and archive repository. Run tpr git init --help for more information."""
+    """Set the GitHub secret and archive repository. Run tpr git init --help for more
+    information."""
     yield LatexBuildWriter.with_abort(force=True)
     yield WriteGithubApiToken.with_abort(repo_name=repo_name)
 
