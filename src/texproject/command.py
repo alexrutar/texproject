@@ -7,7 +7,6 @@ from pathlib import Path
 
 import click
 
-from . import __version__, __repo__
 from .base import (
     SHUTIL_ARCHIVE_FORMATS,
     SHUTIL_ARCHIVE_SUFFIX_MAP,
