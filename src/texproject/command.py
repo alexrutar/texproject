@@ -35,7 +35,7 @@ from .git import (
     GitFileWriter,
     LatexBuildWriter,
 )
-from .utils import FileEditor, UpgradeProject, CleanProject
+from .utils import FileEditor, CleanProject
 from .output import ArchiveWriter, LatexCompiler
 from .template import (
     OutputFolderCreator,
@@ -488,14 +488,6 @@ def init_archive(repo_name: Optional[str]) -> Iterable[AtomicIterable]:
 @cli.group()
 def util() -> None:
     """Miscellaneous utilities."""
-
-
-@util.command("upgrade")
-@process_atoms(load_template=None)
-def upgrade() -> Iterable[AtomicIterable]:
-    """Upgrade the project data structure from previous versions."""
-    yield UpgradeProject()
-    yield InfoFileWriter()
 
 
 @util.command("refresh")
