@@ -32,4 +32,4 @@ jobs:
           user_email: '<+ github.email +>'
           user_name: 'CI Bot'
           commit_message: "CI bot: paper update from ${{ github.event.repository.name }}"
-<*- endif *>
+<* endif *>
