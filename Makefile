@@ -10,5 +10,5 @@ test:
 	pytest --run-slow
 
 format:
-	black . --target-version py310 --experimental-string-processing
+	black . --target-version py310 --preview
 	flake8 src/texproject/
