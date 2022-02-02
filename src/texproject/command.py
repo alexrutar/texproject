@@ -142,7 +142,7 @@ def init() -> Iterable[AtomicIterable]:
     """Initialize a new project in the working directory. The project is created using
     the template with name TEMPLATE and placed in the output folder OUTPUT.
 
-    The path working directory either must not exist or be an empty folder. Missing
+    The working directory either must not exist or be an empty folder. Missing
     intermediate directories are automatically constructed.
     """
     yield OutputFolderCreator.with_abort()
