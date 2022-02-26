@@ -75,6 +75,18 @@ class _MessageFormatter:
             return self._apply_style(f"Could not import {helper('to')}", "err", "err")
         return ""
 
+    def show(self, linker: FileLinker, name: str, target_dir: Path, mode: str):
+        """TODO: write"""
+
+        def helper(prop):
+            return f"{linker.user_str} '{name}' {prop} directory '{target_dir}'"
+
+        if mode == "no-diff":
+            return self._apply_style(f"Contents of {helper('in')}", "info", "info")
+        elif mode == "diff":
+            return self._apply_style(f"Diff of {helper('in')}", "info", "info")
+        return ""
+
     def template_dict(self, target: Path, overwrite: bool = False):
         pref = "file"
         base_str = f" template dictionary in directory '{target}'"

@@ -219,7 +219,7 @@ def _path_option(mode: LinkMode):
     default=False,
     help="auto-generated pre-commit",
 )
-@process_atoms()
+@process_atoms(load_template=None)
 def import_(
     macros: Iterable[str],
     citations: Iterable[str],
@@ -401,12 +401,6 @@ def refresh(force: bool) -> Iterable[AtomicIterable]:
     yield InfoFileWriter()
 
 
-@cli.command()
-@process_atoms()
-def show() -> Iterable[AtomicIterable]:
-    raise StopIteration
-
-
 @cli.group()
 def git() -> None:
     """Manage git and GitHub repositories."""
@@ -540,6 +534,66 @@ def show_config():
     from importlib import resources
 
     click.echo(resources.read_text(defaults, "config.toml"), nl=False)
+
+
+@cli.command("show")
+@_link_option(LinkMode.macro)
+@_link_option(LinkMode.citation)
+@_link_option(LinkMode.style)
+@_path_option(LinkMode.macro)
+@_path_option(LinkMode.citation)
+@_path_option(LinkMode.style)
+@click.option(
+    "--gitignore",
+    "gitignore",
+    is_flag=True,
+    default=False,
+    help="auto-generated gitignore",
+)
+@click.option(
+    "--pre-commit",
+    "pre_commit",
+    is_flag=True,
+    default=False,
+    help="auto-generated pre-commit",
+)
+@click.option(
+    "--diff/--no-diff",
+    "diff",
+    default=False,
+    help="show differences to current file",
+)
+@process_atoms(load_template=None)
+def show(
+    macros: Iterable[str],
+    citations: Iterable[str],
+    styles: Iterable[str],
+    macro_paths: Iterable[Path],
+    citation_paths: Iterable[Path],
+    style_paths: Iterable[Path],
+    gitignore: bool,
+    pre_commit: bool,
+    diff: bool,
+) -> Iterable[AtomicIterable]:
+    """Import macro, citation, and format files. This command will replace existing
+    files. Note that this command does not import the files into the main .tex file.
+
+    The --macro-path and --citation-path allow macro and citation files to be specified
+    as paths to existing files. For example, this enables imports which are not
+    installed in the texproject data directory.
+    """
+    for mode, names, paths in [
+        ("macro", macros, macro_paths),
+        ("citation", citations, citation_paths),
+        ("style", styles, style_paths),
+    ]:
+        yield NameSequenceLinker(mode, names, force=False, echo_only=True)
+        yield PathSequenceLinker(mode, paths, force=False, echo_only=True)
+
+    # if gitignore:
+    #     yield GitignoreWriter(force=True)
+    # if pre_commit:
+    #     yield PrecommitWriter(force=True)
 
 
 @cli.command("list")

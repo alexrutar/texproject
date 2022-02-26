@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import stat
 
+import click
 from jinja2 import (
     Environment,
     ChoiceLoader,
@@ -195,36 +196,49 @@ def _link_helper(
     target_path: Path,
     force: bool,
     state,
+    echo_only: bool = False,
 ) -> RuntimeClosure:
-    def _callable():
-        shutil.copyfile(str(source_path), str(target_path))
-        return RuntimeOutput(True)
-
-    def _fail_callable():
-        state["template_modifications"].append(RemoveCommand(linker.mode, name))
-        return RuntimeOutput(False)
-
     message_args = (linker, name, target_path.parent)
+    if echo_only:
 
-    if not (source_path.exists() or target_path.exists()):
+        def _callable():
+            click.echo(source_path.read_text())
+            return RuntimeOutput(True)
+
         return RuntimeClosure(
-            FORMAT_MESSAGE.link(*message_args, mode="fail"), False, _fail_callable
-        )
-    if target_path.exists() and not force:
-        return RuntimeClosure(
-            FORMAT_MESSAGE.link(*message_args, mode="exists"), *SUCCESS
-        )
-    if target_path.exists():
-        return RuntimeClosure(
-            FORMAT_MESSAGE.link(*message_args, mode="overwrite"),
+            FORMAT_MESSAGE.show(*message_args, mode="no-diff"),
             True,
             _callable,
         )
-    return RuntimeClosure(
-        FORMAT_MESSAGE.link(*message_args, mode="new"),
-        True,
-        _callable,
-    )
+    else:
+
+        def _callable():
+            shutil.copyfile(str(source_path), str(target_path))
+            return RuntimeOutput(True)
+
+        def _fail_callable():
+            state["template_modifications"].append(RemoveCommand(linker.mode, name))
+            return RuntimeOutput(False)
+
+        if not (source_path.exists() or target_path.exists()):
+            return RuntimeClosure(
+                FORMAT_MESSAGE.link(*message_args, mode="fail"), False, _fail_callable
+            )
+        if target_path.exists() and not force:
+            return RuntimeClosure(
+                FORMAT_MESSAGE.link(*message_args, mode="exists"), *SUCCESS
+            )
+        if target_path.exists():
+            return RuntimeClosure(
+                FORMAT_MESSAGE.link(*message_args, mode="overwrite"),
+                True,
+                _callable,
+            )
+        return RuntimeClosure(
+            FORMAT_MESSAGE.link(*message_args, mode="new"),
+            True,
+            _callable,
+        )
 
 
 def link_name(
@@ -234,6 +248,7 @@ def link_name(
     name: str,
     force: bool = False,
     target_dir: Optional[Path] = None,
+    echo_only: bool = False,
 ) -> RuntimeClosure:
     return _link_helper(
         linker,
@@ -243,6 +258,7 @@ def link_name(
         / NAMES.rel_data_path(name + linker.suffix, linker.mode),
         force,
         state,
+        echo_only=echo_only,
     )
 
 
@@ -252,6 +268,7 @@ def link_path(
     linker: FileLinker,
     source_path: Path,
     force: bool = False,
+    echo_only: bool = False,
 ) -> RuntimeClosure:
     # also check for wrong suffix
     if source_path.suffix != linker.suffix:
@@ -272,6 +289,7 @@ class NameSequenceLinker(AtomicIterable):
     name_list: Iterable[str]
     force: bool = False
     target_dir: Optional[Path] = None
+    echo_only: bool = False
 
     def __call__(
         self,
@@ -288,6 +306,7 @@ class NameSequenceLinker(AtomicIterable):
                 name,
                 force=self.force,
                 target_dir=self.target_dir,
+                echo_only=self.echo_only,
             )
             for name in self.name_list
         )
@@ -298,12 +317,20 @@ class PathSequenceLinker(AtomicIterable):
     mode: LinkMode
     path_list: Iterable[Path]
     force: bool = False
+    echo_only: bool = False
 
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
         yield from (
-            link_path(proj_path, state, LINKER_MAP[self.mode], path, force=self.force)
+            link_path(
+                proj_path,
+                state,
+                LINKER_MAP[self.mode],
+                path,
+                force=self.force,
+                echo_only=self.echo_only,
+            )
             for path in self.path_list
         )
 
