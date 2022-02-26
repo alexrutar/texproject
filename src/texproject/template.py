@@ -189,7 +189,12 @@ class JinjaTemplate:
 
 
 def _link_helper(
-    linker, name, source_path, target_path, force, state
+    linker: FileLinker,
+    name: str,
+    source_path: Path,
+    target_path: Path,
+    force: bool,
+    state,
 ) -> RuntimeClosure:
     def _callable():
         shutil.copyfile(str(source_path), str(target_path))

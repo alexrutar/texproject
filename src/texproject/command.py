@@ -384,7 +384,7 @@ def remove(
 
 @template.command()
 @process_atoms()
-def edit():
+def edit() -> Iterable[AtomicIterable]:
     """Open the template dictionary in your $EDITOR."""
     yield FileEditor("template")
     yield TemplateDictLinker()
@@ -399,6 +399,12 @@ def refresh(force: bool) -> Iterable[AtomicIterable]:
     """
     yield TemplateDictLinker(force=force)
     yield InfoFileWriter()
+
+
+@cli.command()
+@process_atoms()
+def show() -> Iterable[AtomicIterable]:
+    raise StopIteration
 
 
 @cli.group()

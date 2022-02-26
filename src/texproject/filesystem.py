@@ -335,10 +335,6 @@ class FileLinker(_BaseLinker):
 class _TemplateLinker(_BaseLinker):
     """TODO: write"""
 
-    def load_template(self, name: str) -> TemplateDict:
-        """TODO: write"""
-        return TemplateDict.from_path(self.file_path(name) / NAMES.template_toml)
-
     def valid_path(self, path: Path):
         """TODO: write"""
         return (
