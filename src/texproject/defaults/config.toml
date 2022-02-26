@@ -16,6 +16,7 @@ username = ''
 email = ''
 
 [render]
+clean_whitespace = false
 bibinfo_file = 'bibinfo'
 classinfo_file = 'classinfo'
 
@@ -52,7 +53,7 @@ ignore_patterns = [
     '*.pdf',
     '*.pgs',
     '*.run.xml',
-    '*.synctex.gz',
+    '*.synctex.gz*',
     '*.tar*',
     '*.thm',
     '*.toc',

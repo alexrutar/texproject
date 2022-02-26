@@ -12,15 +12,6 @@ fi
 # Redirect output to stderr.
 exec 1>&2
 
-# If the project does not compile, print error message and fail.
-if ! tpr validate > /dev/null 2>&1
-then
-    cat <<\EOF
-Error: Compilation failed or has warnings.
-EOF
-    exit 1
-fi
-
 # Fix whitespace errors
 # detect platform
 platform="win"
@@ -64,9 +55,18 @@ for line in `git diff --check --cached | sed '/^[+-]/d'` ; do
   rm "${file}.save"
 done
 
-if [ "x`git status -s | grep '^[A|D|M]'`" = "x" ]; then
+if [ "x`git status -s | grep '^[A|D|M|R]'`" = "x" ]; then
   # empty commit
   echo
   echo -e "\033[31mNO CHANGES ADDED, ABORT COMMIT!\033[0m"
   exit 1
+fi
+
+# If the project does not compile, print error message and fail.
+if ! tpr validate > /dev/null 2>&1
+then
+    cat <<\EOF
+Error: Compilation failed or has warnings.
+EOF
+    exit 1
 fi

@@ -64,11 +64,14 @@ class CommandRunner:
             click.echo(rtc.message())
             ret = inferred_success
         else:
+            click.echo(rtc.message(), nl=False)
             success, out = astuple(rtc.run())
             if self._verbose:
                 if success:
-                    click.echo(rtc.message())
+                    click.echo()
                 else:
+                    # overwrite the current line
+                    click.echo("\x1b[1K\r", nl=False)
                     click.secho(click.unstyle(rtc.message()), fg="red", err=True)
 
                 if out is not None:
