@@ -9,7 +9,6 @@ import os
 from pathlib import Path
 import stat
 
-import click
 from jinja2 import (
     Environment,
     ChoiceLoader,
@@ -201,14 +200,14 @@ def _link_helper(
     if op == LinkCommand.show:
 
         def _callable():
-            click.echo(source_path.read_text())
-            return RuntimeOutput(True)
+            return RuntimeOutput(True, output=source_path.read_text())
 
         return RuntimeClosure(
             FORMAT_MESSAGE.show(linker, name, mode="no-diff"),
             True,
             _callable,
         )
+
     elif op == LinkCommand.diff:
         raise NotImplementedError
 

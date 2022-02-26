@@ -2,10 +2,12 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from dataclasses import dataclass, astuple, field
+from dataclasses import dataclass, field
+from functools import singledispatch
 from itertools import repeat
 from pathlib import Path
 import tempfile
+from typing import Optional
 import sys
 
 import click
@@ -14,17 +16,31 @@ from .error import AbortRunner
 from .filesystem import ProjectPath
 
 if TYPE_CHECKING:
-    from typing import Callable, Dict, Final, Iterable, Optional, Any, Tuple
+    from typing import Callable, Dict, Final, Iterable, Any, Tuple
+
+
+@singledispatch
+def _as_str(_) -> Optional[str]:
+    return None
+
+
+@_as_str.register
+def _(msg: bytes) -> Optional[str]:
+    return msg.decode("ascii")
+
+
+@_as_str.register
+def _(msg: str) -> Optional[str]:
+    return msg
 
 
 @dataclass
 class RuntimeOutput:
-    exit_status: bool
-    output: Optional[bytes] = None
+    success: bool
+    output: Optional[bytes | str] = None
 
     def message(self):
-        if self.output is not None:
-            return self.output.decode("ascii")
+        return _as_str(self.output)
 
 
 FAIL: Final = (False, lambda: RuntimeOutput(False))
@@ -65,19 +81,19 @@ class CommandRunner:
             ret = inferred_success
         else:
             click.echo(rtc.message(), nl=False)
-            success, out = astuple(rtc.run())
+            rto = rtc.run()
             if self._verbose:
-                if success:
+                if rto.success:
                     click.echo()
                 else:
                     # overwrite the current line
                     click.echo("\x1b[1K\r", nl=False)
                     click.secho(click.unstyle(rtc.message()), fg="red", err=True)
 
-                if out is not None:
-                    click.echo(out.decode("ascii"), err=not success)
+                if rto.message() is not None:
+                    click.echo(rto.message(), err=not rto.success)
 
-            ret = success and inferred_success
+            ret = rto.success and inferred_success
         if abort_on_failure and ret is False:
             raise AbortRunner("aborting on failure")
         return ret

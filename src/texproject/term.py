@@ -83,7 +83,7 @@ class _MessageFormatter:
         """TODO: write"""
 
         def helper(pref):
-            return f"{pref} of {linker.user_str} '{name}'.'"
+            return f"{pref} of {linker.user_str} '{name}'"
 
         match mode:
             case "diff":
