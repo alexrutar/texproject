@@ -569,13 +569,14 @@ def show(
     as paths to existing files. For example, this enables imports which are not
     installed in the texproject data directory.
     """
+    cmd = LinkCommand.diff if diff else LinkCommand.show
     for mode, names, paths in [
         ("macro", macros, macro_paths),
         ("citation", citations, citation_paths),
         ("style", styles, style_paths),
     ]:
-        yield NameSequenceLinker(LinkCommand.show, mode, names)
-        yield PathSequenceLinker(LinkCommand.show, mode, paths)
+        yield NameSequenceLinker(cmd, mode, names)
+        yield PathSequenceLinker(cmd, mode, paths)
 
     # if gitignore:
     #     yield GitignoreWriter(force=True)

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from dataclasses import dataclass
+from difflib import unified_diff
 import datetime
 import shutil
 import os
@@ -209,7 +210,26 @@ def _link_helper(
         )
 
     elif op == LinkCommand.diff:
-        raise NotImplementedError
+
+        def _callable():
+            return RuntimeOutput(
+                True,
+                output="\n".join(
+                    unified_diff(
+                        source_path.read_text().split("\n"),
+                        target_path.read_text().split("\n"),
+                        fromfile=f"{linker.user_str} '{name}'",
+                        tofile=f"{target_path}",
+                        lineterm="",
+                    )
+                ),
+            )
+
+        return RuntimeClosure(
+            FORMAT_MESSAGE.show(linker, name, mode="diff"),
+            True,
+            _callable,
+        )
 
     else:
 

@@ -1,8 +1,9 @@
 """TODO: write"""
 from __future__ import annotations
+from typing import TYPE_CHECKING
+
 from pathlib import Path
 import shlex
-from typing import TYPE_CHECKING
 
 import click
 
@@ -81,15 +82,17 @@ class _MessageFormatter:
 
     def show(self, linker: FileLinker, name: str, mode: str):
         """TODO: write"""
-
-        def helper(pref):
-            return f"{pref} of {linker.user_str} '{name}'"
-
         match mode:
             case "diff":
-                return self._apply_style(helper("Diff"), "info", "info")
+                return self._apply_style(
+                    f"Diff of {linker.user_str} '{name}' with local version",
+                    "info",
+                    "info",
+                )
             case "no-diff":
-                return self._apply_style(helper("Contents"), "info", "info")
+                return self._apply_style(
+                    f"Contents of {linker.user_str} '{name}'", "info", "info"
+                )
             case _:
                 raise NotImplementedError
 
