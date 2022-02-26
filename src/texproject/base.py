@@ -18,6 +18,15 @@ class LinkMode(str, Enum):
     style = "style"
 
 
+class LinkCommand(Enum):
+    """"""
+
+    copy = 1
+    replace = 2
+    show = 3
+    diff = 4
+
+
 class ExportMode(str, Enum):
     """The type of export to create."""
 

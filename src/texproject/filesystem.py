@@ -20,7 +20,7 @@ from .base import (
 )
 
 if TYPE_CHECKING:
-    from typing import Dict, Final, List
+    from typing import Dict, Final, List, Optional
 
 
 class TOMLLoader:
@@ -198,15 +198,11 @@ def relative(base: str):
     def decorator(func):
         def fget(self) -> Path:
             return {
-                "root": self.working_dir / func(self),
-                "data": (
-                    self.working_dir
-                    / self.config.render["project_data_folder"]
-                    / func(self)
-                ),
-                "gh_actions": self.working_dir / ".github" / "workflows" / func(self),
-                "git_hooks": self.working_dir / ".git" / "hooks" / func(self),
-            }[base]
+                "root": self.working_dir,
+                "data": self.data_dir,
+                "gh_actions": self.working_dir / ".github" / "workflows",
+                "git_hooks": self.working_dir / ".git" / "hooks",
+            }[base] / func(self)
 
         return property(fget, fset)
 
@@ -214,10 +210,16 @@ def relative(base: str):
 
 
 class ProjectPath:
-    def __init__(self, working_dir: Path):
+    def __init__(self, working_dir: Path, data_dir: Optional[Path] = None):
         """If exists is False, check that there are no conflicts"""
+        # do not change declaration order!
         self.working_dir = working_dir.resolve()
         self.config = Config(working_dir)
+        self.data_dir = (
+            data_dir
+            if data_dir is not None
+            else self.working_dir / self.config.render["project_data_folder"]
+        )
         self.name = self.dir.name
 
     @relative("data")
@@ -237,11 +239,6 @@ class ProjectPath:
 
     @relative("root")
     def dir(self) -> str:
-        """TODO: write"""
-        return ""
-
-    @relative("data")
-    def data_dir(self) -> str:
         """TODO: write"""
         return ""
 

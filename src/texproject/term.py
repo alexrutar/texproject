@@ -65,27 +65,33 @@ class _MessageFormatter:
         def helper(prop):
             return f"{linker.user_str} '{name}' {prop} directory '{target_dir}'"
 
-        if mode == "overwrite":
-            return self._apply_style(f"Replace {helper('in')}", "file", "warn")
-        elif mode == "exists":
-            return self._apply_style(f"Use existing {helper('in')}", "file", "info")
-        elif mode == "new":
-            return self._apply_style(f"Copy {helper('to')}", "file", "info")
-        elif mode == "fail":
-            return self._apply_style(f"Could not import {helper('to')}", "err", "err")
-        return ""
+        match mode:
+            case "overwrite":
+                return self._apply_style(f"Replace {helper('in')}", "file", "warn")
+            case "exists":
+                return self._apply_style(f"Use existing {helper('in')}", "file", "info")
+            case "new":
+                return self._apply_style(f"Copy {helper('to')}", "file", "info")
+            case "fail":
+                return self._apply_style(
+                    f"Could not import {helper('to')}", "err", "err"
+                )
+            case _:
+                raise NotImplementedError
 
-    def show(self, linker: FileLinker, name: str, target_dir: Path, mode: str):
+    def show(self, linker: FileLinker, name: str, mode: str):
         """TODO: write"""
 
-        def helper(prop):
-            return f"{linker.user_str} '{name}' {prop} directory '{target_dir}'"
+        def helper(pref):
+            return f"{pref} of {linker.user_str} '{name}'.'"
 
-        if mode == "no-diff":
-            return self._apply_style(f"Contents of {helper('in')}", "info", "info")
-        elif mode == "diff":
-            return self._apply_style(f"Diff of {helper('in')}", "info", "info")
-        return ""
+        match mode:
+            case "diff":
+                return self._apply_style(helper("Diff"), "info", "info")
+            case "no-diff":
+                return self._apply_style(helper("Contents"), "info", "info")
+            case _:
+                raise NotImplementedError
 
     def template_dict(self, target: Path, overwrite: bool = False):
         pref = "file"

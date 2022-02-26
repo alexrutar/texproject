@@ -6,7 +6,7 @@ import shlex
 
 from .base import UpdateCommand, LinkMode, ExportMode
 from .control import RuntimeClosure, AtomicIterable, RuntimeOutput
-from .filesystem import JINJA_PATH
+from .filesystem import JINJA_PATH, ProjectPath
 from .template import (
     JinjaTemplate,
     apply_template_dict_modification,
@@ -23,7 +23,7 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    from .filesystem import ProjectPath, TemplateDict
+    from .filesystem import TemplateDict
     from typing import Dict, Optional, Iterable
     from pathlib import Path
 
@@ -174,8 +174,11 @@ class ModifyArxiv(AtomicIterable):
             template_dict,
             UpdateCommand(LinkMode.macro, "typesetting", "arxiv-typesetting"),
         )
-        yield from TemplateDictLinker(target_dir=new_data_dir)(
-            proj_path, template_dict, state, temp_dir
+        yield from TemplateDictLinker()(
+            ProjectPath(self.working_dir, data_dir=new_data_dir),
+            template_dict,
+            state,
+            temp_dir,
         )
 
         # todo: during dry run, temp_dir may not exist! in this situation, nothing will

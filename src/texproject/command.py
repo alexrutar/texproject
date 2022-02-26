@@ -13,6 +13,7 @@ from .base import (
     AddCommand,
     RemoveCommand,
     LinkMode,
+    LinkCommand,
     ExportMode,
 )
 from .control import CommandRunner
@@ -242,8 +243,8 @@ def import_(
         ("citation", citations, citation_paths),
         ("style", styles, style_paths),
     ]:
-        yield NameSequenceLinker(mode, names, force=True)
-        yield PathSequenceLinker(mode, paths, force=True)
+        yield NameSequenceLinker(LinkCommand.replace, mode, names)
+        yield PathSequenceLinker(LinkCommand.replace, mode, paths)
 
     if gitignore:
         yield GitignoreWriter(force=True)
@@ -397,7 +398,7 @@ def refresh(force: bool) -> Iterable[AtomicIterable]:
     """Reload template files. If --force is specified, overwrite local template files
     with new versions from the template repository, if possible.
     """
-    yield TemplateDictLinker(force=force)
+    yield TemplateDictLinker(LinkCommand.replace if force else LinkCommand.copy)
     yield InfoFileWriter()
 
 
@@ -514,20 +515,6 @@ def clean() -> Iterable[AtomicIterable]:
 
 
 @util.command()
-@_link_option(LinkMode.macro)
-@_link_option(LinkMode.citation)
-@_link_option(LinkMode.style)
-@process_atoms()
-def diff(
-    macros: List[str],
-    citations: List[str],
-    styles: Optional[str],
-) -> Iterable[AtomicIterable]:
-    """Display changes in local template files."""
-    raise NotImplementedError
-
-
-@util.command()
 def show_config():
     """"""
     from . import defaults
@@ -587,8 +574,8 @@ def show(
         ("citation", citations, citation_paths),
         ("style", styles, style_paths),
     ]:
-        yield NameSequenceLinker(mode, names, force=False, echo_only=True)
-        yield PathSequenceLinker(mode, paths, force=False, echo_only=True)
+        yield NameSequenceLinker(LinkCommand.show, mode, names)
+        yield PathSequenceLinker(LinkCommand.show, mode, paths)
 
     # if gitignore:
     #     yield GitignoreWriter(force=True)

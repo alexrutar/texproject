@@ -18,7 +18,7 @@ from jinja2 import (
     TemplateNotFound,
 )
 
-from .base import NAMES, AddCommand, RemoveCommand, UpdateCommand, LinkMode
+from .base import NAMES, AddCommand, RemoveCommand, UpdateCommand, LinkMode, LinkCommand
 from .term import FORMAT_MESSAGE
 from .control import (
     RuntimeClosure,
@@ -37,7 +37,7 @@ from .filesystem import (
 )
 
 if TYPE_CHECKING:
-    from typing import Iterable, Optional, ClassVar, Dict
+    from typing import Iterable, ClassVar, Dict
 
     from .base import ModCommand
     from .filesystem import ProjectPath
@@ -190,26 +190,28 @@ class JinjaTemplate:
 
 
 def _link_helper(
+    op: LinkCommand,
     linker: FileLinker,
     name: str,
     source_path: Path,
     target_path: Path,
-    force: bool,
     state,
-    echo_only: bool = False,
 ) -> RuntimeClosure:
     message_args = (linker, name, target_path.parent)
-    if echo_only:
+    if op == LinkCommand.show:
 
         def _callable():
             click.echo(source_path.read_text())
             return RuntimeOutput(True)
 
         return RuntimeClosure(
-            FORMAT_MESSAGE.show(*message_args, mode="no-diff"),
+            FORMAT_MESSAGE.show(linker, name, mode="no-diff"),
             True,
             _callable,
         )
+    elif op == LinkCommand.diff:
+        raise NotImplementedError
+
     else:
 
         def _callable():
@@ -224,11 +226,11 @@ def _link_helper(
             return RuntimeClosure(
                 FORMAT_MESSAGE.link(*message_args, mode="fail"), False, _fail_callable
             )
-        if target_path.exists() and not force:
+        if target_path.exists() and op == LinkCommand.copy:
             return RuntimeClosure(
                 FORMAT_MESSAGE.link(*message_args, mode="exists"), *SUCCESS
             )
-        if target_path.exists():
+        if target_path.exists() and op == LinkCommand.replace:
             return RuntimeClosure(
                 FORMAT_MESSAGE.link(*message_args, mode="overwrite"),
                 True,
@@ -242,54 +244,47 @@ def _link_helper(
 
 
 def link_name(
+    op: LinkCommand,
     proj_path: ProjectPath,
     state: Dict,
     linker: FileLinker,
     name: str,
-    force: bool = False,
-    target_dir: Optional[Path] = None,
-    echo_only: bool = False,
 ) -> RuntimeClosure:
     return _link_helper(
+        op,
         linker,
         name,
         linker.file_path(name).resolve(),
-        (target_dir if target_dir is not None else proj_path.data_dir)
-        / NAMES.rel_data_path(name + linker.suffix, linker.mode),
-        force,
+        proj_path.data_dir / NAMES.rel_data_path(name + linker.suffix, linker.mode),
         state,
-        echo_only=echo_only,
     )
 
 
 def link_path(
+    op: LinkCommand,
     proj_path: ProjectPath,
     state: Dict,
     linker: FileLinker,
     source_path: Path,
-    force: bool = False,
-    echo_only: bool = False,
 ) -> RuntimeClosure:
     # also check for wrong suffix
     if source_path.suffix != linker.suffix:
         return RuntimeClosure(f"Filetype '{source_path.suffix}' is invalid!", *FAIL)
     return _link_helper(
+        op,
         linker,
         source_path.name,
         source_path.resolve(),
         proj_path.data_dir / NAMES.rel_data_path(source_path.name, linker.mode),
-        force,
         state,
     )
 
 
 @dataclass
 class NameSequenceLinker(AtomicIterable):
+    op: LinkCommand
     mode: LinkMode
     name_list: Iterable[str]
-    force: bool = False
-    target_dir: Optional[Path] = None
-    echo_only: bool = False
 
     def __call__(
         self,
@@ -300,13 +295,11 @@ class NameSequenceLinker(AtomicIterable):
     ) -> Iterable[RuntimeClosure]:
         yield from (
             link_name(
+                self.op,
                 proj_path,
                 state,
                 LINKER_MAP[self.mode],
                 name,
-                force=self.force,
-                target_dir=self.target_dir,
-                echo_only=self.echo_only,
             )
             for name in self.name_list
         )
@@ -314,22 +307,20 @@ class NameSequenceLinker(AtomicIterable):
 
 @dataclass
 class PathSequenceLinker(AtomicIterable):
+    op: LinkCommand
     mode: LinkMode
     path_list: Iterable[Path]
-    force: bool = False
-    echo_only: bool = False
 
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
         yield from (
             link_path(
+                self.op,
                 proj_path,
                 state,
                 LINKER_MAP[self.mode],
                 path,
-                force=self.force,
-                echo_only=self.echo_only,
             )
             for path in self.path_list
         )
@@ -337,8 +328,7 @@ class PathSequenceLinker(AtomicIterable):
 
 @dataclass
 class TemplateDictLinker(AtomicIterable):
-    force: bool = False
-    target_dir: Optional[Path] = None
+    op: LinkCommand = LinkCommand.copy
 
     def __call__(
         self,
@@ -349,10 +339,9 @@ class TemplateDictLinker(AtomicIterable):
     ) -> Iterable[RuntimeClosure]:
         for mode in LinkMode:
             yield from NameSequenceLinker(
+                self.op,
                 mode,
                 template_dict[NAMES.convert_mode(mode)],
-                force=self.force,
-                target_dir=self.target_dir,
             )(proj_path, template_dict, state, temp_dir)
 
 
