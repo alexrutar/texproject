@@ -38,11 +38,11 @@ to create compressed source files for your project in the same directory.
 
 If you want to edit parameters of your document (such as citation files, additional macro sets, or other features), run
 ```
-tpr config
+tpr template edit
 ```
 to open the project template file in your `$EDITOR`.
 When the file is closed, the project is automatically updated.
-For project backwards compatibility, this will not overwrite existing linked files.
+Note that this will not overwrite existing linked files.
 
 If you want to overwrite existing files, the `tpr import` function may be useful.
 For instance, to update the `tikz` macro file, you would run
@@ -147,7 +147,7 @@ entry = '<github_cli_token>'
 ```
 to your Texproject system configuration.
 
-You can also set the `API_TOKEN_GITHUB` environment variable; this has priority over the keyrin option.
+You can also set the `API_TOKEN_GITHUB` environment variable; this has priority over the keyring option.
 
 When these settings are in place, running `tpr git init` will automatically add this action, as well as the API token, to your GitHub repository.
 In order to upgrade an existing project to include this feature, you can also run
