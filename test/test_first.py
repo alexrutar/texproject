@@ -119,9 +119,13 @@ def test_template(fs_runner):
         ["template", "add", "--macro", "tikz"],
         ["template", "add", "--citation", "example"],
         ["template", "remove", "--macro", "tikz"],
-        ["util", "refresh"],
     )
     assert len(Path(".texproject/citations/local-example.bib").read_text()) > 0
+    Path(".texproject/macros/local-tikz.sty").unlink()
+    _run_cmd_seq(
+        fs_runner,
+        ["template", "refresh"],
+    )
     assert not Path(".texproject/macros/local-tikz.sty").exists()
     _run_cmd_seq(fs_runner, ["template", "remove", "--macro", "tikz"], expect_fail=True)
 

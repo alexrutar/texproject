@@ -360,6 +360,7 @@ def add(
     ]:
         yield ApplyModificationSequence(AddCommand(mode, name, index) for name in names)
     yield TemplateDictWriter()
+    yield TemplateDictLinker()
 
 
 @template.command()
@@ -378,6 +379,7 @@ def remove(
     ]:
         yield ApplyModificationSequence(RemoveCommand(mode, name) for name in names)
     yield TemplateDictWriter()
+    yield TemplateDictLinker()
 
 
 @template.command()
@@ -385,6 +387,18 @@ def remove(
 def edit():
     """Open the template dictionary in your $EDITOR."""
     yield FileEditor("template")
+    yield TemplateDictLinker()
+
+
+@template.command("refresh")
+@click.option("--force/--no-force", "-f/-F", default=False, help="overwrite files")
+@process_atoms()
+def refresh(force: bool) -> Iterable[AtomicIterable]:
+    """Reload template files. If --force is specified, overwrite local template files
+    with new versions from the template repository, if possible.
+    """
+    yield TemplateDictLinker(force=force)
+    yield InfoFileWriter()
 
 
 @cli.group()
@@ -488,17 +502,6 @@ def init_archive(repo_name: Optional[str]) -> Iterable[AtomicIterable]:
 @cli.group()
 def util() -> None:
     """Miscellaneous utilities."""
-
-
-@util.command("refresh")
-@click.option("--force/--no-force", "-f/-F", default=False, help="overwrite files")
-@process_atoms()
-def refresh(force: bool) -> Iterable[AtomicIterable]:
-    """Reload template files. If --force is specified, overwrite local template files
-    with new versions from the template repository, if possible.
-    """
-    yield TemplateDictLinker(force=force)
-    yield InfoFileWriter()
 
 
 @util.command()
