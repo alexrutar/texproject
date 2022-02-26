@@ -212,14 +212,20 @@ def _link_helper(
     elif op == LinkCommand.diff:
 
         def _callable():
+            try:
+                from_str = target_path.read_text().strip()
+            except FileNotFoundError:
+                from_str = ""
+            to_str = source_path.read_text().strip()
+
             return RuntimeOutput(
                 True,
                 output="\n".join(
                     unified_diff(
-                        source_path.read_text().split("\n"),
-                        target_path.read_text().split("\n"),
-                        fromfile=f"{linker.user_str} '{name}'",
-                        tofile=f"{target_path}",
+                        from_str.split("\n"),
+                        to_str.split("\n"),
+                        fromfile=f"{target_path}",
+                        tofile=f"{linker.user_str} '{name}'",
                         lineterm="",
                     )
                 ),

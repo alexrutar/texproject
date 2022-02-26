@@ -150,3 +150,14 @@ def test_list(fs_runner):
 def test_init_fail(fs_runner):
     _run_cmd_seq(fs_runner, ["init", "plain"])
     _run_cmd_seq(fs_runner, ["init", "preprint"], expect_fail=True)
+
+
+def test_show(fs_runner):
+    _run_cmd_seq(
+        fs_runner,
+        ["init", "plain"],
+        ["show", "--macro", "typesetting"],
+        ["show", "--citation", "main"],
+        ["show", "--macro", "typesetting", "--diff"],
+        ["show", "--style", "palatino", "--diff"],
+    )
