@@ -38,12 +38,17 @@ def copy_directory(
     proj_path: ProjectPath, source: Path, target: Path
 ) -> RuntimeClosure:
     def _callable():
-        shutil.copytree(
-            source,
-            target,
-            copy_function=shutil.copy,
-            ignore=shutil.ignore_patterns(*proj_path.config.process["ignore_patterns"]),
-        )
+        try:
+            shutil.copytree(
+                source,
+                target,
+                copy_function=shutil.copy,
+                ignore=shutil.ignore_patterns(
+                    *proj_path.config.process["ignore_patterns"]
+                ),
+            )
+        except shutil.Error:
+            raise AbortRunner("Directory copying failed. You may have broken symlinks?")
         return RuntimeOutput(True)
 
     return RuntimeClosure(FORMAT_MESSAGE.copy(source, target), True, _callable)

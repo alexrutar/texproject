@@ -119,6 +119,7 @@ class CommandRunner:
                 sys.exit(1)
 
         except AbortRunner as e:
+            click.echo()  # newline required since initial message print does not have it
             click.secho(
                 f"Runner aborted with error message '{str(e)}'.",
                 err=True,

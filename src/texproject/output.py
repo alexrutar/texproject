@@ -47,6 +47,7 @@ def compile_latex(
             short_cmd
             + [
                 f"-outdir={str(build_dir)}",
+                f"-auxdir={str(build_dir)}",
                 proj_path.config.render["default_tex_name"] + ".tex",
             ],
             dir,
