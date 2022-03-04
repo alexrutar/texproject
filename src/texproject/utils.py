@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
+from dataclasses import dataclass
 import shutil
 import subprocess
 
@@ -86,9 +87,9 @@ def run_command(proj_path: ProjectPath, command: List[str]) -> RuntimeClosure:
     return RuntimeClosure(FORMAT_MESSAGE.cmd(command), True, _callable)
 
 
+@dataclass
 class RunCommand(AtomicIterable):
-    def __init__(self, command):
-        self._command = command
+    command: List[str]
 
     def __call__(
         self,
@@ -97,12 +98,12 @@ class RunCommand(AtomicIterable):
         state: Dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
-        yield run_command(proj_path, self._command)
+        yield run_command(proj_path, self.command)
 
 
+@dataclass
 class FileEditor(AtomicIterable):
-    def __init__(self, config_file: Literal["local", "global", "template"]):
-        self._config_file = config_file
+    config_file: Literal["local", "global", "template"]
 
     def __call__(
         self,
@@ -111,7 +112,7 @@ class FileEditor(AtomicIterable):
         state: Dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
-        match self._config_file:
+        match self.config_file:
             case "local":
                 fpath = proj_path.config.local_path
             case "global":
@@ -132,18 +133,11 @@ class FileEditor(AtomicIterable):
 
 
 class CleanProject(AtomicIterable):
-    def __init__(self, working_dir=None):
-        self._working_dir = working_dir
-
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, *_
     ) -> Iterable[RuntimeClosure]:
-        if self._working_dir is None:
-            dir = proj_path.data_dir
-        else:
-            dir = self._working_dir
 
         for mode in LinkMode:
-            for path, name in NAMES.existing_template_files(dir, mode):
+            for path, name in NAMES.existing_template_files(proj_path.data_dir, mode):
                 if name not in template_dict[NAMES.convert_mode(mode)]:
                     yield remove_path(path)

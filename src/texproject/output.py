@@ -164,6 +164,7 @@ class ModifyArxiv(AtomicIterable):
         main_tex_path = self.working_dir / (
             proj_path.config.render["default_tex_name"] + ".tex"
         )
+        new_proj_path = ProjectPath(self.working_dir, data_dir=new_data_dir)
 
         yield rename_path(self.working_dir / proj_path.data_dir.name, new_data_dir)
         for st in ("classinfo_file", "bibinfo_file"):
@@ -175,7 +176,7 @@ class ModifyArxiv(AtomicIterable):
             UpdateCommand(LinkMode.macro, "typesetting", "arxiv-typesetting"),
         )
         yield from TemplateDictLinker()(
-            ProjectPath(self.working_dir, data_dir=new_data_dir),
+            new_proj_path,
             template_dict,
             state,
             temp_dir,
@@ -186,7 +187,7 @@ class ModifyArxiv(AtomicIterable):
         # with temp directories, or if it is fine for stuff to just fail. For example,
         # when some commands depend on modifications done by other commands / filesystem
         # state, (e.g. cleaning here) stuff will break very subtly
-        yield from CleanProject(new_data_dir)(proj_path, template_dict, state, temp_dir)
+        yield from CleanProject()(new_proj_path, template_dict, state, temp_dir)
 
         # replace \input{...classinfo.tex} and \input{...bibinfo.tex}
         # with the contents of the corresponding files

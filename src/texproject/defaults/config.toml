@@ -34,6 +34,7 @@ replace_text = 'REPLACE'
 arxiv_autotex = []
 
 [process]
+
 # extra options to pass to latexmk
 latexmk_compile_options = []
 
