@@ -39,6 +39,7 @@ def test_archive(fs_runner):
         ["init", "preprint"],
         ["archive", "out.zip"],
         ["archive", "--mode", "arxiv", "out.tar"],
+        ["archive", "--mode", "nohidden", "no_hidden.tar"],
     )
     import tarfile
 
@@ -51,6 +52,13 @@ def test_archive(fs_runner):
             assert path in path_list
 
         assert Path("texproject/macros/local-typesetting.sty") not in path_list
+
+    with tarfile.open("no_hidden.tar") as tf:
+        path_list = [Path(name) for name in tf.getnames()]
+        for path in [
+            Path("texproject/macros"),
+        ]:
+            assert path in path_list
 
 
 def test_import(fs_runner):

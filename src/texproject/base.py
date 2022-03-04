@@ -33,6 +33,7 @@ class ExportMode(str, Enum):
     arxiv = "arxiv"
     build = "build"
     source = "source"
+    nohidden = "nohidden"
 
 
 class RepoVisibility(str, Enum):

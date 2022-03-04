@@ -125,7 +125,7 @@ class ArchiveWriter(AtomicIterable):
 
         # compile the tex files to get .bbl / .pdf
         if self.fmt in (ExportMode.arxiv, ExportMode.build):
-            if self.fmt == "arxiv":
+            if self.fmt == ExportMode.arxiv:
                 # must copy first to ensure additional files are also moved
                 yield from ModifyArxiv(archive_dir)(
                     proj_path, template_dict, state, temp_dir
@@ -141,6 +141,11 @@ class ArchiveWriter(AtomicIterable):
                 }
             yield compile_latex(proj_path, build_dir, archive_dir, check=True)
             yield copy_output(proj_path, build_dir, output_map)
+
+        elif self.fmt == ExportMode.nohidden:
+            yield from ModifyNoHidden(archive_dir)(
+                proj_path, template_dict, state, temp_dir
+            )
 
         yield make_archive(archive_dir, self.output_file, self.compression)
 
@@ -225,4 +230,79 @@ class ModifyArxiv(AtomicIterable):
         )
         yield JinjaTemplate(JINJA_PATH.arxiv_autotex).write(
             proj_path, template_dict, state, self.working_dir / "000README.XXX"
+        )
+
+
+@dataclass
+class ModifyNoHidden(AtomicIterable):
+    working_dir: Path
+
+    def __call__(
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
+    ) -> Iterable[RuntimeClosure]:
+        # rename data directory to a filename with no dots and which does not exist
+        new_data_dir_name = proj_path.data_dir.name.replace(".", "")
+        while (self.working_dir / new_data_dir_name).exists():
+            new_data_dir_name += "X"
+        new_data_dir = self.working_dir / new_data_dir_name
+
+        main_tex_path = self.working_dir / (
+            proj_path.config.render["default_tex_name"] + ".tex"
+        )
+        new_proj_path = ProjectPath(self.working_dir, data_dir=new_data_dir)
+
+        yield rename_path(self.working_dir / proj_path.data_dir.name, new_data_dir)
+        for st in ("classinfo_file", "bibinfo_file"):
+            yield remove_path(new_data_dir / (proj_path.config.render[st] + ".tex"))
+
+        yield from TemplateDictLinker()(
+            new_proj_path,
+            template_dict,
+            state,
+            temp_dir,
+        )
+
+        # todo: during dry run, temp_dir may not exist! in this situation, nothing will
+        # print... todo: think about what sort of controls are required when interacting
+        # with temp directories, or if it is fine for stuff to just fail. For example,
+        # when some commands depend on modifications done by other commands / filesystem
+        # state, (e.g. cleaning here) stuff will break very subtly
+        yield from CleanProject()(new_proj_path, template_dict, state, temp_dir)
+
+        # replace \input{...classinfo.tex} and \input{...bibinfo.tex}
+        # with the contents of the corresponding files
+        def _callable():
+            with open(main_tex_path, "r", encoding="utf-8") as texfile:
+                new_contents = texfile.read()
+
+                for end, writer in [
+                    (
+                        proj_path.config.render["classinfo_file"],
+                        JinjaTemplate(JINJA_PATH.classinfo),
+                    ),
+                    (
+                        proj_path.config.render["bibinfo_file"],
+                        JinjaTemplate(JINJA_PATH.bibinfo),
+                    ),
+                ]:
+                    new_contents = new_contents.replace(
+                        r"\input{" + proj_path.data_dir.name + "/" + end + r"}" + "\n",
+                        writer.get_text(
+                            proj_path,
+                            template_dict,
+                            render_mods={"project_data_folder": new_data_dir_name},
+                        ),
+                    )
+            with open(main_tex_path, "w", encoding="utf-8") as texfile:
+                texfile.write(new_contents)
+            return RuntimeOutput(True)
+
+        yield RuntimeClosure(
+            FORMAT_MESSAGE.info("Modifying main tex file."),
+            True,
+            _callable,
         )
