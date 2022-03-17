@@ -362,6 +362,7 @@ def add(
         yield ApplyModificationSequence(AddCommand(mode, name, index) for name in names)
     yield TemplateDictWriter()
     yield TemplateDictLinker()
+    yield InfoFileWriter()
 
 
 @template.command()
@@ -381,6 +382,7 @@ def remove(
         yield ApplyModificationSequence(RemoveCommand(mode, name) for name in names)
     yield TemplateDictWriter()
     yield TemplateDictLinker()
+    yield InfoFileWriter()
 
 
 @template.command()
@@ -389,6 +391,7 @@ def edit() -> Iterable[AtomicIterable]:
     """Open the template dictionary in your $EDITOR."""
     yield FileEditor("template")
     yield TemplateDictLinker()
+    yield InfoFileWriter()
 
 
 @template.command("refresh")
