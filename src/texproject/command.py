@@ -1,6 +1,7 @@
 """TODO: write docstring"""
 from __future__ import annotations
 from typing import TYPE_CHECKING
+import sys
 
 from functools import update_wrapper
 from pathlib import Path
@@ -67,7 +68,11 @@ def process_atoms(load_template: Optional[bool] = True):
             if load_template is None:
                 template_dict = None
             elif load_template:
-                template_dict = TemplateDict(ctx.obj["proj_path"].template)
+                try:
+                    template_dict = TemplateDict(ctx.obj["proj_path"].template)
+                except FileNotFoundError:
+                    click.secho("fatal: not a texproject folder", err=True)
+                    sys.exit(1)
             elif template is not None:
                 template_dict = NamedTemplateDict(template)
             else:

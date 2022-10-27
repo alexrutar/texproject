@@ -17,6 +17,7 @@ def _run_cmd_seq(runner, *args_list, expect_fail=False):
         assert all(res.exit_code != 0 for res in results)
     else:
         assert all(res.exit_code == 0 for res in results)
+    return results
 
 
 @pytest.fixture
@@ -30,7 +31,8 @@ def fs_runner():
 @pytest.mark.slow
 @pytest.mark.parametrize("tname", template_linker.list_names())
 def test_all_templates(fs_runner, tname):
-    _run_cmd_seq(fs_runner, ["init", tname], ["validate"])
+    for res in _run_cmd_seq(fs_runner, ["init", tname], ["validate"]):
+        assert res.output == "fatal: not a texproject folder\n"
 
 
 def test_archive(fs_runner):
@@ -73,6 +75,15 @@ def test_init(fs_runner):
         assert path.exists()
 
     assert Path(".texproject/classinfo.tex").read_text().startswith(r"\documentclass")
+
+
+def test_fail(fs_runner):
+    _run_cmd_seq(
+        fs_runner,
+        ["validate"],
+        ["template", "add", "--macro", "tikz"],
+        expect_fail=True,
+    )
 
 
 def test_import(fs_runner):
