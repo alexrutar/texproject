@@ -20,7 +20,7 @@ from .base import (
 )
 
 if TYPE_CHECKING:
-    from typing import Dict, Final, List, Optional
+    from typing import Dict, Final, List, Optional, Callable
 
 
 class TOMLLoader:
@@ -188,15 +188,15 @@ JINJA_PATH: Final = _JinjaTemplatePath()
 DATA_PATH: Final = _DataPath()
 
 
-def relative(base: str):
+def relative(base: str) -> Callable[[Callable[[ProjectPath], str]], property]:
     """TODO: write"""
 
     def fset(self, value) -> None:
         del self, value
         raise AttributeError("Cannot change constant values")
 
-    def decorator(func):
-        def fget(self) -> Path:
+    def decorator(func: Callable[[ProjectPath], str]):
+        def fget(self: ProjectPath) -> Path:
             return {
                 "root": self.working_dir,
                 "data": self.data_dir,
@@ -276,6 +276,9 @@ class ProjectPath:
     def github_home(self) -> str:
         """TODO: write"""
         return ".github"
+
+    def git_files(self) -> List[Path]:
+        return [self.gitignore, self.git_home, self.github_home]
 
     @relative("root")
     def latexmain(self) -> str:

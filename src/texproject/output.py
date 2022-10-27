@@ -271,7 +271,9 @@ class ModifyNoHidden(AtomicIterable):
         # with temp directories, or if it is fine for stuff to just fail. For example,
         # when some commands depend on modifications done by other commands / filesystem
         # state, (e.g. cleaning here) stuff will break very subtly
-        yield from CleanProject()(new_proj_path, template_dict, state, temp_dir)
+        yield from CleanProject(remove_git_files=True)(
+            new_proj_path, template_dict, state, temp_dir
+        )
 
         # replace \input{...classinfo.tex} and \input{...bibinfo.tex}
         # with the contents of the corresponding files

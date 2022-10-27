@@ -53,6 +53,14 @@ def test_archive(fs_runner):
         ]:
             assert path in path_list
 
+        for path in [
+            Path(".git"),
+            Path(".github"),
+            Path(".gitignore"),
+            Path("main.tex.latexmain"),
+        ]:
+            assert path not in path_list
+
         assert Path("texproject/macros/local-typesetting.sty") not in path_list
 
     with tarfile.open("no_hidden.tar") as tf:

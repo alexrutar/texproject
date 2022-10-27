@@ -14,13 +14,13 @@ from .term import FORMAT_MESSAGE
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import List, Iterable, Dict, Literal
+    from typing import List, Iterable, Dict, Literal, Optional
     from .filesystem import ProjectPath, TemplateDict
 
 
 def remove_path(target: Path) -> RuntimeClosure:
     def _callable():
-        target.unlink()
+        target.unlink(missing_ok=True)
         return RuntimeOutput(True)
 
     return RuntimeClosure(FORMAT_MESSAGE.remove(target), True, _callable)
@@ -135,7 +135,10 @@ class FileEditor(AtomicIterable):
             )
 
 
+@dataclass
 class CleanProject(AtomicIterable):
+    remove_git_files: Optional[bool] = None
+
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, *_
     ) -> Iterable[RuntimeClosure]:
@@ -144,3 +147,7 @@ class CleanProject(AtomicIterable):
             for path, name in NAMES.existing_template_files(proj_path.data_dir, mode):
                 if name not in template_dict[NAMES.convert_mode(mode)]:
                     yield remove_path(path)
+
+        if self.remove_git_files:
+            for path in proj_path.git_files():
+                yield remove_path(path)
