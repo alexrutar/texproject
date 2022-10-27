@@ -61,6 +61,20 @@ def test_archive(fs_runner):
             assert path in path_list
 
 
+def test_init(fs_runner):
+    _run_cmd_seq(fs_runner, ["init", "plain"])
+
+    for path in [
+        Path("main.tex"),
+        Path("main.tex.latexmain"),
+        Path("project-macros.sty"),
+        Path(".texproject/bibinfo.tex"),
+    ]:
+        assert path.exists()
+
+    assert Path(".texproject/classinfo.tex").read_text().startswith(r"\documentclass")
+
+
 def test_import(fs_runner):
     _run_cmd_seq(fs_runner, ["init", "preprint"], ["import", "--macro", "tikz"])
     cit_path = Path("test.bib")

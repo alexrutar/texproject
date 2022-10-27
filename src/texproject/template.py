@@ -35,6 +35,7 @@ from .filesystem import (
     FileLinker,
     LINKER_MAP,
 )
+from .utils import touch_file
 
 if TYPE_CHECKING:
     from typing import Iterable, ClassVar, Dict
@@ -440,3 +441,4 @@ class OutputFolderCreator(AtomicIterable):
             (JINJA_PATH.project_macro, proj_path.project_macro),
         ]:
             yield JinjaTemplate(source).write(proj_path, template_dict, state, target)
+        yield touch_file(proj_path.latexmain)

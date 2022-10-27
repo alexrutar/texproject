@@ -92,18 +92,16 @@ def run_command(proj_path: ProjectPath, command: List[str]) -> RuntimeClosure:
     return RuntimeClosure(FORMAT_MESSAGE.cmd(command), True, _callable)
 
 
-@dataclass
-class RunCommand(AtomicIterable):
-    command: List[str]
+def touch_file(file_path: Path) -> RuntimeClosure:
+    """Touch the file located at the file_path"""
 
-    def __call__(
-        self,
-        proj_path: ProjectPath,
-        template_dict: TemplateDict,
-        state: Dict,
-        temp_dir: Path,
-    ) -> Iterable[RuntimeClosure]:
-        yield run_command(proj_path, self.command)
+    def _callable():
+        file_path.touch()
+        return RuntimeOutput(True)
+
+    return RuntimeClosure(
+        FORMAT_MESSAGE.info(f"Touch file '{file_path}'"), True, _callable
+    )
 
 
 @dataclass

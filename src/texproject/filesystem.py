@@ -277,6 +277,11 @@ class ProjectPath:
         """TODO: write"""
         return ".github"
 
+    @relative("root")
+    def latexmain(self) -> str:
+        """TODO: write"""
+        return f"{self.config.render['default_tex_name']}.tex.latexmain"
+
     @relative("gh_actions")
     def build_latex(self) -> str:
         """TODO: write"""
