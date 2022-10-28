@@ -168,15 +168,13 @@ The file `main.tex` file is the main document file which you can edit to produce
 The `project-macros.sty` file is an empty package in which you can input custom project-dependent preamble.
 These packages are always loaded after any specified project files.
 
-Suppose we want to include the macro set `general` with our project.
-Run `tpr config` to open the template file, and replace the line `macros = []` with the line
+Suppose we want to include the macro set `general` with our project: to do this, run
 ```
-macros = ['general']
+tpr template add --macro general
 ```
-Save and close the file: the new macros are automatically added to your project file.
 If you want to share this project with someone else, simply run
 ```
 tpr archive output.zip
 ```
 which will generate the file `output.zip` within the project directory.
-This zipfile contains all the source files requires to compile the document.
+This zipfile contains all the source files required to compile the document.
