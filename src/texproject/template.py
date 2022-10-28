@@ -61,8 +61,11 @@ def apply_template_dict_modification(
     match mod:
         case RemoveCommand(mode, source):
             msg = f"Remove {mode} '{source}' from template dict."
-        case AddCommand(mode, source, index):
-            msg = f"Add {mode} '{source}' to template dict in position {index}."
+        case AddCommand(mode, source, append):
+            msg = (
+                f"{'Append' if append else 'Prepend'} {mode} '{source}' to template"
+                " dict."
+            )
         case UpdateCommand(mode, source, target):
             msg = f"Update {mode} {source} to {target}"
         case _:

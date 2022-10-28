@@ -76,8 +76,15 @@ class TemplateDict(dict):
             case RemoveCommand(mode, source):
                 self[NAMES.convert_mode(mode)].remove(source)
 
-            case AddCommand(mode, source, index):
-                self[NAMES.convert_mode(mode)].insert(index, source)
+            case AddCommand(mode, source, append):
+                try:
+                    self[NAMES.convert_mode(mode)].remove(source)
+                except ValueError:
+                    pass
+                if append:
+                    self[NAMES.convert_mode(mode)].append(source)
+                else:
+                    self[NAMES.convert_mode(mode)].insert(0, source)
 
             case UpdateCommand(mode, source, target):
                 self[NAMES.convert_mode(mode)] = [

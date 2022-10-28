@@ -142,7 +142,6 @@ class CleanProject(AtomicIterable):
     def __call__(
         self, proj_path: ProjectPath, template_dict: Dict, *_
     ) -> Iterable[RuntimeClosure]:
-
         for mode in LinkMode:
             for path, name in NAMES.existing_template_files(proj_path.data_dir, mode):
                 if name not in template_dict[NAMES.convert_mode(mode)]:

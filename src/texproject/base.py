@@ -55,7 +55,7 @@ class AddCommand(ModCommand):
     """Add a new argument to the template dict."""
 
     source: str
-    index: int
+    append: bool
 
 
 @dataclass

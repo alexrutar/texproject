@@ -348,23 +348,28 @@ def template() -> None:
 @_link_option(LinkMode.macro)
 @_link_option(LinkMode.citation)
 @_link_option(LinkMode.style)
-@click.option("--index", "index", help="position to insert", default=0, type=int)
+@click.option(
+    "--append/--prepend", "-a/-p", "append", default=True, help="append or prepend"
+)
 @process_atoms()
 def add(
     macros: List[str],
     citations: List[str],
     styles: List[str],
-    index: int,
+    append: bool,
 ) -> Iterable[AtomicIterable]:
-    """Add entries to the template dictionary. The --index option allows you to specify
-    the index to insert the citation (--index 0 means to insert at the beginning).
+    """Add entries to the template dictionary. Existing entries with the same name will
+    be replaced. To specify locations other than the end or beginning, run `tpr template
+    edit`.
     """
     for mode, names in [
         (LinkMode.macro, macros),
         (LinkMode.citation, citations),
         (LinkMode.style, styles),
     ]:
-        yield ApplyModificationSequence(AddCommand(mode, name, index) for name in names)
+        yield ApplyModificationSequence(
+            AddCommand(mode, name, append) for name in names
+        )
     yield TemplateDictWriter()
     yield TemplateDictLinker()
     yield InfoFileWriter()
