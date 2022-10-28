@@ -54,11 +54,13 @@ class CommandRunner:
         template_dict: Optional[Dict],
         dry_run=False,
         verbose=True,
+        debug=False,
     ):
         self._proj_path: Final = proj_path
         self._template_dict: Final = template_dict if template_dict is not None else {}
         self._dry_run = dry_run
         self._verbose = verbose
+        self._debug = debug
 
     def atomic_outputs(
         self,

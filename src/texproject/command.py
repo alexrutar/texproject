@@ -71,7 +71,7 @@ def process_atoms(load_template: Optional[bool] = True):
                 try:
                     template_dict = TemplateDict(ctx.obj["proj_path"].template)
                 except FileNotFoundError:
-                    click.secho("fatal: not a texproject folder", err=True)
+                    click.secho("error: not a texproject folder", err=True)
                     sys.exit(1)
             elif template is not None:
                 template_dict = NamedTemplateDict(template)
@@ -83,6 +83,7 @@ def process_atoms(load_template: Optional[bool] = True):
                 template_dict,
                 dry_run=ctx.obj["dry_run"],
                 verbose=ctx.obj["verbose"],
+                debug=ctx.obj["debug"],
             ).execute(ctx.invoke(f, *args, **kwargs), state_init=state_constructor)
 
         if load_template is False:
@@ -130,8 +131,9 @@ def process_atoms(load_template: Optional[bool] = True):
     help="Describe changes but do not execute",
 )
 @click.option("--verbose/--silent", "-v/-V", "verbose", default=True, help="Be verbose")
+@click.option("--debug/--no-debug", "debug", default=False, help="Debug mode")
 @click.pass_context
-def cli(ctx, proj_dir: Path, dry_run: bool, verbose: bool) -> None:
+def cli(ctx, proj_dir: Path, dry_run: bool, verbose: bool, debug: bool) -> None:
     """TexProject is a tool to help streamline the creation and distribution of files
     written in LaTeX.
     """
@@ -139,6 +141,7 @@ def cli(ctx, proj_dir: Path, dry_run: bool, verbose: bool) -> None:
         "proj_path": ProjectPath(proj_dir),
         "dry_run": dry_run,
         "verbose": verbose,
+        "debug": debug,
     }
 
 
@@ -591,10 +594,10 @@ def show(
         yield NameSequenceLinker(cmd, mode, names)
         yield PathSequenceLinker(cmd, mode, paths)
 
-    # if gitignore:
-    #     yield GitignoreWriter(force=True)
-    # if pre_commit:
-    #     yield PrecommitWriter(force=True)
+    if gitignore:
+        yield GitignoreWriter(force=True)
+    if pre_commit:
+        yield PrecommitWriter(force=True)
 
 
 @cli.command("list")
