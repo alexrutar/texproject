@@ -10,5 +10,5 @@ test:
 	pytest --run-slow
 
 format:
-	black . --target-version py310 --preview
+	black . --target-version py311 --preview
 	flake8 src/texproject/

@@ -2,7 +2,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
-from importlib import resources
+from importlib.resources import files
 
 from . import defaults
 from pathlib import Path
@@ -37,11 +37,11 @@ class TOMLLoader:
 
     @staticmethod
     def default_template():
-        return loads(resources.read_text(defaults, "template.toml"))
+        return loads(files(defaults).joinpath("template.toml").read_text())
 
     @staticmethod
     def default_config():
-        return loads(resources.read_text(defaults, "config.toml"))
+        return loads(files(defaults).joinpath("config.toml").read_text())
 
 
 def _merge_iter(*dcts: Dict):
