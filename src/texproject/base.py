@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, StrEnum, auto
 from pathlib import Path
 import shutil
 
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from typing import Final, Iterable, Tuple
 
 
-class LinkMode(str, Enum):
+class LinkMode(StrEnum):
     """The type of link to create."""
 
     macro = "macro"
@@ -27,20 +27,20 @@ class LinkCommand(Enum):
     diff = 4
 
 
-class ExportMode(str, Enum):
+class ExportMode(StrEnum):
     """The type of export to create."""
 
-    arxiv = "arxiv"
-    build = "build"
-    source = "source"
-    nohidden = "nohidden"
+    arxiv = auto()
+    build = auto()
+    source = auto()
+    nohidden = auto()
 
 
-class RepoVisibility(str, Enum):
+class RepoVisibility(StrEnum):
     """The visibility of the repository."""
 
-    public = "public"
-    private = "private"
+    public = auto()
+    private = auto()
 
 
 @dataclass

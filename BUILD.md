@@ -3,7 +3,7 @@
 First, update the virtual environment with the appropriate version:
 ```
 pyenv virtualenv uninstall texproject-venv
-pyenv virtualenv 3.10.7 texproject-venv
+pyenv virtualenv 3.11.0 texproject-venv
 ```
 Next, install locally as editable:
 ```

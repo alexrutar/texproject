@@ -172,7 +172,7 @@ def test_template(fs_runner):
 
 
 def test_template_operations(fs_runner):
-    import pytomlpp as toml
+    import tomllib
 
     _run_cmd_seq(
         fs_runner,
@@ -180,7 +180,7 @@ def test_template_operations(fs_runner):
         ["template", "add", "--macro", "tikz"],
         ["template", "add", "--macro", "tikz"],
     )
-    template_dict = toml.loads(Path(".texproject/template.toml").read_text())
+    template_dict = tomllib.loads(Path(".texproject/template.toml").read_text())
 
     assert template_dict["macros"][-1] == "tikz"
     assert template_dict["macros"][-2] != "tikz"
@@ -191,7 +191,7 @@ def test_template_operations(fs_runner):
         ["template", "add", "--style", "empty", "--prepend"],
     )
 
-    template_dict = toml.loads(Path(".texproject/template.toml").read_text())
+    template_dict = tomllib.loads(Path(".texproject/template.toml").read_text())
     assert "tikz" not in template_dict["macros"]
     assert template_dict["styles"][0] == "empty"
     assert len(template_dict["styles"]) == 2

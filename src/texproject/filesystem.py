@@ -6,7 +6,8 @@ from importlib import resources
 
 from . import defaults
 from pathlib import Path
-import pytomlpp as toml
+from tomllib import loads
+from tomli_w import dumps
 from xdg import XDG_DATA_HOME, XDG_CONFIG_HOME
 
 from .base import (
@@ -27,7 +28,7 @@ class TOMLLoader:
     @staticmethod
     def load(source: Path, missing_ok: bool = False) -> Dict:
         try:
-            return toml.loads(source.read_text())
+            return loads(source.read_text())
         except FileNotFoundError as err:
             if missing_ok:
                 return {}
@@ -36,11 +37,11 @@ class TOMLLoader:
 
     @staticmethod
     def default_template():
-        return toml.loads(resources.read_text(defaults, "template.toml"))
+        return loads(resources.read_text(defaults, "template.toml"))
 
     @staticmethod
     def default_config():
-        return toml.loads(resources.read_text(defaults, "config.toml"))
+        return loads(resources.read_text(defaults, "config.toml"))
 
 
 def _merge_iter(*dcts: Dict):
@@ -69,7 +70,7 @@ class TemplateDict(dict):
         super().__init__(_merge(TOMLLoader.default_template(), TOMLLoader.load(source)))
 
     def dump(self, target: Path) -> None:
-        target.write_text(toml.dumps(self))
+        target.write_text(dumps(self))
 
     def apply_modification(self, mod: ModCommand):
         match mod:
