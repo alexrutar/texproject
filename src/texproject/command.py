@@ -530,15 +530,6 @@ def clean() -> Iterable[AtomicIterable]:
     yield CleanProject()
 
 
-@util.command()
-def show_config():
-    """"""
-    from . import defaults
-    from importlib import resources
-
-    click.echo(resources.read_text(defaults, "config.toml"), nl=False)
-
-
 @cli.command("show")
 @_link_option(LinkMode.macro)
 @_link_option(LinkMode.citation)
@@ -578,8 +569,11 @@ def show(
     pre_commit: bool,
     diff: bool,
 ) -> Iterable[AtomicIterable]:
-    """Import macro, citation, and format files. This command will replace existing
+    """Print macro, citation, and format files. This command will replace existing
     files. Note that this command does not import the files into the main .tex file.
+
+    The --diff option displays the difference between the file and the current file
+    which would be overwritten if imported.
 
     The --macro-path and --citation-path allow macro and citation files to be specified
     as paths to existing files. For example, this enables imports which are not
