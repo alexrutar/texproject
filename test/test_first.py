@@ -204,6 +204,19 @@ def test_clean(fs_runner):
     assert not Path(".texproject/macros/local-tikz.sty").exists()
 
 
+def test_multi_bib(fs_runner):
+    _run_cmd_seq(
+        fs_runner,
+        ["init", "empty"],
+        ["template", "add", "--citation", "main", "--citation", "fractals"],
+    )
+    assert (
+        Path(".texproject/bibinfo.tex").read_text().split("\n")[1]
+        == r"\bibliography{.texproject/citations/local-main,"
+        r" .texproject/citations/local-fractals}"
+    )
+
+
 def test_empty(fs_runner):
     _run_cmd_seq(fs_runner, ["init", "empty"])
     assert Path(".texproject/classinfo.tex").read_text() == "\\documentclass{article}\n"
