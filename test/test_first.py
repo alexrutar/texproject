@@ -204,6 +204,12 @@ def test_clean(fs_runner):
     assert not Path(".texproject/macros/local-tikz.sty").exists()
 
 
+def test_import_strip_whitespace(fs_runner):
+    _run_cmd_seq(fs_runner, ["init", "empty"], ["import", "--citation", "main"])
+    txt = Path(".texproject/citations/local-main.bib").read_text()
+    assert txt == txt.strip()
+
+
 def test_multi_bib(fs_runner):
     _run_cmd_seq(
         fs_runner,

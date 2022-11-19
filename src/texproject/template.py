@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 from dataclasses import dataclass
 from difflib import unified_diff
 import datetime
-import shutil
 import os
 from pathlib import Path
 import stat
@@ -244,7 +243,7 @@ def _link_helper(
     else:
 
         def _callable():
-            shutil.copyfile(str(source_path), str(target_path))
+            target_path.write_text(source_path.read_text().strip())
             return RuntimeOutput(True)
 
         def _fail_callable():
