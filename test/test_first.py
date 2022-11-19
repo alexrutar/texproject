@@ -188,12 +188,12 @@ def test_template_operations(fs_runner):
     _run_cmd_seq(
         fs_runner,
         ["template", "remove", "--macro", "tikz"],
-        ["template", "add", "--style", "empty", "--prepend"],
+        ["template", "add", "--style", "palatino", "--prepend"],
     )
 
     template_dict = tomllib.loads(Path(".texproject/template.toml").read_text())
     assert "tikz" not in template_dict["macros"]
-    assert template_dict["styles"][0] == "empty"
+    assert template_dict["styles"][0] == "palatino"
     assert len(template_dict["styles"]) == 2
 
 
@@ -202,6 +202,11 @@ def test_clean(fs_runner):
     assert Path(".texproject/macros/local-tikz.sty").exists()
     _run_cmd_seq(fs_runner, ["util", "clean"])
     assert not Path(".texproject/macros/local-tikz.sty").exists()
+
+
+def test_empty(fs_runner):
+    _run_cmd_seq(fs_runner, ["init", "empty"])
+    assert Path(".texproject/classinfo.tex").read_text() == "\\documentclass{article}\n"
 
 
 def test_list(fs_runner):
