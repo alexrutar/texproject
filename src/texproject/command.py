@@ -407,17 +407,6 @@ def edit() -> Iterable[AtomicIterable]:
     yield InfoFileWriter()
 
 
-@template.command("refresh")
-@click.option("--force/--no-force", "-f/-F", default=False, help="overwrite files")
-@process_atoms()
-def refresh(force: bool) -> Iterable[AtomicIterable]:
-    """Reload template files. If --force is specified, overwrite local template files
-    with new versions from the template repository, if possible.
-    """
-    yield TemplateDictLinker(LinkCommand.replace if force else LinkCommand.copy)
-    yield InfoFileWriter()
-
-
 @cli.group()
 def git() -> None:
     """Manage git and GitHub repositories."""
@@ -528,6 +517,17 @@ def clean() -> Iterable[AtomicIterable]:
     currently loaded in the template dictionary.
     """
     yield CleanProject()
+
+
+@template.command("util")
+@click.option("--force/--no-force", "-f/-F", default=False, help="overwrite files")
+@process_atoms()
+def refresh(force: bool) -> Iterable[AtomicIterable]:
+    """Reload template files. If --force is specified, overwrite local template files
+    with new versions from the template repository, if possible.
+    """
+    yield TemplateDictLinker(LinkCommand.replace if force else LinkCommand.copy)
+    yield InfoFileWriter()
 
 
 @cli.command("show")
