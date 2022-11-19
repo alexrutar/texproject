@@ -239,12 +239,12 @@ def import_(
     gitignore: bool,
     pre_commit: bool,
 ) -> Iterable[AtomicIterable]:
-    """Import macro, citation, and format files. This command will replace existing
+    """Import macro, citation, and style files. This command will replace existing
     files. Note that this command does not import the files into the main .tex file.
 
-    The --macro-path and --citation-path allow macro and citation files to be specified
-    as paths to existing files. For example, this enables imports which are not
-    installed in the texproject data directory.
+    The --{macro, citation, style}-path options allow macro and citation files to be
+    specified as paths to existing files. This enables imports which are not installed
+    in the texproject data directory.
     """
     for mode, names, paths in [
         ("macro", macros, macro_paths),
@@ -275,7 +275,7 @@ def import_(
 @process_atoms()
 def validate(pdf: Optional[Path], logfile: Optional[Path]) -> Iterable[AtomicIterable]:
     """Check for compilation errors. Compilation is performed by the 'latexmk' command.
-    Save the resulting pdf with the '--output' argument, or the log file with the
+    Save the resulting pdf with the '--pdf' argument, or the log file with the
     '--logfile' argument. These options, if specified, will overwrite existing files.
     """
     yield LatexCompiler(
@@ -462,10 +462,10 @@ def git_init(
     correctly. This command also creates a GitHub action with automatically compiles and
     releases the main .pdf file for tagged releases.
 
-    If you have specified 'github.archive', the GitHub action will also automatically
-    push the build files to the corresponding folder in the specified repository. In
-    order for this to work, you must provide an access token with at least repo
-    privileges. This can be done (in order of priority) by
+    If you have specified 'github.archive' in your configuration, the GitHub action
+    will also automatically push the build files to the corresponding folder in the
+    specified repository. In order for this to work, you must provide an access token
+    with at least repo privileges. This can be done (in order of priority) by
 
     1) setting the environment variable $API_TOKEN_GITHUB, or
 
@@ -569,11 +569,9 @@ def show(
     pre_commit: bool,
     diff: bool,
 ) -> Iterable[AtomicIterable]:
-    """Print macro, citation, and format files. This command will replace existing
-    files. Note that this command does not import the files into the main .tex file.
-
-    The --diff option displays the difference between the file and the current file
-    which would be overwritten if imported.
+    """Print macro, citation, and style files to STDOUT. The --diff option displays
+    the difference between the file and the current file which would be overwritten if
+    imported.
 
     The --macro-path and --citation-path allow macro and citation files to be specified
     as paths to existing files. For example, this enables imports which are not
