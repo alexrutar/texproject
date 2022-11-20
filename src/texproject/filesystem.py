@@ -44,23 +44,24 @@ class TOMLLoader:
         return loads(files(defaults).joinpath("config.toml").read_text())
 
 
-def _merge_iter(*dcts: Dict):
-    """TODO: write"""
-    for k in set().union(*[set(dct.keys()) for dct in dcts]):
-        dcts_with_key = [dct[k] for dct in dcts if k in dct.keys()]
-
-        # last value always overrides
-        if len(dcts_with_key) == 1 or any(
-            not isinstance(dct, dict) for dct in dcts_with_key
-        ):
-            yield (k, dcts_with_key[-1])
-
-        else:
-            yield (k, {k: v for k, v in _merge_iter(*dcts_with_key)})
-
-
 def _merge(*dcts: Dict) -> Dict:
-    """TODO: write"""
+    """Recursively merge dictionaries. Later dictionaries will override
+    keys in earlier dictionaries, if there is conflict.
+    """
+
+    def _merge_iter(*dcts: Dict):
+        for k in set().union(*[set(dct.keys()) for dct in dcts]):
+            dcts_with_key = [dct[k] for dct in dcts if k in dct.keys()]
+
+            # last value always overrides
+            if len(dcts_with_key) == 1 or any(
+                not isinstance(dct, dict) for dct in dcts_with_key
+            ):
+                yield (k, dcts_with_key[-1])
+
+            else:
+                yield (k, {k: v for k, v in _merge_iter(*dcts_with_key)})
+
     return {k: v for k, v in _merge_iter(*dcts)}
 
 
@@ -69,6 +70,10 @@ class TemplateDict(dict):
         self.modified = False
         self._source = source
         self.load_from_source()
+
+    @classmethod
+    def empty(cls):
+        return cls({})
 
     def load_from_source(self):
         super().__init__(
@@ -372,5 +377,4 @@ LINKER_MAP: Final = {
     LinkMode.macro: macro_linker,
     LinkMode.citation: citation_linker,
     LinkMode.style: style_linker,
-    "template": template_linker,
 }

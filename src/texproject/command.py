@@ -246,9 +246,9 @@ def import_(
     in the texproject data directory.
     """
     for mode, names, paths in [
-        ("macro", macros, macro_paths),
-        ("citation", citations, citation_paths),
-        ("style", styles, style_paths),
+        (LinkMode.macro, macros, macro_paths),
+        (LinkMode.citation, citations, citation_paths),
+        (LinkMode.style, styles, style_paths),
     ]:
         yield NameSequenceLinker(LinkCommand.replace, mode, names)
         yield PathSequenceLinker(LinkCommand.replace, mode, paths)
@@ -587,9 +587,9 @@ def show(
     """
     cmd = LinkCommand.diff if diff else LinkCommand.show
     for mode, names, paths in [
-        ("macro", macros, macro_paths),
-        ("citation", citations, citation_paths),
-        ("style", styles, style_paths),
+        (LinkMode.macro, macros, macro_paths),
+        (LinkMode.citation, citations, citation_paths),
+        (LinkMode.style, styles, style_paths),
     ]:
         yield NameSequenceLinker(cmd, mode, names)
         yield PathSequenceLinker(cmd, mode, paths)

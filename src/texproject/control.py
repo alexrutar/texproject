@@ -17,6 +17,7 @@ from .filesystem import ProjectPath
 
 if TYPE_CHECKING:
     from typing import Callable, Dict, Final, Iterable, Any, Tuple
+    from .filesystem import TemplateDict
 
 
 @singledispatch
@@ -51,7 +52,7 @@ class CommandRunner:
     def __init__(
         self,
         proj_path: ProjectPath,
-        template_dict: Optional[Dict],
+        template_dict: Optional[TemplateDict],
         dry_run=False,
         verbose=True,
         debug=False,
@@ -173,6 +174,10 @@ class AtomicIterable:
         return self
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: Dict,
+        temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         raise NotImplementedError("Atomic iterable must have a registed callable!")

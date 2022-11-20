@@ -12,7 +12,7 @@ pip install -e .
 ```
 Install some convenient requirements:
 ```
-pip install black flake8 pyright pytest
+pip install black flake8 pyright pytest mypy
 ```
 Note that `pyright` is only required by linting for your editor.
 

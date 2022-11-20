@@ -29,7 +29,10 @@ if TYPE_CHECKING:
 
 
 def compile_latex(
-    proj_path: ProjectPath, build_dir: Path, tex_dir: Path = None, check: bool = False
+    proj_path: ProjectPath,
+    build_dir: Path,
+    tex_dir: Optional[Path] = None,
+    check: bool = False,
 ):
     if tex_dir is None:
         dir = proj_path.dir
