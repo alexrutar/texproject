@@ -173,8 +173,7 @@ def init() -> Iterable[AtomicIterable]:
 @process_atoms(load_template=None)
 def config(config_file: Literal["local", "global"]) -> Iterable[AtomicIterable]:
     """Edit configuration files. This opens the corresponding file in your
-    $EDITOR. By default, edit the local template file: this requires the working
-    directory to be texproject directory.
+    $EDITOR. By default, edit the global configuration file.
     """
     yield FileEditor(config_file)
 
