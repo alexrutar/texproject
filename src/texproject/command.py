@@ -529,6 +529,15 @@ def refresh(force: bool) -> Iterable[AtomicIterable]:
     yield InfoFileWriter()
 
 
+@util.command()
+def show_config():
+    """"""
+    from . import defaults
+    from importlib import resources
+
+    click.echo(resources.read_text(defaults, "config.toml"), nl=False)
+
+
 @cli.command("show")
 @_link_option(LinkMode.macro)
 @_link_option(LinkMode.citation)
