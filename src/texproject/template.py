@@ -37,7 +37,7 @@ from .filesystem import (
 from .utils import touch_file
 
 if TYPE_CHECKING:
-    from typing import Iterable, ClassVar, Dict
+    from typing import Iterable, ClassVar
 
     from .base import ModCommand
     from .filesystem import ProjectPath
@@ -81,7 +81,7 @@ class ApplyModificationSequence(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         for mod in self.mods:
@@ -93,7 +93,7 @@ class ApplyStateModifications(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         while len(state["template_modifications"]) > 0:
@@ -154,8 +154,8 @@ class JinjaTemplate:
     def write(
         self,
         proj_path: ProjectPath,
-        template_dict: Dict,
-        state: Dict,
+        template_dict: dict,
+        state: dict,
         target_path: Path,
     ) -> RuntimeClosure:
         if target_path.exists() and not self.force:
@@ -274,7 +274,7 @@ def _link_helper(
 def link_name(
     op: LinkCommand,
     proj_path: ProjectPath,
-    state: Dict,
+    state: dict,
     linker: FileLinker,
     name: str,
 ) -> RuntimeClosure:
@@ -291,7 +291,7 @@ def link_name(
 def link_path(
     op: LinkCommand,
     proj_path: ProjectPath,
-    state: Dict,
+    state: dict,
     linker: FileLinker,
     source_path: Path,
 ) -> RuntimeClosure:
@@ -318,7 +318,7 @@ class NameSequenceLinker(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         yield from (
@@ -340,7 +340,7 @@ class PathSequenceLinker(AtomicIterable):
     path_list: Iterable[Path]
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, state: Dict, temp_dir: Path
+        self, proj_path: ProjectPath, template_dict: dict, state: dict, temp_dir: Path
     ) -> Iterable[RuntimeClosure]:
         yield from (
             link_path(
@@ -362,7 +362,7 @@ class TemplateDictLinker(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         for mode in LinkMode:
@@ -378,7 +378,7 @@ class InfoFileWriter(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         yield from ApplyStateModifications()(proj_path, template_dict, state, temp_dir)
@@ -419,7 +419,7 @@ class TemplateDictWriter(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         yield write_template_dict(proj_path, template_dict)
@@ -433,7 +433,7 @@ class OutputFolderCreator(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: NamedTemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         """Write top-level files into the project path."""

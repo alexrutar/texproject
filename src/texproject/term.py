@@ -20,11 +20,11 @@ class Secret(str):
     """Special string class which is concealed when printed by _MessageFormatter."""
 
 
-def redact(obj: str):
+def redact(obj: str) -> str:
     """Redact the string if it is a Secret."""
     if isinstance(obj, Secret):
         return "[*****]"
-    return str(obj)
+    return obj
 
 
 class _MessageFormatter:
@@ -37,16 +37,16 @@ class _MessageFormatter:
         "err": "!",
         "prompt": "?",
     }
-    _opts: Final = {
-        "info": dict(fg="blue"),
-        "ok": dict(fg="green"),
-        "warn": dict(fg="yellow"),
-        "err": dict(fg="red"),
+    _fg: Final = {
+        "info": "blue",
+        "ok": "green",
+        "warn": "yellow",
+        "err": "red",
     }
 
     def _apply_style(self, msg: str, prefix: str, fmt: str):
         """Helper to apply the prefix and format styles to the message."""
-        return click.style(self._prefix[prefix], **self._opts[fmt]) + " " + msg
+        return click.style(self._prefix[prefix], fg=self._fg[fmt]) + " " + msg
 
     def render(self, template_path: Path, target: Path, overwrite: bool = False):
         """Format for rendering."""

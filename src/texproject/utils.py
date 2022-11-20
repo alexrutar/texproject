@@ -14,7 +14,7 @@ from .term import FORMAT_MESSAGE
 
 if TYPE_CHECKING:
     from pathlib import Path
-    from typing import List, Iterable, Dict, Literal, Optional
+    from typing import Iterable, Literal, Optional
     from .filesystem import ProjectPath, TemplateDict
 
 
@@ -67,7 +67,7 @@ def make_archive(source_dir, target_file, compression) -> RuntimeClosure:
 
 
 def run_cmd(
-    command: List[str], working_dir: Path, check: bool = False
+    command: list[str], working_dir: Path, check: bool = False
 ) -> RuntimeOutput:
     try:
         proc = subprocess.run(command, cwd=working_dir, capture_output=True)
@@ -85,7 +85,7 @@ def run_cmd(
         raise AbortRunner(f"could not find command '{command[0]}'")
 
 
-def run_command(proj_path: ProjectPath, command: List[str]) -> RuntimeClosure:
+def run_command(proj_path: ProjectPath, command: list[str]) -> RuntimeClosure:
     def _callable():
         return run_cmd(command, proj_path.dir)
 
@@ -112,7 +112,7 @@ class FileEditor(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         match self.config_file:
@@ -142,7 +142,7 @@ class CleanProject(AtomicIterable):
     remove_git_files: Optional[bool] = None
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: Dict, *_
+        self, proj_path: ProjectPath, template_dict: TemplateDict, *_
     ) -> Iterable[RuntimeClosure]:
         for mode in LinkMode:
             for path, name in NAMES.existing_template_files(proj_path.data_dir, mode):

@@ -16,7 +16,7 @@ from .error import AbortRunner
 from .filesystem import ProjectPath
 
 if TYPE_CHECKING:
-    from typing import Callable, Dict, Final, Iterable, Any, Tuple
+    from typing import Callable, Final, Iterable, Any
     from .filesystem import TemplateDict
 
 
@@ -66,8 +66,8 @@ class CommandRunner:
     def atomic_outputs(
         self,
         command_iter: Iterable[AtomicIterable],
-        state_init: Callable[[], Dict[str, Any]] = lambda: {},
-    ) -> Iterable[Tuple[bool, RuntimeClosure]]:
+        state_init: Callable[[], dict[str, Any]] = lambda: {},
+    ) -> Iterable[tuple[bool, RuntimeClosure]]:
         state = state_init()
         for at_iter in command_iter:
             with tempfile.TemporaryDirectory() as temp_dir_str:
@@ -104,7 +104,7 @@ class CommandRunner:
     def execute(
         self,
         command_iter: Iterable[AtomicIterable],
-        state_init: Callable[[], Dict[str, str]] = lambda: {},
+        state_init: Callable[[], dict[str, str]] = lambda: {},
     ):
         try:
             outputs = [
@@ -177,7 +177,7 @@ class AtomicIterable:
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         raise NotImplementedError("Atomic iterable must have a registed callable!")

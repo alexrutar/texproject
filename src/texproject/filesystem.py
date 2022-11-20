@@ -21,12 +21,12 @@ from .base import (
 )
 
 if TYPE_CHECKING:
-    from typing import Dict, Final, List, Optional, Callable
+    from typing import Final, Optional, Callable
 
 
 class TOMLLoader:
     @staticmethod
-    def load(source: Path, missing_ok: bool = False) -> Dict:
+    def load(source: Path, missing_ok: bool = False) -> dict:
         try:
             return loads(source.read_text())
         except FileNotFoundError as err:
@@ -44,12 +44,12 @@ class TOMLLoader:
         return loads(files(defaults).joinpath("config.toml").read_text())
 
 
-def _merge(*dcts: Dict) -> Dict:
+def _merge(*dcts: dict) -> dict:
     """Recursively merge dictionaries. Later dictionaries will override
     keys in earlier dictionaries, if there is conflict.
     """
 
-    def _merge_iter(*dcts: Dict):
+    def _merge_iter(*dcts: dict):
         for k in set().union(*[set(dct.keys()) for dct in dcts]):
             dcts_with_key = [dct[k] for dct in dcts if k in dct.keys()]
 
@@ -296,7 +296,7 @@ class ProjectPath:
         """TODO: write"""
         return ".github"
 
-    def git_files(self) -> List[Path]:
+    def git_files(self) -> list[Path]:
         return [self.gitignore, self.git_home, self.github_home]
 
     @relative("root")
@@ -334,7 +334,7 @@ class _BaseLinker:
         """TODO: write"""
         return path.suffix == self.suffix
 
-    def list_names(self) -> List[str]:
+    def list_names(self) -> list[str]:
         """TODO: write"""
         return sorted(
             [path.stem for path in self.dir_path.iterdir() if self.valid_path(path)]

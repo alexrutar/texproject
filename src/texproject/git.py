@@ -17,7 +17,7 @@ import subprocess
 if TYPE_CHECKING:
     from .base import RepoVisibility
     from .filesystem import ProjectPath, TemplateDict
-    from typing import Iterable, Dict, Optional
+    from typing import Iterable, Optional
     from pathlib import Path
 
 
@@ -47,7 +47,7 @@ class InitializeGitRepo(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         if is_git_repo(proj_path.dir):
@@ -75,7 +75,7 @@ class CreateGithubRepo(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         if git_has_remote(proj_path.dir):
@@ -141,23 +141,26 @@ class WriteGithubApiToken(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
-        env_token = os.environ.get("API_TOKEN_GITHUB", None)
-        if env_token is not None:
-            token = Secret(env_token)
-        try:
-            params = proj_path.config.github["keyring"]
-            user_token = keyring.get_password(params["entry"], params["username"])
-            token = Secret(user_token)
-        except KeyError:
-            token = None
         if self.repo_name is None:
             repo_name = get_repo_name_from_remote_url(proj_path.dir)
         else:
             repo_name = self.repo_name
-        if token is not None:
+
+        try:
+            # first try to get the token from the environment
+            env_token = os.environ.get("API_TOKEN_GITHUB", None)
+            if env_token is not None:
+                token = Secret(env_token)
+
+            # otherwise read using keyring
+            else:
+                params = proj_path.config.github["keyring"]
+                user_token = keyring.get_password(params["entry"], params["username"])
+                token = Secret(user_token)
+
             yield run_command(
                 proj_path,
                 [
@@ -172,6 +175,9 @@ class WriteGithubApiToken(AtomicIterable):
                 ],
             )
 
+        except KeyError:
+            pass
+
 
 @dataclass
 class GitignoreWriter(AtomicIterable):
@@ -181,7 +187,7 @@ class GitignoreWriter(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         yield JinjaTemplate(JINJA_PATH.gitignore, force=self.force).write(
@@ -197,7 +203,7 @@ class PrecommitWriter(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         yield JinjaTemplate(
@@ -215,7 +221,7 @@ class GitFileWriter(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         for template, target in [
@@ -247,7 +253,7 @@ class LatexBuildWriter(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         yield JinjaTemplate(JINJA_PATH.build_latex, force=self.force).write(

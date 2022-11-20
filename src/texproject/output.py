@@ -24,7 +24,7 @@ from .utils import (
 
 if TYPE_CHECKING:
     from .filesystem import TemplateDict
-    from typing import Dict, Optional, Iterable
+    from typing import Optional, Iterable
     from pathlib import Path
 
 
@@ -69,7 +69,7 @@ def compile_latex(
     )
 
 
-def copy_output(proj_path: ProjectPath, build_dir: Path, output_map: Dict[str, Path]):
+def copy_output(proj_path: ProjectPath, build_dir: Path, output_map: dict[str, Path]):
     def _callable():
         for filetype, target in output_map.items():
             try:
@@ -93,13 +93,13 @@ def copy_output(proj_path: ProjectPath, build_dir: Path, output_map: Dict[str, P
 
 @dataclass
 class LatexCompiler(AtomicIterable):
-    output_map: Optional[Dict[str, Path]]
+    output_map: Optional[dict[str, Path]]
 
     def __call__(
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         yield compile_latex(proj_path, temp_dir)
@@ -117,7 +117,7 @@ class ArchiveWriter(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         archive_dir = temp_dir / "archive"
@@ -161,7 +161,7 @@ class ModifyArxiv(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         # rename data directory to a filename with no dots and which does not exist
@@ -244,7 +244,7 @@ class ModifyNoHidden(AtomicIterable):
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        state: Dict,
+        state: dict,
         temp_dir: Path,
     ) -> Iterable[RuntimeClosure]:
         # rename data directory to a filename with no dots and which does not exist

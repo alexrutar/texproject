@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 
 if TYPE_CHECKING:
-    from typing import Final, Iterable, Tuple
+    from typing import Final, Iterable
 
 
 class LinkMode(StrEnum):
@@ -137,7 +137,7 @@ class _Naming:
 
     def existing_template_files(
         self, working_dir: Path, mode: LinkMode
-    ) -> Iterable[Tuple[Path, str]]:
+    ) -> Iterable[tuple[Path, str]]:
         for path in (working_dir / NAMES.resource_subdir(mode)).glob("local-*"):
             yield (path, NAMES.get_name(path))
 

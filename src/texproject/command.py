@@ -52,7 +52,7 @@ from .term import FORMAT_MESSAGE
 
 if TYPE_CHECKING:
     from .base import RepoVisibility
-    from typing import Optional, Iterable, List, Literal, Dict
+    from typing import Optional, Iterable, Literal
     from .control import AtomicIterable
 
 
@@ -60,7 +60,7 @@ def process_atoms(load_template: Optional[bool] = True):
     """Custom decorator which passes the object after performing some state verification
     on it."""
 
-    def state_constructor() -> Dict:
+    def state_constructor() -> dict:
         return {"template_modifications": []}
 
     def decorator(f):
@@ -355,9 +355,9 @@ def template() -> None:
 )
 @process_atoms()
 def add(
-    macros: List[str],
-    citations: List[str],
-    styles: List[str],
+    macros: list[str],
+    citations: list[str],
+    styles: list[str],
     append: bool,
 ) -> Iterable[AtomicIterable]:
     """Add entries to the template dictionary. Existing entries with the same name will
@@ -383,7 +383,7 @@ def add(
 @_link_option(LinkMode.style)
 @process_atoms()
 def remove(
-    macros: List[str], citations: List[str], styles: List[str]
+    macros: list[str], citations: list[str], styles: list[str]
 ) -> Iterable[AtomicIterable]:
     """Remove entries from the template dictionary."""
     for mode, names in [
