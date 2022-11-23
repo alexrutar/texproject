@@ -7,7 +7,7 @@ upload: format test
 	TWINE_USERNAME="__token__" TWINE_PASSWORD=(keyring get pypi_texproject_token alexrutar) twine upload dist/*
 
 test:
-	pytest --run-slow
+	pytest -n 6 --run-slow
 
 format:
 	black . --target-version py311 --preview

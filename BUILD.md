@@ -12,7 +12,7 @@ pip install -e .
 ```
 Install some convenient requirements:
 ```sh
-pip install black flake8 pyright pytest mypy
+pip install black flake8 pyright pytest mypy pytest-xdist
 ```
 
 ## Testing and formatting
