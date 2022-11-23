@@ -43,6 +43,9 @@ def rename_path(source: Path, target: Path) -> RuntimeClosure:
 def copy_directory(
     proj_path: ProjectPath, source: Path, target: Path
 ) -> RuntimeClosure:
+    """Copy directory `source` to `target, ignoring files from config.ignore_patterns.
+    """
+
     def _callable():
         try:
             shutil.copytree(

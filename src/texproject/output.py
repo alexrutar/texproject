@@ -31,13 +31,9 @@ if TYPE_CHECKING:
 def compile_latex(
     proj_path: ProjectPath,
     build_dir: Path,
-    tex_dir: Optional[Path] = None,
     check: bool = False,
-):
-    if tex_dir is None:
-        dir = proj_path.dir
-    else:
-        dir = tex_dir
+) -> RuntimeClosure:
+    """Compile the latex files located at build_dir"""
 
     short_cmd = [
         "latexmk",
@@ -47,13 +43,8 @@ def compile_latex(
 
     def _callable():
         out = run_cmd(
-            short_cmd
-            + [
-                f"-outdir={str(build_dir)}",
-                f"-auxdir={str(build_dir)}",
-                proj_path.config.render["default_tex_name"] + ".tex",
-            ],
-            dir,
+            short_cmd + [proj_path.config.render["default_tex_name"] + ".tex"],
+            build_dir,
             check=check,
         )
         return out
@@ -61,8 +52,8 @@ def compile_latex(
     return RuntimeClosure(
         FORMAT_MESSAGE.info(
             "Compiling LaTeX file"
-            f" '{dir}/{proj_path.config.render['default_tex_name']}.tex' with command"
-            f" '{shlex.join(short_cmd)}'"
+            f" '{build_dir}/{proj_path.config.render['default_tex_name']}.tex' with"
+            f" command '{shlex.join(short_cmd)}'"
         ),
         True,
         _callable,
@@ -102,8 +93,12 @@ class LatexCompiler(AtomicIterable):
         state: dict,
         temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
+        # copy files to a build directory and compile
         build_dir = temp_dir.provision()
+        yield copy_directory(proj_path, proj_path.dir, build_dir)
         yield compile_latex(proj_path, build_dir)
+
+        # copy the relevant output
         if self.output_map is not None and len(self.output_map) > 0:
             yield copy_output(proj_path, build_dir, output_map=self.output_map)
 
@@ -121,37 +116,35 @@ class ArchiveWriter(AtomicIterable):
         state: dict,
         temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
-        archive_dir = temp_dir.provision()
         build_dir = temp_dir.provision()
-        build_dir.mkdir()
 
-        yield copy_directory(proj_path, proj_path.dir, archive_dir)
+        # must copy before ModifyArxiv
+        yield copy_directory(proj_path, proj_path.dir, build_dir)
 
         # compile the tex files to get .bbl / .pdf
         if self.fmt in (ExportMode.arxiv, ExportMode.build):
             if self.fmt == ExportMode.arxiv:
-                # must copy first to ensure additional files are also moved
-                yield from ModifyArxiv(archive_dir)(
+                yield from ModifyArxiv(build_dir)(
                     proj_path, template_dict, state, temp_dir
                 )
                 output_map = {
-                    ".bbl": archive_dir
+                    ".bbl": build_dir
                     / (proj_path.config.render["default_tex_name"] + ".bbl")
                 }
             else:
                 output_map = {
-                    ".pdf": archive_dir
+                    ".pdf": build_dir
                     / (proj_path.config.render["default_tex_name"] + ".pdf")
                 }
-            yield compile_latex(proj_path, build_dir, archive_dir, check=True)
+            yield compile_latex(proj_path, build_dir, check=True)
             yield copy_output(proj_path, build_dir, output_map)
 
         elif self.fmt == ExportMode.nohidden:
-            yield from ModifyNoHidden(archive_dir)(
+            yield from ModifyNoHidden(build_dir)(
                 proj_path, template_dict, state, temp_dir
             )
 
-        yield make_archive(archive_dir, self.output_file, self.compression)
+        yield make_archive(build_dir, self.output_file, self.compression)
 
 
 @dataclass
