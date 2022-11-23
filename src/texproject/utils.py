@@ -8,7 +8,13 @@ import subprocess
 import click
 
 from .base import NAMES, LinkMode
-from .control import RuntimeOutput, RuntimeClosure, AtomicIterable, SUCCESS, FAIL
+from .control import (
+    RuntimeOutput,
+    RuntimeClosure,
+    AtomicIterable,
+    SUCCESS,
+    FAIL,
+)
 from .error import AbortRunner
 from .term import FORMAT_MESSAGE
 
@@ -109,11 +115,7 @@ class FileEditor(AtomicIterable):
     config_file: Literal["local", "global", "template"]
 
     def __call__(
-        self,
-        proj_path: ProjectPath,
-        template_dict: TemplateDict,
-        state: dict,
-        temp_dir: Path,
+        self, proj_path: ProjectPath, template_dict: TemplateDict, *_
     ) -> Iterable[RuntimeClosure]:
         match self.config_file:
             case "local":

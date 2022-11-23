@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import shlex
 
 from .base import UpdateCommand, LinkMode, ExportMode
-from .control import RuntimeClosure, AtomicIterable, RuntimeOutput
+from .control import RuntimeClosure, AtomicIterable, RuntimeOutput, TempDir
 from .filesystem import JINJA_PATH, ProjectPath
 from .template import (
     JinjaTemplate,
@@ -100,11 +100,12 @@ class LatexCompiler(AtomicIterable):
         proj_path: ProjectPath,
         template_dict: TemplateDict,
         state: dict,
-        temp_dir: Path,
+        temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
-        yield compile_latex(proj_path, temp_dir)
+        build_dir = temp_dir.provision()
+        yield compile_latex(proj_path, build_dir)
         if self.output_map is not None and len(self.output_map) > 0:
-            yield copy_output(proj_path, temp_dir, output_map=self.output_map)
+            yield copy_output(proj_path, build_dir, output_map=self.output_map)
 
 
 @dataclass
@@ -118,10 +119,10 @@ class ArchiveWriter(AtomicIterable):
         proj_path: ProjectPath,
         template_dict: TemplateDict,
         state: dict,
-        temp_dir: Path,
+        temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
-        archive_dir = temp_dir / "archive"
-        build_dir = temp_dir / "latex_compile"
+        archive_dir = temp_dir.provision()
+        build_dir = temp_dir.provision()
         build_dir.mkdir()
 
         yield copy_directory(proj_path, proj_path.dir, archive_dir)
@@ -162,7 +163,7 @@ class ModifyArxiv(AtomicIterable):
         proj_path: ProjectPath,
         template_dict: TemplateDict,
         state: dict,
-        temp_dir: Path,
+        temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
         # rename data directory to a filename with no dots and which does not exist
         new_data_dir_name = proj_path.data_dir.name.replace(".", "")
@@ -245,7 +246,7 @@ class ModifyNoHidden(AtomicIterable):
         proj_path: ProjectPath,
         template_dict: TemplateDict,
         state: dict,
-        temp_dir: Path,
+        temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
         # rename data directory to a filename with no dots and which does not exist
         new_data_dir_name = proj_path.data_dir.name.replace(".", "")

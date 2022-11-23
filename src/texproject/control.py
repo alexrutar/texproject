@@ -6,9 +6,10 @@ from dataclasses import dataclass, field
 from functools import singledispatch
 from itertools import repeat
 from pathlib import Path
-import tempfile
+from tempfile import TemporaryDirectory
 from typing import Optional
 import sys
+from uuid import uuid1
 
 import click
 
@@ -48,6 +49,14 @@ FAIL: Final = (False, lambda: RuntimeOutput(False))
 SUCCESS: Final = (True, lambda: RuntimeOutput(True))
 
 
+class TempDir:
+    def __init__(self, temp_dir_name: str):
+        self.path: Final = Path(temp_dir_name)
+
+    def provision(self) -> Path:
+        return self.path / uuid1().hex
+
+
 class CommandRunner:
     def __init__(
         self,
@@ -70,8 +79,8 @@ class CommandRunner:
     ) -> Iterable[tuple[bool, RuntimeClosure]]:
         state = state_init()
         for at_iter in command_iter:
-            with tempfile.TemporaryDirectory() as temp_dir_str:
-                temp_dir = Path(temp_dir_str)
+            with TemporaryDirectory() as temp_dir_str:
+                temp_dir = TempDir(temp_dir_str)
                 yield from zip(
                     repeat(at_iter.abort_on_failure),
                     at_iter(self._proj_path, self._template_dict, state, temp_dir),
@@ -178,6 +187,6 @@ class AtomicIterable:
         proj_path: ProjectPath,
         template_dict: TemplateDict,
         state: dict,
-        temp_dir: Path,
+        temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
         raise NotImplementedError("Atomic iterable must have a registed callable!")
