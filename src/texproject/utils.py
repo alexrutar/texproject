@@ -134,7 +134,7 @@ class FileEditor(AtomicIterable):
         try:
             click.edit(filename=str(fpath))
             if self.config_file == "template":
-                template_dict.load_from_source()
+                template_dict.reload()
             yield RuntimeClosure(FORMAT_MESSAGE.edit(fpath), *SUCCESS)
         except click.UsageError:
             yield RuntimeClosure(

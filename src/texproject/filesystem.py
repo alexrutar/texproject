@@ -66,24 +66,22 @@ def _merge(*dcts: dict) -> dict:
 
 
 class TemplateDict(dict):
-    def __init__(self, source: Path):
+    def __init__(self, source: Optional[Path] = None) -> None:
         self.modified = False
         self._source = source
-        self.load_from_source()
+        self.reload()
 
-    @classmethod
-    def empty(cls):
-        return cls({})
-
-    def load_from_source(self):
-        super().__init__(
-            _merge(TOMLLoader.default_template(), TOMLLoader.load(self._source))
-        )
+    def reload(self):
+        if self._source is not None:
+            dct = _merge(TOMLLoader.default_template(), TOMLLoader.load(self._source))
+        else:
+            dct = TOMLLoader.default_template()
+        super().__init__(dct)
 
     def dump(self, target: Path) -> None:
         target.write_text(dumps(self))
 
-    def apply_modification(self, mod: ModCommand):
+    def apply_modification(self, mod: ModCommand) -> None:
         match mod:
             case RemoveCommand(mode, source):
                 self[NAMES.convert_mode(mode)].remove(source)

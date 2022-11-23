@@ -66,10 +66,10 @@ def process_atoms(load_template: Optional[bool] = True):
     def decorator(f):
         def _helper(ctx, template: Optional[str], *args, **kwargs):
             if load_template is None:
-                template_dict = None
+                template_dict = TemplateDict()
             elif load_template:
                 try:
-                    template_dict = TemplateDict(ctx.obj["proj_path"].template)
+                    template_dict = TemplateDict(source=ctx.obj["proj_path"].template)
                 except FileNotFoundError:
                     click.secho("error: not a texproject folder", err=True)
                     sys.exit(1)

@@ -61,13 +61,13 @@ class CommandRunner:
     def __init__(
         self,
         proj_path: ProjectPath,
-        template_dict: Optional[TemplateDict],
+        template_dict: TemplateDict,
         dry_run=False,
         verbose=True,
         debug=False,
     ):
         self._proj_path: Final = proj_path
-        self._template_dict: Final = template_dict if template_dict is not None else {}
+        self._template_dict: Final = template_dict
         self._dry_run = dry_run
         self._verbose = verbose
         self._debug = debug
