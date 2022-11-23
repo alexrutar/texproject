@@ -137,6 +137,7 @@ class JinjaTemplate:
             user=config.user,
             template=template_dict,
             config=render,
+            metadata=config.metadata,
             github=config.github,
             process=config.process,
             bibliography=bibtext,

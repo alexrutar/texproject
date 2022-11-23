@@ -33,6 +33,9 @@ replace_text = 'REPLACE'
 # options given to arxiv autotex
 arxiv_autotex = []
 
+[metadata]
+# additional metadata used by templates
+
 [process]
 
 # extra options to pass to latexmk

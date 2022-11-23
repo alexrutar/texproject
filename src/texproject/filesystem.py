@@ -124,6 +124,7 @@ class Config:
         self.render = self._dct["render"]
         self.process = self._dct["process"]
         self.github = self._dct["github"]
+        self.metadata = self._dct["metadata"]
 
     @constant
     def global_path(self) -> Path:
