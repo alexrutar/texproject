@@ -22,7 +22,6 @@ from .filesystem import (
     ProjectPath,
     NAMES,
     TemplateDict,
-    NamedTemplateDict,
     style_linker,
     macro_linker,
     citation_linker,
@@ -54,62 +53,63 @@ if TYPE_CHECKING:
     from click import Context
     from click.decorators import FC
     from .base import RepoVisibility
-    from typing import Optional, Iterable, Literal, Callable
+    from typing import Optional, Iterable, Literal, Callable, Any
     from .control import AtomicIterable
 
 
-def process_atoms(load_template: Optional[bool] = True):
-    """Custom decorator which passes the object after performing some state verification
-    on it."""
+def _run_command(
+    ctx: Context,
+    template_dict: TemplateDict,
+    f: Callable[..., Iterable[AtomicIterable]],
+    *args: Any,
+    **kwargs: Any,
+) -> None:
+    print(args)
+    print(kwargs)
 
     def state_constructor() -> dict:
         return {"template_modifications": []}
 
+    CommandRunner(
+        ctx.obj["proj_path"],
+        template_dict,
+        dry_run=ctx.obj["dry_run"],
+        verbose=ctx.obj["verbose"],
+        debug=ctx.obj["debug"],
+    ).execute(ctx.invoke(f, *args, **kwargs), state_init=state_constructor)
+
+
+def process_atoms_init(
+    f: Callable[[str], Iterable[AtomicIterable]]
+) -> Callable[[Context, str], None]:
+    @click.pass_context
+    def wrapper_with_template(ctx: Context, template: str) -> None:
+        _run_command(ctx, TemplateDict.from_name(template), f, template)
+
+    return update_wrapper(wrapper_with_template, f)
+
+
+def process_atoms(
+    load_template: bool = True,
+) -> Callable[[Callable[..., Iterable[AtomicIterable]]], Callable[..., None]]:
+    """Custom decorator which passes the object after performing some state verification
+    on it."""
+
     def decorator(f: Callable[..., Iterable[AtomicIterable]]) -> Callable[..., None]:
-        def _helper(ctx: Context, template: Optional[str], *args, **kwargs) -> None:
-            if load_template is None:
+        @click.pass_context
+        def wrapper(ctx: Context, *args: Any, **kwargs: Any) -> None:
+            if not load_template:
                 template_dict = TemplateDict()
-            elif load_template:
+            else:
                 try:
                     template_dict = TemplateDict(source=ctx.obj["proj_path"].template)
                 except FileNotFoundError:
                     click.secho("error: not a texproject folder", err=True)
                     sys.exit(1)
-            elif template is not None:
-                template_dict = NamedTemplateDict(template)
-            else:
-                raise ValueError("Must pass template with load_template.")
 
-            CommandRunner(
-                ctx.obj["proj_path"],
-                template_dict,
-                dry_run=ctx.obj["dry_run"],
-                verbose=ctx.obj["verbose"],
-                debug=ctx.obj["debug"],
-            ).execute(ctx.invoke(f, *args, **kwargs), state_init=state_constructor)
+            _run_command(ctx, template_dict, f, *args, **kwargs)
 
-        if load_template is False:
-
-            @click.argument(
-                "template",
-                type=click.Choice(template_linker.list_names()),
-                metavar="TEMPLATE",
-            )
-            @click.pass_context
-            def wrapper_with_template(
-                ctx: Context, template: Optional[str], *args, **kwargs
-            ) -> None:
-                _helper(ctx, template, *args, **kwargs)
-
-            return update_wrapper(wrapper_with_template, f)
-
-        else:
-
-            @click.pass_context
-            def wrapper(ctx: Context, *args, **kwargs) -> None:
-                _helper(ctx, None, *args, **kwargs)
-
-            return update_wrapper(wrapper, f)
+        return update_wrapper(wrapper, f)
 
     return decorator
 
@@ -152,15 +152,20 @@ def cli(
 
 
 @cli.command(short_help="Initialize a new project.")
-@process_atoms(load_template=False)
-def init() -> Iterable[AtomicIterable]:
+@click.argument(
+    "template",
+    type=click.Choice(template_linker.list_names()),
+    metavar="TEMPLATE",
+)
+@process_atoms_init
+def init(template: str) -> Iterable[AtomicIterable]:
     """Initialize a new project in the working directory. The project is created using
     the template with name TEMPLATE and placed in the output folder OUTPUT.
 
     The working directory either must not exist or be an empty folder. Missing
     intermediate directories are automatically constructed.
     """
-    yield OutputFolderCreator.with_abort()
+    yield OutputFolderCreator.with_abort(template=template)
     yield TemplateDictLinker()
     yield InfoFileWriter()
 
@@ -176,7 +181,7 @@ def init() -> Iterable[AtomicIterable]:
     help="Edit global configuration.",
     default=True,
 )
-@process_atoms(load_template=None)
+@process_atoms(load_template=False)
 def config(config_file: Literal["local", "global"]) -> Iterable[AtomicIterable]:
     """Edit configuration files. This opens the corresponding file in your
     $EDITOR. By default, edit the global configuration file.
@@ -233,7 +238,7 @@ def _path_option(mode: LinkMode) -> Callable[[FC], FC]:
     default=False,
     help="auto-generated pre-commit",
 )
-@process_atoms(load_template=None)
+@process_atoms(load_template=False)
 def import_(
     macros: Iterable[str],
     citations: Iterable[str],
@@ -454,7 +459,7 @@ def git() -> None:
     help="Create issues page",
     default=False,
 )
-@process_atoms(load_template=None)
+@process_atoms(load_template=False)
 def git_init(
     repo_name: str,
     repo_desc: str,
@@ -571,7 +576,7 @@ def show_config() -> None:
     default=False,
     help="show differences to current file",
 )
-@process_atoms(load_template=None)
+@process_atoms(load_template=False)
 def show(
     macros: Iterable[str],
     citations: Iterable[str],

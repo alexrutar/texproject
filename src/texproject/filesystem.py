@@ -21,7 +21,7 @@ from .base import (
 )
 
 if TYPE_CHECKING:
-    from typing import Final, Optional, Callable, Tuple, Any, Iterable
+    from typing import Final, Optional, Callable, Any, Iterable
 
 
 class TOMLLoader:
@@ -49,7 +49,7 @@ def _merge(*dcts: dict) -> dict:
     keys in earlier dictionaries, if there is conflict.
     """
 
-    def _merge_iter(*dcts: dict) -> Iterable[Tuple[Any, dict]]:
+    def _merge_iter(*dcts: dict) -> Iterable[tuple[Any, dict]]:
         for k in set().union(*[set(dct.keys()) for dct in dcts]):
             dcts_with_key = [dct[k] for dct in dcts if k in dct.keys()]
 
@@ -70,6 +70,10 @@ class TemplateDict(dict):
         self.modified = False
         self._source = source
         self.reload()
+
+    @classmethod
+    def from_name(cls, name: str) -> TemplateDict:
+        return cls(template_linker.file_path(name) / NAMES.template_toml)
 
     def reload(self) -> None:
         if self._source is not None:
@@ -101,12 +105,6 @@ class TemplateDict(dict):
                     target if val == source else val
                     for val in self[NAMES.convert_mode(mode)]
                 ]
-
-
-class NamedTemplateDict(TemplateDict):
-    def __init__(self, name: str) -> None:
-        self.name = name
-        super().__init__(template_linker.file_path(name) / NAMES.template_toml)
 
 
 class Config:
@@ -233,7 +231,7 @@ class ProjectPath:
         # do not change declaration order!
         self.working_dir = working_dir.resolve()
         self.config = Config(working_dir)
-        self.data_dir = (
+        self.data_dir: Path = (
             data_dir
             if data_dir is not None
             else self.working_dir / self.config.render["project_data_folder"]

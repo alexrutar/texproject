@@ -179,7 +179,7 @@ class AtomicIterable:
     abort_on_failure: bool = field(default=False, init=False)
 
     @classmethod
-    def with_abort(cls, *args, **kwargs):
+    def with_abort(cls, *args: Any, **kwargs: Any) -> AtomicIterable:
         self = cls(*args, **kwargs)
         self.abort_on_failure = True
         return self

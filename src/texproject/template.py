@@ -31,7 +31,6 @@ from .filesystem import (
     DATA_PATH,
     JINJA_PATH,
     TemplateDict,
-    NamedTemplateDict,
     FileLinker,
     LINKER_MAP,
 )
@@ -161,7 +160,7 @@ class JinjaTemplate:
     def write(
         self,
         proj_path: ProjectPath,
-        template_dict: dict,
+        template_dict: TemplateDict,
         state: dict,
         target_path: Path,
     ) -> RuntimeClosure:
@@ -438,19 +437,20 @@ class TemplateDictWriter(AtomicIterable):
 
 @dataclass
 class OutputFolderCreator(AtomicIterable):
+    template: str
     force: bool = False
 
     def __call__(
         self,
         proj_path: ProjectPath,
-        template_dict: NamedTemplateDict,
+        template_dict: TemplateDict,
         state: dict,
         _temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
         """Write top-level files into the project path."""
         yield write_template_dict(proj_path, template_dict, force=self.force)
         for source, target in [
-            (JINJA_PATH.template_doc(template_dict.name), proj_path.main),
+            (JINJA_PATH.template_doc(self.template), proj_path.main),
             (JINJA_PATH.project_macro, proj_path.project_macro),
         ]:
             yield JinjaTemplate(source).write(proj_path, template_dict, state, target)

@@ -7,11 +7,9 @@ upload: format test
 	TWINE_USERNAME="__token__" TWINE_PASSWORD=(keyring get pypi_texproject_token alexrutar) twine upload dist/*
 
 test:
+	mypy .
 	pytest --run-slow
 
 format:
 	black . --target-version py311 --preview
 	flake8 src/texproject/
-
-test-type:
-	mypy --disallow-untyped-defs .
