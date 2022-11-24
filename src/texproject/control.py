@@ -17,12 +17,12 @@ from .error import AbortRunner
 from .filesystem import ProjectPath
 
 if TYPE_CHECKING:
-    from typing import Callable, Final, Iterable, Any, Union
+    from typing import Callable, Final, Iterable, Any
     from .filesystem import TemplateDict
 
 
 @singledispatch
-def _as_str(_: Union[bytes, str]) -> Optional[str]:
+def _as_str(_: Optional[bytes | str]) -> Optional[str]:
     return None
 
 

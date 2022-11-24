@@ -209,11 +209,11 @@ DATA_PATH: Final = _DataPath()
 def relative(base: str) -> Callable[[Callable[[ProjectPath], str]], property]:
     """TODO: write"""
 
-    def fset(self, value) -> None:
+    def fset(self: ProjectPath, value: str) -> None:
         del self, value
         raise AttributeError("Cannot change constant values")
 
-    def decorator(func: Callable[[ProjectPath], str]):
+    def decorator(func: Callable[[ProjectPath], str]) -> property:
         def fget(self: ProjectPath) -> Path:
             return {
                 "root": self.working_dir,

@@ -65,8 +65,8 @@ def process_atoms(load_template: Optional[bool] = True):
     def state_constructor() -> dict:
         return {"template_modifications": []}
 
-    def decorator(f):
-        def _helper(ctx, template: Optional[str], *args, **kwargs):
+    def decorator(f: Callable[..., Iterable[AtomicIterable]]) -> Callable[..., None]:
+        def _helper(ctx: Context, template: Optional[str], *args, **kwargs) -> None:
             if load_template is None:
                 template_dict = TemplateDict()
             elif load_template:
@@ -96,7 +96,9 @@ def process_atoms(load_template: Optional[bool] = True):
                 metavar="TEMPLATE",
             )
             @click.pass_context
-            def wrapper_with_template(ctx, template, *args, **kwargs):
+            def wrapper_with_template(
+                ctx: Context, template: Optional[str], *args, **kwargs
+            ) -> None:
                 _helper(ctx, template, *args, **kwargs)
 
             return update_wrapper(wrapper_with_template, f)
@@ -104,7 +106,7 @@ def process_atoms(load_template: Optional[bool] = True):
         else:
 
             @click.pass_context
-            def wrapper(ctx, *args, **kwargs):
+            def wrapper(ctx: Context, *args, **kwargs) -> None:
                 _helper(ctx, None, *args, **kwargs)
 
             return update_wrapper(wrapper, f)

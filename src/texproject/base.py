@@ -7,7 +7,10 @@ from pathlib import Path
 import shutil
 
 if TYPE_CHECKING:
-    from typing import Final, Iterable
+    from typing import Final, Iterable, Callable, TypeVar
+
+    A = TypeVar("A")
+    B = TypeVar("B", str, Path)
 
 
 class LinkMode(StrEnum):
@@ -86,14 +89,14 @@ SHUTIL_ARCHIVE_SUFFIX_MAP: Final = {
 }
 
 
-def constant(func):
+def constant(func: Callable[[A], B]) -> property:
     """TODO: write"""
 
-    def fset(self, value):
+    def fset(self: A, value: B) -> None:
         del self, value
         raise AttributeError("Cannot change constant values")
 
-    def fget(self):
+    def fget(self: A) -> B:
         return func(self)
 
     return property(fget, fset)
