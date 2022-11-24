@@ -16,12 +16,13 @@ import subprocess
 
 if TYPE_CHECKING:
     from .base import RepoVisibility
+    from .control import TempDir
     from .filesystem import ProjectPath, TemplateDict
     from typing import Iterable, Optional
     from pathlib import Path
 
 
-def is_git_repo(path: Path):
+def is_git_repo(path: Path) -> bool:
     return (
         subprocess.run(
             ["git", "rev-parse", "--is-inside-work-tree"], cwd=path, capture_output=True
@@ -30,7 +31,7 @@ def is_git_repo(path: Path):
     )
 
 
-def git_has_remote(path: Path):
+def git_has_remote(path: Path) -> bool:
     return (
         subprocess.run(
             ["git", "config", "--get", "remote.origin.url"],
@@ -43,7 +44,13 @@ def git_has_remote(path: Path):
 
 @dataclass
 class InitializeGitRepo(AtomicIterable):
-    def __call__(self, proj_path: ProjectPath, *_) -> Iterable[RuntimeClosure]:
+    def __call__(
+        self,
+        proj_path: ProjectPath,
+        _template_dict: TemplateDict,
+        _state: dict,
+        _temp_dir: TempDir,
+    ) -> Iterable[RuntimeClosure]:
         if is_git_repo(proj_path.dir):
             yield RuntimeClosure(
                 FORMAT_MESSAGE.info("Using existing git repository"), *SUCCESS
@@ -65,7 +72,13 @@ class CreateGithubRepo(AtomicIterable):
     wiki: bool
     issues: bool
 
-    def __call__(self, proj_path: ProjectPath, *_) -> Iterable[RuntimeClosure]:
+    def __call__(
+        self,
+        proj_path: ProjectPath,
+        _template_dict: TemplateDict,
+        _state: dict,
+        _temp_dir: TempDir,
+    ) -> Iterable[RuntimeClosure]:
         if git_has_remote(proj_path.dir):
             yield RuntimeClosure(
                 FORMAT_MESSAGE.error("Remote repository already exists!"), *FAIL
@@ -95,7 +108,7 @@ class CreateGithubRepo(AtomicIterable):
             yield run_command(proj_path, gh_command)
 
 
-def _format_repo_name(repo: str, proj_path: ProjectPath):
+def _format_repo_name(repo: str, proj_path: ProjectPath) -> str:
     org = proj_path.config.github.get("org", None)
     repo_parts = len(repo.split("/"))
     if repo_parts == 2:
@@ -106,7 +119,7 @@ def _format_repo_name(repo: str, proj_path: ProjectPath):
         raise AbortRunner("Invalid remote repository name!")
 
 
-def get_repo_name_from_remote_url(path: Path):
+def get_repo_name_from_remote_url(path: Path) -> str:
     # todo: fix this!
     url_ret = subprocess.run(
         ["git", "config", "--get", "remote.origin.url"], cwd=path, capture_output=True
@@ -125,7 +138,13 @@ def get_repo_name_from_remote_url(path: Path):
 class WriteGithubApiToken(AtomicIterable):
     repo_name: Optional[str] = None
 
-    def __call__(self, proj_path: ProjectPath, *_) -> Iterable[RuntimeClosure]:
+    def __call__(
+        self,
+        proj_path: ProjectPath,
+        _template_dict: TemplateDict,
+        _state: dict,
+        _temp_dir: TempDir,
+    ) -> Iterable[RuntimeClosure]:
         if self.repo_name is None:
             repo_name = get_repo_name_from_remote_url(proj_path.dir)
         else:
@@ -166,7 +185,11 @@ class GitignoreWriter(AtomicIterable):
     force: bool = False
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: TemplateDict, state: dict, *_
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: dict,
+        _temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
         yield JinjaTemplate(JINJA_PATH.gitignore, force=self.force).write(
             proj_path, template_dict, state, proj_path.gitignore
@@ -178,7 +201,11 @@ class PrecommitWriter(AtomicIterable):
     force: bool = False
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: TemplateDict, state: dict, *_
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: dict,
+        _temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
         yield JinjaTemplate(
             JINJA_PATH.pre_commit,
@@ -192,7 +219,11 @@ class GitFileWriter(AtomicIterable):
     force: bool = False
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: TemplateDict, state: dict, *_
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: dict,
+        _temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
         for template, target in [
             (
@@ -220,7 +251,11 @@ class LatexBuildWriter(AtomicIterable):
     force: bool
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: TemplateDict, state: dict, *_
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: dict,
+        _temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
         yield JinjaTemplate(JINJA_PATH.build_latex, force=self.force).write(
             proj_path, template_dict, state, proj_path.build_latex

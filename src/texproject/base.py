@@ -128,7 +128,7 @@ class _Naming:
             }[mode]
         )
 
-    def get_name(self, template_file_path: Path):
+    def get_name(self, template_file_path: Path) -> str:
         fn = template_file_path.stem
         if fn.startswith("local-"):
             return "-".join(fn.split("-")[1:])

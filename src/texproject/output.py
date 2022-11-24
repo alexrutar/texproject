@@ -41,7 +41,7 @@ def compile_latex(
         "-interaction=nonstopmode",
     ] + proj_path.config.process["latexmk_compile_options"]
 
-    def _callable():
+    def _callable() -> RuntimeOutput:
         out = run_cmd(
             short_cmd + [proj_path.config.render["default_tex_name"] + ".tex"],
             build_dir,
@@ -60,8 +60,10 @@ def compile_latex(
     )
 
 
-def copy_output(proj_path: ProjectPath, build_dir: Path, output_map: dict[str, Path]):
-    def _callable():
+def copy_output(
+    proj_path: ProjectPath, build_dir: Path, output_map: dict[str, Path]
+) -> RuntimeClosure:
+    def _callable() -> RuntimeOutput:
         for filetype, target in output_map.items():
             try:
                 (
@@ -89,8 +91,8 @@ class LatexCompiler(AtomicIterable):
     def __call__(
         self,
         proj_path: ProjectPath,
-        template_dict: TemplateDict,
-        state: dict,
+        _template_dict: TemplateDict,
+        _state: dict,
         temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
         # copy files to a build directory and compile
@@ -194,7 +196,7 @@ class ModifyArxiv(AtomicIterable):
 
         # replace \input{...classinfo.tex} and \input{...bibinfo.tex}
         # with the contents of the corresponding files
-        def _callable():
+        def _callable() -> RuntimeOutput:
             with open(main_tex_path, "r", encoding="utf-8") as texfile:
                 new_contents = texfile.read()
 
@@ -274,7 +276,7 @@ class ModifyNoHidden(AtomicIterable):
 
         # replace \input{...classinfo.tex} and \input{...bibinfo.tex}
         # with the contents of the corresponding files
-        def _callable():
+        def _callable() -> RuntimeOutput:
             with open(main_tex_path, "r", encoding="utf-8") as texfile:
                 new_contents = texfile.read()
 

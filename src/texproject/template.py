@@ -38,7 +38,7 @@ from .filesystem import (
 from .utils import touch_file
 
 if TYPE_CHECKING:
-    from typing import Iterable, ClassVar
+    from typing import Iterable, ClassVar, Optional
 
     from .base import ModCommand
     from .filesystem import ProjectPath
@@ -51,7 +51,7 @@ def data_name(name: str, mode: LinkMode) -> str:
 def apply_template_dict_modification(
     template_dict: TemplateDict, mod: ModCommand
 ) -> RuntimeClosure:
-    def _callable():
+    def _callable() -> RuntimeOutput:
         try:
             template_dict.apply_modification(mod)
             return RuntimeOutput(True)
@@ -79,7 +79,11 @@ class ApplyModificationSequence(AtomicIterable):
     mods: Iterable[ModCommand]
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: TemplateDict, *_
+        self,
+        _proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        _state: dict,
+        _temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
         for mod in self.mods:
             yield apply_template_dict_modification(template_dict, mod)
@@ -87,7 +91,11 @@ class ApplyModificationSequence(AtomicIterable):
 
 class ApplyStateModifications(AtomicIterable):
     def __call__(
-        self, proj_path: ProjectPath, template_dict: TemplateDict, state: dict, *_
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: dict,
+        _temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
         while len(state["template_modifications"]) > 0:
             yield apply_template_dict_modification(
@@ -118,7 +126,12 @@ class JinjaTemplate:
     )
     _env.filters["data_name"] = data_name
 
-    def get_text(self, proj_path, template_dict, render_mods=None):
+    def get_text(
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        render_mods: Optional[dict] = None,
+    ) -> str:
         config = proj_path.config
         if render_mods is not None:
             render = {
@@ -162,7 +175,7 @@ class JinjaTemplate:
         try:
             output = self.get_text(proj_path, template_dict, state)
 
-            def _callable():
+            def _callable() -> RuntimeOutput:
                 target_path.parent.mkdir(parents=True, exist_ok=True)
                 target_path.write_text(output)
                 # catch chmod failure
@@ -192,12 +205,12 @@ def _link_helper(
     name: str,
     source_path: Path,
     target_path: Path,
-    state,
+    state: dict,
 ) -> RuntimeClosure:
     message_args = (linker, name, target_path.parent)
     if op == LinkCommand.show:
 
-        def _callable():
+        def _callable() -> RuntimeOutput:
             return RuntimeOutput(True, output=source_path.read_text())
 
         return RuntimeClosure(
@@ -208,7 +221,7 @@ def _link_helper(
 
     elif op == LinkCommand.diff:
 
-        def _callable():
+        def _callable() -> RuntimeOutput:
             try:
                 from_str = target_path.read_text().strip()
             except FileNotFoundError:
@@ -236,11 +249,11 @@ def _link_helper(
 
     else:
 
-        def _callable():
+        def _callable() -> RuntimeOutput:
             target_path.write_text(source_path.read_text().strip())
             return RuntimeOutput(True)
 
-        def _fail_callable():
+        def _fail_callable() -> RuntimeOutput:
             state["template_modifications"].append(RemoveCommand(linker.mode, name))
             return RuntimeOutput(False)
 
@@ -309,7 +322,11 @@ class NameSequenceLinker(AtomicIterable):
     name_list: Iterable[str]
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: TemplateDict, state: dict, *_
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        state: dict,
+        _temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
         yield from (
             link_name(
@@ -330,7 +347,11 @@ class PathSequenceLinker(AtomicIterable):
     path_list: Iterable[Path]
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: dict, state: dict, *_
+        self,
+        proj_path: ProjectPath,
+        template_dict: dict,
+        state: dict,
+        _temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
         yield from (
             link_path(
@@ -383,9 +404,9 @@ class InfoFileWriter(AtomicIterable):
 
 
 def write_template_dict(
-    proj_path: ProjectPath, template_dict: TemplateDict, force=True
+    proj_path: ProjectPath, template_dict: TemplateDict, force: bool = True
 ) -> RuntimeClosure:
-    def _callable():
+    def _callable() -> RuntimeOutput:
         proj_path.mk_data_dir()
         template_dict.dump(proj_path.template)
         return RuntimeOutput(True)
@@ -406,7 +427,11 @@ def write_template_dict(
 
 class TemplateDictWriter(AtomicIterable):
     def __call__(
-        self, proj_path: ProjectPath, template_dict: TemplateDict, *_
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        _state: dict,
+        _temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
         yield write_template_dict(proj_path, template_dict)
 
@@ -416,7 +441,11 @@ class OutputFolderCreator(AtomicIterable):
     force: bool = False
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: NamedTemplateDict, state: dict, *_
+        self,
+        proj_path: ProjectPath,
+        template_dict: NamedTemplateDict,
+        state: dict,
+        _temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
         """Write top-level files into the project path."""
         yield write_template_dict(proj_path, template_dict, force=self.force)

@@ -51,8 +51,10 @@ from .template import (
 from .term import FORMAT_MESSAGE
 
 if TYPE_CHECKING:
+    from click import Context
+    from click.decorators import FC
     from .base import RepoVisibility
-    from typing import Optional, Iterable, Literal
+    from typing import Optional, Iterable, Literal, Callable
     from .control import AtomicIterable
 
 
@@ -133,7 +135,9 @@ def process_atoms(load_template: Optional[bool] = True):
 @click.option("--verbose/--silent", "-v/-V", "verbose", default=True, help="Be verbose")
 @click.option("--debug/--no-debug", "debug", default=False, help="Debug mode")
 @click.pass_context
-def cli(ctx, proj_dir: Path, dry_run: bool, verbose: bool, debug: bool) -> None:
+def cli(
+    ctx: Context, proj_dir: Path, dry_run: bool, verbose: bool, debug: bool
+) -> None:
     """TexProject is a tool to help streamline the creation and distribution of files
     written in LaTeX.
     """
@@ -178,7 +182,7 @@ def config(config_file: Literal["local", "global"]) -> Iterable[AtomicIterable]:
     yield FileEditor(config_file)
 
 
-def _link_option(mode: LinkMode):
+def _link_option(mode: LinkMode) -> Callable[[FC], FC]:
     linker = {
         LinkMode.macro: macro_linker,
         LinkMode.citation: citation_linker,
@@ -194,7 +198,7 @@ def _link_option(mode: LinkMode):
     )
 
 
-def _path_option(mode: LinkMode):
+def _path_option(mode: LinkMode) -> Callable[[FC], FC]:
     return click.option(
         f"--{mode}-path",
         f"{mode}_paths",
@@ -530,7 +534,7 @@ def refresh(force: bool) -> Iterable[AtomicIterable]:
 
 
 @util.command()
-def show_config():
+def show_config() -> None:
     """"""
     from . import defaults
     from importlib import resources

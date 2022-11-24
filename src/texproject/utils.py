@@ -22,10 +22,11 @@ if TYPE_CHECKING:
     from pathlib import Path
     from typing import Iterable, Literal, Optional
     from .filesystem import ProjectPath, TemplateDict
+    from .control import TempDir
 
 
 def remove_path(target: Path) -> RuntimeClosure:
-    def _callable():
+    def _callable() -> RuntimeOutput:
         target.unlink(missing_ok=True)
         return RuntimeOutput(True)
 
@@ -33,7 +34,7 @@ def remove_path(target: Path) -> RuntimeClosure:
 
 
 def rename_path(source: Path, target: Path) -> RuntimeClosure:
-    def _callable():
+    def _callable() -> RuntimeOutput:
         source.rename(target)
         return RuntimeOutput(True)
 
@@ -46,7 +47,7 @@ def copy_directory(
     """Copy directory `source` to `target, ignoring files from config.ignore_patterns.
     """
 
-    def _callable():
+    def _callable() -> RuntimeOutput:
         try:
             shutil.copytree(
                 source,
@@ -63,8 +64,10 @@ def copy_directory(
     return RuntimeClosure(FORMAT_MESSAGE.copy(source, target), True, _callable)
 
 
-def make_archive(source_dir, target_file, compression) -> RuntimeClosure:
-    def _callable():
+def make_archive(
+    source_dir: Path, target_file: Path, compression: str
+) -> RuntimeClosure:
+    def _callable() -> RuntimeOutput:
         shutil.make_archive(str(target_file), compression, source_dir)
         return RuntimeOutput(True)
 
@@ -95,7 +98,7 @@ def run_cmd(
 
 
 def run_command(proj_path: ProjectPath, command: list[str]) -> RuntimeClosure:
-    def _callable():
+    def _callable() -> RuntimeOutput:
         return run_cmd(command, proj_path.dir)
 
     return RuntimeClosure(FORMAT_MESSAGE.cmd(command), True, _callable)
@@ -104,7 +107,7 @@ def run_command(proj_path: ProjectPath, command: list[str]) -> RuntimeClosure:
 def touch_file(file_path: Path) -> RuntimeClosure:
     """Touch the file located at the file_path"""
 
-    def _callable():
+    def _callable() -> RuntimeOutput:
         file_path.touch()
         return RuntimeOutput(True)
 
@@ -118,7 +121,11 @@ class FileEditor(AtomicIterable):
     config_file: Literal["local", "global", "template"]
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: TemplateDict, *_
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        _state: dict,
+        _temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
         match self.config_file:
             case "local":
@@ -147,7 +154,11 @@ class CleanProject(AtomicIterable):
     remove_git_files: Optional[bool] = None
 
     def __call__(
-        self, proj_path: ProjectPath, template_dict: TemplateDict, *_
+        self,
+        proj_path: ProjectPath,
+        template_dict: TemplateDict,
+        _state: dict,
+        _temp_dir: TempDir,
     ) -> Iterable[RuntimeClosure]:
         for mode in LinkMode:
             for path, name in NAMES.existing_template_files(proj_path.data_dir, mode):

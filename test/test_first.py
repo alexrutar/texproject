@@ -1,17 +1,18 @@
-from click.testing import CliRunner
+from click.testing import CliRunner, Result
 from pathlib import Path
 from texproject.command import cli
 from texproject.filesystem import template_linker
+from typing import Iterable
 import pytest
 import shlex
 
 
-def _verbose_invoke(runner, args):
+def _verbose_invoke(runner: CliRunner, args: list[str]) -> Result:
     print(shlex.join(["tpr"] + args))
     return runner.invoke(cli, args)
 
 
-def _run_cmd_seq(runner, *args_list, expect_fail=False):
+def _run_cmd_seq(runner, *args_list: list[str], expect_fail=False) -> Iterable[Result]:
     results = (_verbose_invoke(runner, args) for args in args_list)
     if expect_fail:
         assert all(res.exit_code != 0 for res in results)
@@ -21,7 +22,7 @@ def _run_cmd_seq(runner, *args_list, expect_fail=False):
 
 
 @pytest.fixture
-def fs_runner():
+def fs_runner() -> Iterable[CliRunner]:
     print(f"Set up new environment.")
     runner = CliRunner()
     with runner.isolated_filesystem():
@@ -35,7 +36,7 @@ def test_all_templates(fs_runner, tname):
         assert res.output == "fatal: not a texproject folder\n"
 
 
-def test_archive(fs_runner):
+def test_archive(fs_runner: Iterable[CliRunner]) -> None:
     _run_cmd_seq(
         fs_runner,
         ["init", "preprint"],
@@ -71,7 +72,7 @@ def test_archive(fs_runner):
             assert path in path_list
 
 
-def test_init(fs_runner):
+def test_init(fs_runner: Iterable[CliRunner]) -> None:
     _run_cmd_seq(fs_runner, ["init", "plain"])
 
     for path in [
@@ -85,7 +86,7 @@ def test_init(fs_runner):
     assert Path(".texproject/classinfo.tex").read_text().startswith(r"\documentclass")
 
 
-def test_fail(fs_runner):
+def test_fail(fs_runner: Iterable[CliRunner]) -> None:
     _run_cmd_seq(
         fs_runner,
         ["validate"],
@@ -94,7 +95,7 @@ def test_fail(fs_runner):
     )
 
 
-def test_import(fs_runner):
+def test_import(fs_runner: Iterable[CliRunner]) -> None:
     _run_cmd_seq(fs_runner, ["init", "preprint"], ["import", "--macro", "tikz"])
     cit_path = Path("test.bib")
     bibtext = "example text"
@@ -111,7 +112,7 @@ def test_import(fs_runner):
     assert len(Path(".git/hooks/pre-commit").read_text()) > 0
 
 
-def test_git_init(fs_runner):
+def test_git_init(fs_runner: Iterable[CliRunner]) -> None:
     _run_cmd_seq(
         fs_runner,
         ["init", "plain"],
@@ -131,7 +132,7 @@ def test_git_init(fs_runner):
     )
 
 
-def test_git_files(fs_runner):
+def test_git_files(fs_runner: Iterable[CliRunner]) -> None:
     _run_cmd_seq(
         fs_runner,
         ["init", "plain"],
@@ -145,7 +146,7 @@ def test_git_files(fs_runner):
     assert len(Path(".git/hooks/pre-commit").read_text()) > 0
 
 
-def test_git_archive(fs_runner):
+def test_git_archive(fs_runner: Iterable[CliRunner]) -> None:
     _run_cmd_seq(
         fs_runner,
         ["init", "plain"],
@@ -153,7 +154,7 @@ def test_git_archive(fs_runner):
     )
 
 
-def test_template(fs_runner):
+def test_template(fs_runner: Iterable[CliRunner]) -> None:
     _run_cmd_seq(
         fs_runner,
         ["init", "plain"],
@@ -167,7 +168,7 @@ def test_template(fs_runner):
     _run_cmd_seq(fs_runner, ["template", "remove", "--macro", "tikz"], expect_fail=True)
 
 
-def test_template_operations(fs_runner):
+def test_template_operations(fs_runner: Iterable[CliRunner]) -> None:
     import tomllib
 
     _run_cmd_seq(
@@ -193,20 +194,20 @@ def test_template_operations(fs_runner):
     assert len(template_dict["styles"]) == 2
 
 
-def test_clean(fs_runner):
+def test_clean(fs_runner: Iterable[CliRunner]) -> None:
     _run_cmd_seq(fs_runner, ["init", "preprint"], ["import", "--macro", "tikz"])
     assert Path(".texproject/macros/local-tikz.sty").exists()
     _run_cmd_seq(fs_runner, ["util", "clean"])
     assert not Path(".texproject/macros/local-tikz.sty").exists()
 
 
-def test_import_strip_whitespace(fs_runner):
+def test_import_strip_whitespace(fs_runner: Iterable[CliRunner]) -> None:
     _run_cmd_seq(fs_runner, ["init", "empty"], ["import", "--citation", "main"])
     txt = Path(".texproject/citations/local-main.bib").read_text()
     assert txt == txt.strip()
 
 
-def test_multi_bib(fs_runner):
+def test_multi_bib(fs_runner: Iterable[CliRunner]) -> None:
     _run_cmd_seq(
         fs_runner,
         ["init", "empty"],
@@ -219,12 +220,12 @@ def test_multi_bib(fs_runner):
     )
 
 
-def test_empty(fs_runner):
+def test_empty(fs_runner: Iterable[CliRunner]) -> None:
     _run_cmd_seq(fs_runner, ["init", "empty"])
     assert Path(".texproject/classinfo.tex").read_text() == "\\documentclass{article}\n"
 
 
-def test_list(fs_runner):
+def test_list(fs_runner: Iterable[CliRunner]) -> None:
     _run_cmd_seq(
         fs_runner,
         ["list", "macro"],
@@ -234,12 +235,12 @@ def test_list(fs_runner):
     )
 
 
-def test_init_fail(fs_runner):
+def test_init_fail(fs_runner: Iterable[CliRunner]) -> None:
     _run_cmd_seq(fs_runner, ["init", "plain"])
     _run_cmd_seq(fs_runner, ["init", "preprint"], expect_fail=True)
 
 
-def test_show(fs_runner):
+def test_show(fs_runner: Iterable[CliRunner]) -> None:
     _run_cmd_seq(
         fs_runner,
         ["init", "plain"],

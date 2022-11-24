@@ -21,7 +21,7 @@ from .base import (
 )
 
 if TYPE_CHECKING:
-    from typing import Final, Optional, Callable
+    from typing import Final, Optional, Callable, Tuple, Any, Iterable
 
 
 class TOMLLoader:
@@ -36,11 +36,11 @@ class TOMLLoader:
                 raise err from None
 
     @staticmethod
-    def default_template():
+    def default_template() -> dict:
         return loads(files(defaults).joinpath("template.toml").read_text())
 
     @staticmethod
-    def default_config():
+    def default_config() -> dict:
         return loads(files(defaults).joinpath("config.toml").read_text())
 
 
@@ -49,7 +49,7 @@ def _merge(*dcts: dict) -> dict:
     keys in earlier dictionaries, if there is conflict.
     """
 
-    def _merge_iter(*dcts: dict):
+    def _merge_iter(*dcts: dict) -> Iterable[Tuple[Any, dict]]:
         for k in set().union(*[set(dct.keys()) for dct in dcts]):
             dcts_with_key = [dct[k] for dct in dcts if k in dct.keys()]
 
@@ -71,7 +71,7 @@ class TemplateDict(dict):
         self._source = source
         self.reload()
 
-    def reload(self):
+    def reload(self) -> None:
         if self._source is not None:
             dct = _merge(TOMLLoader.default_template(), TOMLLoader.load(self._source))
         else:
@@ -313,7 +313,7 @@ class ProjectPath:
         """TODO: write"""
         return "pre-commit"
 
-    def mk_data_dir(self):
+    def mk_data_dir(self) -> None:
         for mode in LinkMode:
             (self.data_dir / NAMES.resource_subdir(mode)).mkdir(
                 exist_ok=True, parents=True
@@ -358,7 +358,7 @@ class FileLinker(_BaseLinker):
 class _TemplateLinker(_BaseLinker):
     """TODO: write"""
 
-    def valid_path(self, path: Path):
+    def valid_path(self, path: Path) -> bool:
         """TODO: write"""
         return (
             super().valid_path(path)

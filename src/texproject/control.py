@@ -17,12 +17,12 @@ from .error import AbortRunner
 from .filesystem import ProjectPath
 
 if TYPE_CHECKING:
-    from typing import Callable, Final, Iterable, Any
+    from typing import Callable, Final, Iterable, Any, Union
     from .filesystem import TemplateDict
 
 
 @singledispatch
-def _as_str(_) -> Optional[str]:
+def _as_str(_: Union[bytes, str]) -> Optional[str]:
     return None
 
 
@@ -41,7 +41,7 @@ class RuntimeOutput:
     success: bool
     output: Optional[bytes | str] = None
 
-    def message(self):
+    def message(self) -> Optional[bytes | str]:
         return _as_str(self.output)
 
 
@@ -62,10 +62,10 @@ class CommandRunner:
         self,
         proj_path: ProjectPath,
         template_dict: TemplateDict,
-        dry_run=False,
-        verbose=True,
-        debug=False,
-    ):
+        dry_run: bool = False,
+        verbose: bool = True,
+        debug: bool = False,
+    ) -> None:
         self._proj_path: Final = proj_path
         self._template_dict: Final = template_dict
         self._dry_run = dry_run
@@ -86,7 +86,9 @@ class CommandRunner:
                     at_iter(self._proj_path, self._template_dict, state, temp_dir),
                 )
 
-    def process_output(self, rtc: RuntimeClosure, abort_on_failure: bool = False):
+    def process_output(
+        self, rtc: RuntimeClosure, abort_on_failure: bool = False
+    ) -> bool:
         inferred_success = rtc.success()
         if self._dry_run:
             click.echo(rtc.message())
@@ -114,7 +116,7 @@ class CommandRunner:
         self,
         command_iter: Iterable[AtomicIterable],
         state_init: Callable[[], dict[str, str]] = lambda: {},
-    ):
+    ) -> None:
         try:
             outputs = [
                 self.process_output(rtc, abort_on_failure=abort_on_failure)
@@ -154,7 +156,7 @@ class RuntimeClosure:
         message: str,
         status: bool,
         callable: Callable[[], RuntimeOutput],
-    ):
+    ) -> None:
         self._message = message
         self._status = status
         self._callable = callable

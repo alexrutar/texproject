@@ -44,11 +44,11 @@ class _MessageFormatter:
         "err": "red",
     }
 
-    def _apply_style(self, msg: str, prefix: str, fmt: str):
+    def _apply_style(self, msg: str, prefix: str, fmt: str) -> str:
         """Helper to apply the prefix and format styles to the message."""
         return click.style(self._prefix[prefix], fg=self._fg[fmt]) + " " + msg
 
-    def render(self, template_path: Path, target: Path, overwrite: bool = False):
+    def render(self, template_path: Path, target: Path, overwrite: bool = False) -> str:
         """Format for rendering."""
         pref = "file"
         base_str = f" file '{target}' from template at '{template_path}'"
@@ -57,13 +57,13 @@ class _MessageFormatter:
         else:
             return self._apply_style("Render" + base_str, pref, "ok")
 
-    def prompt(self, prompt: str):
+    def prompt(self, prompt: str) -> str:
         return self._apply_style(prompt, "prompt", "info")
 
-    def link(self, linker: FileLinker, name: str, target_dir: Path, mode: str):
+    def link(self, linker: FileLinker, name: str, target_dir: Path, mode: str) -> str:
         """TODO: write"""
 
-        def helper(prop):
+        def helper(prop: str) -> str:
             return f"{linker.user_str} '{name}' {prop} directory '{target_dir}'"
 
         match mode:
@@ -80,7 +80,7 @@ class _MessageFormatter:
             case _:
                 raise NotImplementedError
 
-    def show(self, linker: FileLinker, name: str, mode: str):
+    def show(self, linker: FileLinker, name: str, mode: str) -> str:
         """TODO: write"""
         match mode:
             case "diff":
@@ -96,7 +96,7 @@ class _MessageFormatter:
             case _:
                 raise NotImplementedError
 
-    def template_dict(self, target: Path, overwrite: bool = False):
+    def template_dict(self, target: Path, overwrite: bool = False) -> str:
         pref = "file"
         base_str = f" template dictionary in directory '{target}'"
         if overwrite:
@@ -104,25 +104,25 @@ class _MessageFormatter:
         else:
             return self._apply_style("Write" + base_str, pref, "info")
 
-    def copy(self, source: Path, target: Path):
+    def copy(self, source: Path, target: Path) -> str:
         return self._apply_style(f"Copying '{source}' to '{target}'", "file", "info")
 
-    def rename(self, source: Path, target: Path):
+    def rename(self, source: Path, target: Path) -> str:
         return self._apply_style(f"Rename '{source}' to '{target}'", "file", "info")
 
-    def remove(self, target: Path):
+    def remove(self, target: Path) -> str:
         return self._apply_style(f"Removing file '{target}'", "file", "info")
 
-    def edit(self, file_path: Path):
+    def edit(self, file_path: Path) -> str:
         return self._apply_style(f"Editing file at '{file_path}'", "info", "ok")
 
-    def cmd(self, cmd_list: Iterable[str]):
+    def cmd(self, cmd_list: Iterable[str]) -> str:
         """TODO: write"""
         return self._apply_style(
             f"{shlex.join([redact(cmd) for cmd in cmd_list])}", "cmd", "ok"
         )
 
-    def archive(self, output_path: Path, compression: str):
+    def archive(self, output_path: Path, compression: str) -> str:
         return self._apply_style(
             f"Create compressed archive '{output_path}' with compression"
             f" '{compression}'.",
@@ -130,10 +130,10 @@ class _MessageFormatter:
             "ok",
         )
 
-    def info(self, message: str):
+    def info(self, message: str) -> str:
         return self._apply_style(message, "info", "info")
 
-    def error(self, message: str):
+    def error(self, message: str) -> str:
         return self._apply_style(message, "err", "err")
 
 
