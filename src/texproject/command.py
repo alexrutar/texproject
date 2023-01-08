@@ -64,9 +64,6 @@ def _run_command(
     *args: Any,
     **kwargs: Any,
 ) -> None:
-    print(args)
-    print(kwargs)
-
     def state_constructor() -> dict:
         return {"template_modifications": []}
 

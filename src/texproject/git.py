@@ -127,7 +127,6 @@ def get_repo_name_from_remote_url(path: Path) -> str:
     if url_ret.returncode != 0:
         raise AbortRunner("Could not read remote repository!")
     url = url_ret.stdout.decode("ascii").strip()
-    print(url)
     if url.startswith("git@github.com:") and url.endswith(".git"):
         return url[15:-4]
     else:
