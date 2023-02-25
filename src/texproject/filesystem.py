@@ -172,7 +172,7 @@ class _JinjaTemplatePath:
     @constant
     def build_latex(self) -> str:
         """TODO: write"""
-        return "build_latex.yml"
+        return "build.yaml"
 
     @constant
     def pre_commit(self) -> str:
@@ -304,7 +304,7 @@ class ProjectPath:
     @relative("gh_actions")
     def build_latex(self) -> str:
         """TODO: write"""
-        return "build_latex.yml"
+        return "build.yaml"
 
     @relative("git_hooks")
     def pre_commit(self) -> str:

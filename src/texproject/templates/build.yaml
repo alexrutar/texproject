@@ -1,0 +1,20 @@
+name: Build LaTeX document
+on:
+  push:
+    tags:
+      - "v*"
+jobs:
+  build_latex:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Compile LaTeX document
+        uses: xu-cheng/latex-action@v2
+        with:
+          root_file: "main.tex"
+          post_compile: mv "main.pdf" "${{ github.event.repository.name }}.pdf"
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: "${{ github.event.repository.name }}.pdf"

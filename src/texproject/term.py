@@ -16,17 +16,6 @@ if TYPE_CHECKING:
 REPO_FORMATTED = click.style(__repo__, fg="bright_blue")
 
 
-class Secret(str):
-    """Special string class which is concealed when printed by _MessageFormatter."""
-
-
-def redact(obj: str) -> str:
-    """Redact the string if it is a Secret."""
-    if isinstance(obj, Secret):
-        return "[*****]"
-    return obj
-
-
 class _MessageFormatter:
     """Formatting messages before printing to the terminal."""
 
@@ -118,9 +107,7 @@ class _MessageFormatter:
 
     def cmd(self, cmd_list: Iterable[str]) -> str:
         """TODO: write"""
-        return self._apply_style(
-            f"{shlex.join([redact(cmd) for cmd in cmd_list])}", "cmd", "ok"
-        )
+        return self._apply_style(f"{shlex.join(cmd_list)}", "cmd", "ok")
 
     def archive(self, output_path: Path, compression: str) -> str:
         return self._apply_style(

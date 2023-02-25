@@ -30,7 +30,6 @@ from .filesystem import (
 from .git import (
     InitializeGitRepo,
     CreateGithubRepo,
-    WriteGithubApiToken,
     PrecommitWriter,
     GitignoreWriter,
     GitFileWriter,
@@ -235,6 +234,13 @@ def _path_option(mode: LinkMode) -> Callable[[FC], FC]:
     default=False,
     help="auto-generated pre-commit",
 )
+@click.option(
+    "--build",
+    "build",
+    is_flag=True,
+    default=False,
+    help="latex build workflow",
+)
 @process_atoms(load_template=False)
 def import_(
     macros: Iterable[str],
@@ -245,6 +251,7 @@ def import_(
     style_paths: Iterable[Path],
     gitignore: bool,
     pre_commit: bool,
+    build: bool,
 ) -> Iterable[AtomicIterable]:
     """Import macro, citation, and style files. This command will replace existing
     files. Note that this command does not import the files into the main .tex file.
@@ -265,6 +272,8 @@ def import_(
         yield GitignoreWriter(force=True)
     if pre_commit:
         yield PrecommitWriter(force=True)
+    if build:
+        yield LatexBuildWriter(force=True)
 
 
 @cli.command()
@@ -467,24 +476,11 @@ def git_init(
     """Initialize git and a corresponding GitHub repository. If called with no options,
     this command will interactively prompt you in order to initialize the repo
     correctly. This command also creates a GitHub action with automatically compiles and
-    releases the main .pdf file for tagged releases.
-
-    If you have specified 'github.archive' in your configuration, the GitHub action
-    will also automatically push the build files to the corresponding folder in the
-    specified repository. In order for this to work, you must provide an access token
-    with at least repo privileges. This can be done (in order of priority) by
-
-    1) setting the environment variable $API_TOKEN_GITHUB, or
-
-    2) setting the 'github.keyring' settings in the configuration
-
-    Otherwise, the token will default to the empty string. The access token is not
-    required for the build action functionality.
+    releases the main .pdf file for tagged commits.
     """
     yield GitFileWriter()
     yield InitializeGitRepo.with_abort()
     yield CreateGithubRepo.with_abort(repo_name, repo_desc, vis, wiki, issues)
-    yield WriteGithubApiToken.with_abort(repo_name=repo_name)
 
 
 @git.command("init-files")
@@ -495,21 +491,6 @@ def init_files(force: bool) -> Iterable[AtomicIterable]:
     repository.
     """
     yield GitFileWriter(force=force)
-
-
-@git.command("init-archive")
-@click.option(
-    "--repo-name",
-    "repo_name",
-    help="name of the repository",
-    type=str,
-)
-@process_atoms()
-def init_archive(repo_name: Optional[str]) -> Iterable[AtomicIterable]:
-    """Set the GitHub secret and archive repository. Run tpr git init --help for more
-    information."""
-    yield LatexBuildWriter.with_abort(force=True)
-    yield WriteGithubApiToken.with_abort(repo_name=repo_name)
 
 
 @cli.group()

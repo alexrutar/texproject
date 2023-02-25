@@ -106,10 +106,12 @@ def test_import(fs_runner: Iterable[CliRunner]) -> None:
         ["import", "--style", "palatino"],
         ["import", "--gitignore"],
         ["import", "--pre-commit"],
+        ["import", "--build"],
     )
     assert Path(".texproject/citations/local-test.bib").read_text() == bibtext
     assert len(Path(".gitignore").read_text()) > 0
     assert len(Path(".git/hooks/pre-commit").read_text()) > 0
+    assert len(Path(".github/workflows/build.yaml").read_text()) > 0
 
 
 def test_git_init(fs_runner: Iterable[CliRunner]) -> None:
@@ -142,16 +144,8 @@ def test_git_files(fs_runner: Iterable[CliRunner]) -> None:
         ],
     )
     assert len(Path(".gitignore").read_text()) > 0
-    assert len(Path(".github/workflows/build_latex.yml").read_text()) > 0
+    assert len(Path(".github/workflows/build.yaml").read_text()) > 0
     assert len(Path(".git/hooks/pre-commit").read_text()) > 0
-
-
-def test_git_archive(fs_runner: Iterable[CliRunner]) -> None:
-    _run_cmd_seq(
-        fs_runner,
-        ["init", "plain"],
-        ["-n", "git", "init-archive", "--repo-name", "test"],
-    )
 
 
 def test_template(fs_runner: Iterable[CliRunner]) -> None:

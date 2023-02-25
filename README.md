@@ -97,7 +97,7 @@ This command does the following:
 In order to see the commands which will be run without executing them, use `tpr -n git init`.
 
 ### Automatic releases
-This GitHub repository is initialized with a custom action (see `.github/workflows/build_latex.yml`) which automatically creates GitHub releases for tagged versions on your project.
+This GitHub repository is initialized with a custom action (see `.github/workflows/build.yaml`) which automatically creates GitHub releases for tagged versions on your project.
 For example, suppose you make some changes to your `.tex` file and commit them to your repository:
 ```sh
 echo "% a comment" >> main.tex
@@ -109,52 +109,6 @@ git tag v1.0 -m "First release!"
 git push --follow-tags
 ```
 Now, after the action has finished running, the compiled files will be visible at the URL `https://github.com/username/reponame/releases`.
-
-### Automatic commits to a centralized repository
-The action can also be configured to automatically push the compiled `.pdf` releases to a centralized GitHub repository.
-For example, you might want to automatically add release files to your personal website every time the files are updated.
-
-In order to set this up, add a `[github]` table to your system configuration (`tpr config --global`).
-The keys
-```toml
-[github]
-username = "johndoe"
-email = "jdoe@email.com"
-```
-specify the name and email used to sign the automated commits made on your behalf, and the keys
-```toml
-[github.archive]
-repo = 'johndoe/paper_archive'
-folder = 'pdfs'
-branch = 'main'
-```
-specify the target repository, folder, and branch where the commits will be pushed.
-
-If you want to specify the archive on a per-repository basis, instead run `tpr config --local` and add the `[github.archive]` file there.
-
-In order to correctly authenticate, the repository must have access to a [valid API token](https://github.com/settings/tokens).
-This token must have, at least, (and preferably at most), repo privileges on your GitHub account.
-This can be specified in one of two ways.
-The first option is to use the [https://pypi.org/project/keyring/](keyring) package, which is automatically installed upon installation of Texproject.
-Add your token to the keyring:
-```sh
-keyring set <github_cli_token> <name>
-```
-Then, add the table
-```toml
-[github.keyring]
-username = '<name>'
-entry = '<github_cli_token>'
-```
-to your configuration.
-
-You can also set the `API_TOKEN_GITHUB` environment variable; this has priority over the keyring option.
-
-When these settings are in place, running `tpr git init` will automatically add this action, as well as the API token, to your GitHub repository.
-In order to upgrade an existing project to include this feature, you can also run
-```sh
-tpr git init-archive
-```
 
 # Usage Examples
 ## Basic project initialization

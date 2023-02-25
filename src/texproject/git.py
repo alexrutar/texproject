@@ -2,23 +2,21 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from dataclasses import dataclass
-import os
 
-import keyring
 
 from .control import AtomicIterable, RuntimeClosure, SUCCESS, FAIL
 from .error import AbortRunner
 from .filesystem import JINJA_PATH
 from .utils import run_command
 from .template import JinjaTemplate
-from .term import Secret, FORMAT_MESSAGE
+from .term import FORMAT_MESSAGE
 import subprocess
 
 if TYPE_CHECKING:
     from .base import RepoVisibility
     from .control import TempDir
     from .filesystem import ProjectPath, TemplateDict
-    from typing import Iterable, Optional
+    from typing import Iterable
     from pathlib import Path
 
 
@@ -88,7 +86,7 @@ class CreateGithubRepo(AtomicIterable):
                 "gh",
                 "repo",
                 "create",
-                "-d",
+                "--d",
                 self.description,
                 "--source",
                 str(proj_path.dir),
@@ -131,52 +129,6 @@ def get_repo_name_from_remote_url(path: Path) -> str:
         return url[15:-4]
     else:
         raise AbortRunner("Could not determine remote repository name!")
-
-
-@dataclass
-class WriteGithubApiToken(AtomicIterable):
-    repo_name: Optional[str] = None
-
-    def __call__(
-        self,
-        proj_path: ProjectPath,
-        _template_dict: TemplateDict,
-        _state: dict,
-        _temp_dir: TempDir,
-    ) -> Iterable[RuntimeClosure]:
-        if self.repo_name is None:
-            repo_name = get_repo_name_from_remote_url(proj_path.dir)
-        else:
-            repo_name = self.repo_name
-
-        try:
-            # first try to get the token from the environment
-            env_token = os.environ.get("API_TOKEN_GITHUB", None)
-            if env_token is not None:
-                token = Secret(env_token)
-
-            # otherwise read using keyring
-            else:
-                params = proj_path.config.github["keyring"]
-                user_token = keyring.get_password(params["entry"], params["username"])
-                token = Secret(user_token)
-
-            yield run_command(
-                proj_path,
-                [
-                    "gh",
-                    "secret",
-                    "set",
-                    "API_TOKEN_GITHUB",
-                    "-b",
-                    token,
-                    "-r",
-                    _format_repo_name(repo_name, proj_path),
-                ],
-            )
-
-        except KeyError:
-            pass
 
 
 @dataclass
