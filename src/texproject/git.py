@@ -86,7 +86,7 @@ class CreateGithubRepo(AtomicIterable):
                 "gh",
                 "repo",
                 "create",
-                "--d",
+                "--description",
                 self.description,
                 "--source",
                 str(proj_path.dir),
