@@ -1,6 +1,6 @@
 SHELL := /usr/local/bin/fish
 
-.PHONY: upload test format test-type
+.PHONY: upload test format
 
 upload: format test
 	python -m build
