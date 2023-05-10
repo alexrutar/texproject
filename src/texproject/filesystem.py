@@ -8,7 +8,7 @@ from . import defaults
 from pathlib import Path
 from tomllib import loads
 from tomli_w import dumps
-from xdg import XDG_DATA_HOME, XDG_CONFIG_HOME
+from xdg_base_dirs import xdg_data_home, xdg_config_home
 
 from .base import (
     NAMES,
@@ -127,7 +127,7 @@ class Config:
     @constant
     def global_path(self) -> Path:
         """TODO: write"""
-        return XDG_CONFIG_HOME / "texproject" / "config.toml"
+        return xdg_config_home() / "texproject" / "config.toml"
 
     @constant
     def local_path(self) -> Path:
@@ -144,7 +144,7 @@ class _DataPath:
     @constant
     def data_dir(self) -> Path:
         """TODO: write"""
-        return XDG_DATA_HOME / "texproject"
+        return xdg_data_home() / "texproject"
 
     @constant
     def template_dir(self) -> Path:
