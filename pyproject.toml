@@ -11,8 +11,6 @@ exclude = [
     "**/__pycache__"
 ]
 ignore = []
-# stubPath = "src/stubs"
-# venv = "env367"
 
 reportMissingImports = true
 reportMissingTypeStubs = false
@@ -20,4 +18,4 @@ reportMissingTypeStubs = false
 pythonVersion = "3.11"
 
 [tool.black]
-target-version = ["py310"]
+target-version = ["py311"]
